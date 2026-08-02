@@ -1,0 +1,7 @@
+# Normalize to LF in the repo; check out native on Windows.
+* text=auto eol=lf
+
+*.sql text eol=lf
+*.sh text eol=lf
+pnpm-lock.yaml linguist-generated=true -diff
+packages/db/migrations/** linguist-generated=true
