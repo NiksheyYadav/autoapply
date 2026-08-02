@@ -1,0 +1,17 @@
+{
+  "name": "@atlas/messaging",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@atlas/types": "workspace:*",
+    "@atlas/utils": "workspace:*",
+    "amqplib": "^0.10.5"
+  },
+  "devDependencies": {
+    "@types/amqplib": "^0.10.6"
+  }
+}
