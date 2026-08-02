@@ -13,6 +13,9 @@ coverage/
 .atlas-storage/
 var/
 
+# Claude Code scratch
+.claude/worktrees/
+
 # Python
 __pycache__/
 *.py[cod]
