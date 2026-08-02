@@ -1,0 +1,8 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+  - 'services/*'
+
+# Native/binary-heavy deps that need explicit build approval under pnpm 10.
+onlyBuiltDependencies:
+  - esbuild
