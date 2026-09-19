@@ -63,8 +63,12 @@ export type AuthSessionResponse = z.infer<typeof authSessionResponseSchema>;
 
 // --- profile-service --------------------------------------------------------
 
+/**
+ * `POST /v1/resumes` is `multipart/form-data`: the file itself is a part
+ * named `file`, which Zod can't validate — this schema only covers the
+ * accompanying non-file field.
+ */
 export const createResumeRequestSchema = z.object({
-  file_id: uuidSchema,
   source: z.enum(['upload', 'connector', 'import']).default('upload'),
 });
 

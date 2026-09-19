@@ -7,13 +7,11 @@
 
 ## REST examples
 ### POST /v1/resumes
-Request:
-```json
-{ "file_id": "uuid", "source": "upload" }
-```
+`multipart/form-data`: a `file` part (the resume) plus an optional `source` field (`upload` | `connector` | `import`, default `upload`).
+
 Response:
 ```json
-{ "resume_id": "uuid", "status": "processing" }
+{ "resume_id": "uuid", "status": "parsed" }
 ```
 
 ### GET /v1/jobs/recommendations
