@@ -1,0 +1,19 @@
+@import 'tailwindcss';
+@import '@atlas/ui/styles.css';
+
+html {
+  color-scheme: light dark;
+}
+
+body {
+  font-family: var(--font-sans);
+}
+
+::selection {
+  background: var(--color-accent-soft);
+  color: var(--color-ink);
+}
+
+* {
+  border-color: var(--color-line);
+}

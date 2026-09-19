@@ -1,0 +1,102 @@
+/**
+ * "Waypoint" — Project Atlas's own design language. Not a shadcn default
+ * theme, not an indigo/violet AI-SaaS gradient: a warm paper canvas, a deep
+ * ink-navy for structure, and a compass-needle coral as the one accent that
+ * ever asks for attention. A cool mint marks progress/success so the two
+ * signal colors never compete. See docs/01 for the stack this rides on.
+ */
+
+@theme {
+  --font-display: 'Fraunces', ui-serif, Georgia, serif;
+  --font-sans: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+
+  /* --- Light (default) ------------------------------------------------- */
+  --color-canvas: #faf7f2;
+  --color-canvas-raised: #fffdfa;
+  --color-surface: #ffffff;
+  --color-ink: #12172b;
+  --color-ink-soft: #4b5468;
+  --color-ink-faint: #8b91a3;
+  --color-line: #e6e0d3;
+  --color-line-strong: #d3ccb9;
+
+  --color-accent: #ee5a36;
+  --color-accent-soft: #ffe4d8;
+  --color-accent-ink: #ffffff;
+
+  --color-progress: #0f9d78;
+  --color-progress-soft: #d7f3e8;
+
+  --color-warning: #b9720a;
+  --color-warning-soft: #fbead0;
+  --color-serious: #cf3d3d;
+  --color-serious-soft: #fbe1e1;
+  --color-critical: #8f1f1f;
+
+  --shadow-color: 18 23 43;
+  --radius-card: 1.25rem;
+  --radius-control: 0.75rem;
+}
+
+/* --- Dark ---------------------------------------------------------------
+ * A deliberate re-step, not an automatic invert: the accent brightens, the
+ * canvas goes to a near-black navy rather than pure black, and text warms
+ * slightly so long reading sessions on the dashboard stay comfortable. */
+:root[data-theme='dark'] {
+  --color-canvas: #0c0f1e;
+  --color-canvas-raised: #10142a;
+  --color-surface: #151a33;
+  --color-ink: #f3efe6;
+  --color-ink-soft: #b3b9cc;
+  --color-ink-faint: #737a94;
+  --color-line: #262c4a;
+  --color-line-strong: #333a5c;
+
+  --color-accent: #ff8462;
+  --color-accent-soft: #3a2420;
+  --color-accent-ink: #1a0b06;
+
+  --color-progress: #3ddba0;
+  --color-progress-soft: #133027;
+
+  --color-warning: #e3a53e;
+  --color-warning-soft: #3a2c0f;
+  --color-serious: #ef6161;
+  --color-serious-soft: #3a1a1a;
+  --color-critical: #ff8a8a;
+
+  --shadow-color: 3 5 15;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --color-canvas: #0c0f1e;
+    --color-canvas-raised: #10142a;
+    --color-surface: #151a33;
+    --color-ink: #f3efe6;
+    --color-ink-soft: #b3b9cc;
+    --color-ink-faint: #737a94;
+    --color-line: #262c4a;
+    --color-line-strong: #333a5c;
+
+    --color-accent: #ff8462;
+    --color-accent-soft: #3a2420;
+    --color-accent-ink: #1a0b06;
+
+    --color-progress: #3ddba0;
+    --color-progress-soft: #133027;
+
+    --color-warning: #e3a53e;
+    --color-warning-soft: #3a2c0f;
+    --color-serious: #ef6161;
+    --color-serious-soft: #3a1a1a;
+    --color-critical: #ff8a8a;
+
+    --shadow-color: 3 5 15;
+  }
+}
+
+body {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+}
