@@ -27,6 +27,7 @@
     "dev:matching": "pnpm --filter @atlas/matching-service run dev",
     "dev:applications": "pnpm --filter @atlas/applications-service run dev",
     "dev:referrals": "pnpm --filter @atlas/referrals-service run dev",
+    "dev:outreach": "pnpm --filter @atlas/outreach-service run dev",
     "dev:workers": "pnpm --filter @atlas/jobs-service run dev:worker"
   },
   "devDependencies": {
