@@ -24,6 +24,7 @@
     "dev:auth": "pnpm --filter @atlas/auth-service run dev",
     "dev:profile": "pnpm --filter @atlas/profile-service run dev",
     "dev:jobs": "pnpm --filter @atlas/jobs-service run dev",
+    "dev:matching": "pnpm --filter @atlas/matching-service run dev",
     "dev:workers": "pnpm --filter @atlas/jobs-service run dev:worker"
   },
   "devDependencies": {
