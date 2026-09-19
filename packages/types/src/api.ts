@@ -1,8 +1,9 @@
 import { z } from 'zod';
 import { paginationQuerySchema, uuidSchema } from './common.js';
-import { applicationModeSchema, remoteTypeSchema } from './enums.js';
+import { applicationModeSchema, applicationStatusSchema, remoteTypeSchema } from './enums.js';
 import { publicUserSchema } from './identity.js';
 import { jobRecommendationSchema, rawJobPostingSchema } from './job.js';
+import { applicationSchema } from './application.js';
 import { resumeSchema } from './profile.js';
 
 /**
@@ -119,3 +120,27 @@ export const createApplicationRequestSchema = z.object({
 });
 
 export type CreateApplicationRequest = z.infer<typeof createApplicationRequestSchema>;
+
+export const applicationResponseSchema = z.object({
+  application: applicationSchema,
+});
+
+export type ApplicationResponse = z.infer<typeof applicationResponseSchema>;
+
+export const listApplicationsQuerySchema = paginationQuerySchema;
+export type ListApplicationsQuery = z.infer<typeof listApplicationsQuerySchema>;
+
+export const listApplicationsResponseSchema = z.object({
+  items: z.array(applicationSchema),
+  next_cursor: z.string().nullable(),
+});
+
+export type ListApplicationsResponse = z.infer<typeof listApplicationsResponseSchema>;
+
+/** Appends one entry to an application's lifecycle trail (docs/02 § application_events). */
+export const appendApplicationEventRequestSchema = z.object({
+  to_status: applicationStatusSchema,
+  note: z.string().max(2000).optional(),
+});
+
+export type AppendApplicationEventRequest = z.infer<typeof appendApplicationEventRequestSchema>;

@@ -122,6 +122,52 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
 
+  services/applications:
+    dependencies:
+      '@atlas/auth-kit':
+        specifier: workspace:*
+        version: link:../../packages/auth-kit
+      '@atlas/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@atlas/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@atlas/messaging':
+        specifier: workspace:*
+        version: link:../../packages/messaging
+      '@atlas/types':
+        specifier: workspace:*
+        version: link:../../packages/types
+      '@atlas/utils':
+        specifier: workspace:*
+        version: link:../../packages/utils
+      '@fastify/cors':
+        specifier: ^11.3.0
+        version: 11.3.0
+      '@fastify/rate-limit':
+        specifier: ^11.2.0
+        version: 11.2.0
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(postgres@3.4.9)
+      fastify:
+        specifier: ^5.12.5
+        version: 5.12.5
+      postgres:
+        specifier: ^3.4.9
+        version: 3.4.9
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+    devDependencies:
+      jose:
+        specifier: ^6.2.12
+        version: 6.2.12
+      tsx:
+        specifier: ^4.23.1
+        version: 4.23.3
+
   services/auth:
     dependencies:
       '@atlas/config':
