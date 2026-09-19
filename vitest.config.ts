@@ -12,6 +12,8 @@ export default defineConfig({
       '@atlas/db': r('./packages/db/src/index.ts'),
       '@atlas/messaging': r('./packages/messaging/src/index.ts'),
       '@atlas/storage': r('./packages/storage/src/index.ts'),
+      '@atlas/auth-kit': r('./packages/auth-kit/src/index.ts'),
+      '@atlas/ai': r('./packages/ai/src/index.ts'),
     },
   },
   test: {
