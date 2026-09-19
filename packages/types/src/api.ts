@@ -2,8 +2,8 @@ import { z } from 'zod';
 import { paginationQuerySchema, uuidSchema } from './common.js';
 import { applicationModeSchema, applicationStatusSchema, remoteTypeSchema } from './enums.js';
 import { publicUserSchema } from './identity.js';
-import { jobRecommendationSchema, rawJobPostingSchema } from './job.js';
-import { applicationSchema } from './application.js';
+import { companySchema, jobRecommendationSchema, rawJobPostingSchema } from './job.js';
+import { applicationSchema, contactSchema, messageSchema } from './application.js';
 import { resumeSchema } from './profile.js';
 
 /**
@@ -144,3 +144,70 @@ export const appendApplicationEventRequestSchema = z.object({
 });
 
 export type AppendApplicationEventRequest = z.infer<typeof appendApplicationEventRequestSchema>;
+
+// --- referrals-service --------------------------------------------------------
+
+export const createContactRequestSchema = z.object({
+  company_id: uuidSchema,
+  full_name: z.string().min(1).max(200).optional(),
+  title: z.string().min(1).max(200).optional(),
+  email: z.email().optional(),
+  linkedin_url: z.url().optional(),
+});
+
+export type CreateContactRequest = z.infer<typeof createContactRequestSchema>;
+
+export const contactResponseSchema = z.object({ contact: contactSchema });
+export type ContactResponse = z.infer<typeof contactResponseSchema>;
+
+export const listContactsResponseSchema = z.object({
+  items: z.array(contactSchema),
+  next_cursor: z.string().nullable(),
+});
+
+export type ListContactsResponse = z.infer<typeof listContactsResponseSchema>;
+
+/** One contact worth reaching out to, in the context of one of the caller's own applications. */
+export const referralCandidateSchema = z.object({
+  contact: contactSchema,
+  company: companySchema,
+  job_id: uuidSchema,
+  application_id: uuidSchema,
+});
+
+export type ReferralCandidate = z.infer<typeof referralCandidateSchema>;
+
+export const listReferralsResponseSchema = z.object({
+  items: z.array(referralCandidateSchema),
+});
+
+export type ListReferralsResponse = z.infer<typeof listReferralsResponseSchema>;
+
+// --- outreach-service ---------------------------------------------------------
+
+export const createMessageRequestSchema = z.object({
+  application_id: uuidSchema.nullable().default(null),
+  contact_id: uuidSchema.nullable().default(null),
+  channel: messageSchema.shape.channel,
+  /** Auto-drafted from the application/contact context when omitted. */
+  subject: z.string().max(400).optional(),
+  body: z.string().min(1).max(10_000).optional(),
+});
+
+export type CreateMessageRequest = z.infer<typeof createMessageRequestSchema>;
+
+export const scheduleMessageRequestSchema = z.object({
+  scheduled_for: z.iso.datetime(),
+});
+
+export type ScheduleMessageRequest = z.infer<typeof scheduleMessageRequestSchema>;
+
+export const messageResponseSchema = z.object({ message: messageSchema });
+export type MessageResponse = z.infer<typeof messageResponseSchema>;
+
+export const listMessagesResponseSchema = z.object({
+  items: z.array(messageSchema),
+  next_cursor: z.string().nullable(),
+});
+
+export type ListMessagesResponse = z.infer<typeof listMessagesResponseSchema>;
