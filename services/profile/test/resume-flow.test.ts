@@ -111,6 +111,26 @@ describe.skipIf(!testDatabaseUrl)('profile-service HTTP flow', () => {
     expect(res.statusCode).toBe(401);
   });
 
+  it('rejects a file sent under a field name other than "file"', async () => {
+    const boundary = 'boundary-wrong-field';
+    const CRLF = '\r\n';
+    const body = Buffer.concat(
+      [
+        `--${boundary}${CRLF}Content-Disposition: form-data; name="resume"; filename="r.txt"${CRLF}Content-Type: text/plain${CRLF}${CRLF}`,
+        'hello',
+        `${CRLF}--${boundary}--${CRLF}`,
+      ].map((p) => Buffer.from(p, 'utf8')),
+    );
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/resumes',
+      headers: { authorization: `Bearer ${token}`, 'content-type': `multipart/form-data; boundary=${boundary}` },
+      payload: body,
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.code).toBe('VALIDATION_ERROR');
+  });
+
   it('uploads, parses, and retrieves a resume; re-uploading the same bytes is idempotent', async () => {
     const resumeText = [
       'Ada Lovelace',

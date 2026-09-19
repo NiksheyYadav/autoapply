@@ -5,6 +5,7 @@ import {
   coerceRemoteType,
   computeJobHash,
   estimateSpamScore,
+  normalizeApplyUrl,
   normalizeCompanyName,
 } from '../src/lib/normalize.js';
 
@@ -84,5 +85,20 @@ describe('estimateSpamScore', () => {
 
   it('never exceeds 1', () => {
     expect(estimateSpamScore({ ...base, apply_url: null, title: 'X', description: null })).toBeLessThanOrEqual(1);
+  });
+});
+
+describe('normalizeApplyUrl', () => {
+  it('passes through a well-formed URL', () => {
+    expect(normalizeApplyUrl('https://acme.example/apply/123')).toBe('https://acme.example/apply/123');
+  });
+
+  it('nulls out a value that is not a real URL, instead of storing it verbatim', () => {
+    expect(normalizeApplyUrl('not-a-url')).toBeNull();
+  });
+
+  it('nulls out a missing value', () => {
+    expect(normalizeApplyUrl(null)).toBeNull();
+    expect(normalizeApplyUrl(undefined)).toBeNull();
   });
 });

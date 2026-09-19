@@ -3,12 +3,15 @@ import { z } from 'zod';
 import { getActor, requireAuth } from '@atlas/auth-kit';
 import { parseResumeText, scoreResume } from '@atlas/ai';
 import { createEvent } from '@atlas/messaging';
-import type { CreateResumeResponse } from '@atlas/types';
+import type { AtsReport, CreateResumeResponse, ParsedProfile } from '@atlas/types';
 import { AppError, newTraceContext } from '@atlas/utils';
 import type { AppDeps } from '../../app.js';
 import { extractText } from '../../lib/extract-text.js';
 import { sha256HexBuffer } from '../../lib/hash.js';
 import { findByUserAndHash, insertPending, markFailed, markParsed } from '../../repo/resumes.js';
+
+/** Postgres unique_violation. */
+const UNIQUE_VIOLATION = '23505';
 
 /**
  * The Zod contract for this endpoint (`createResumeRequestSchema`) only
@@ -25,7 +28,7 @@ export function uploadResumeRoute(app: FastifyInstance, deps: AppDeps): void {
       const actor = getActor(request);
 
       const data = await request.file();
-      if (!data) {
+      if (!data || data.fieldname !== 'file') {
         throw new AppError('VALIDATION_ERROR', 'Expected a multipart file field named "file"');
       }
 
@@ -51,51 +54,77 @@ export function uploadResumeRoute(app: FastifyInstance, deps: AppDeps): void {
       const storageKey = `resumes/${actor.user_id}/${contentHash}`;
       await deps.storage.put(storageKey, buffer, { contentType: data.mimetype });
 
-      const resume = await insertPending(deps.db, {
-        userId: actor.user_id,
-        storageUrl: storageKey,
-        originalFilename: data.filename,
-        contentType: data.mimetype,
-        byteSize: buffer.length,
-        contentHash,
-      });
+      let resumeId: string;
+      try {
+        const resume = await insertPending(deps.db, {
+          userId: actor.user_id,
+          storageUrl: storageKey,
+          originalFilename: data.filename,
+          contentType: data.mimetype,
+          byteSize: buffer.length,
+          contentHash,
+        });
+        resumeId = resume.resumeId;
+      } catch (cause) {
+        // Another request for the same user+bytes won the race between our
+        // findByUserAndHash check and this insert — that's the same idempotent
+        // case above, not a failure.
+        if ((cause as { code?: string }).code === UNIQUE_VIOLATION) {
+          const raced = await findByUserAndHash(deps.db, actor.user_id, contentHash);
+          if (raced) {
+            const response: CreateResumeResponse = { resume_id: raced.resumeId, status: raced.status };
+            reply.status(200).send(response);
+            return;
+          }
+        }
+        throw cause;
+      }
 
       // Parsed synchronously — there's no worker yet, and a few hundred
       // milliseconds of heuristic parsing doesn't warrant queue infrastructure
       // this pass doesn't otherwise need.
+      let parsed: { profile: ParsedProfile; report: AtsReport } | null = null;
       try {
         const text = await extractText(buffer, data.mimetype);
         const profile = parseResumeText(text);
         const report = scoreResume(profile, text);
-        await markParsed(deps.db, resume.resumeId, {
+        await markParsed(deps.db, resumeId, {
           parsedText: text,
           parsedProfile: profile,
           atsScore: report.score,
           atsReport: report,
         });
+        parsed = { profile, report };
+      } catch (cause) {
+        const reason = cause instanceof Error ? cause.message : String(cause);
+        await markFailed(deps.db, resumeId, reason);
+        const response: CreateResumeResponse = { resume_id: resumeId, status: 'failed' };
+        reply.status(201).send(response);
+        return;
+      }
 
+      // Parsing already succeeded and is persisted — a broker outage here is a
+      // delivery problem, not a reason to tell the client the resume failed.
+      try {
         await deps.broker.publish(
           createEvent(
             'resume.parsed',
             {
-              resume_id: resume.resumeId,
+              resume_id: resumeId,
               user_id: actor.user_id,
-              ats_score: report.score,
-              skill_count: profile.skills.length,
-              total_months_experience: profile.total_months_experience,
+              ats_score: parsed.report.score,
+              skill_count: parsed.profile.skills.length,
+              total_months_experience: parsed.profile.total_months_experience,
             },
             newTraceContext({ organization_id: actor.organization_id, user_id: actor.user_id }),
           ),
         );
-
-        const response: CreateResumeResponse = { resume_id: resume.resumeId, status: 'parsed' };
-        reply.status(201).send(response);
       } catch (cause) {
-        const reason = cause instanceof Error ? cause.message : String(cause);
-        await markFailed(deps.db, resume.resumeId, reason);
-        const response: CreateResumeResponse = { resume_id: resume.resumeId, status: 'failed' };
-        reply.status(201).send(response);
+        request.log.error({ err: cause, resumeId }, 'failed to publish resume.parsed event');
       }
+
+      const response: CreateResumeResponse = { resume_id: resumeId, status: 'parsed' };
+      reply.status(201).send(response);
     },
   );
 }

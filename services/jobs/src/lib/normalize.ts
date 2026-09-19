@@ -42,6 +42,20 @@ export function coerceEmploymentType(raw?: string | null): EmploymentType {
 }
 
 /**
+ * `jobSchema.apply_url` requires a real URL, but `rawJobPostingSchema`
+ * deliberately accepts any string a connector hands us — normalize instead
+ * of storing (and later serving) something that fails the API contract.
+ */
+export function normalizeApplyUrl(raw?: string | null): string | null {
+  if (!raw) return null;
+  try {
+    return new URL(raw).toString();
+  } catch {
+    return null;
+  }
+}
+
+/**
  * A heuristic, not a classifier — 0 by default, bumped for the handful of
  * signals a genuine posting is very unlikely to be missing. Callers decide
  * what to do with the score; this never rejects a posting itself.

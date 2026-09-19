@@ -1,4 +1,4 @@
-import { and, desc, eq, lt } from 'drizzle-orm';
+import { and, desc, eq, lt, or } from 'drizzle-orm';
 import { schema, type Database } from '@atlas/db';
 import type { AtsReport, PaginationQuery, ParsedProfile, Resume } from '@atlas/types';
 import { decodeCursor, encodeCursor } from '@atlas/utils';
@@ -105,19 +105,32 @@ export async function listForUser(
 ): Promise<ListForUserResult> {
   const cursorValue = pagination.cursor ? decodeCursor(pagination.cursor) : null;
   const cursorCreatedAt = typeof cursorValue?.createdAt === 'string' ? cursorValue.createdAt : null;
+  const cursorId = typeof cursorValue?.id === 'string' ? cursorValue.id : null;
 
   const conditions = [eq(schema.resumes.userId, userId)];
-  if (cursorCreatedAt) conditions.push(lt(schema.resumes.createdAt, cursorCreatedAt));
+  if (cursorCreatedAt && cursorId) {
+    // `created_at` alone isn't unique — ties at the page boundary need a
+    // secondary key or the next page silently drops every other row sharing
+    // that exact timestamp, not just the ones already returned.
+    const tieBreak = or(
+      lt(schema.resumes.createdAt, cursorCreatedAt),
+      and(eq(schema.resumes.createdAt, cursorCreatedAt), lt(schema.resumes.resumeId, cursorId)),
+    );
+    if (tieBreak) conditions.push(tieBreak);
+  }
 
   const rows = await db
     .select()
     .from(schema.resumes)
     .where(and(...conditions))
-    .orderBy(desc(schema.resumes.createdAt))
+    .orderBy(desc(schema.resumes.createdAt), desc(schema.resumes.resumeId))
     .limit(pagination.limit + 1);
 
   const hasMore = rows.length > pagination.limit;
   const items = hasMore ? rows.slice(0, pagination.limit) : rows;
   const last = items[items.length - 1];
-  return { items, nextCursor: hasMore && last ? encodeCursor({ createdAt: last.createdAt }) : null };
+  return {
+    items,
+    nextCursor: hasMore && last ? encodeCursor({ createdAt: last.createdAt, id: last.resumeId }) : null,
+  };
 }

@@ -18,7 +18,12 @@ export const CANONICAL_SKILLS = [
 /** Returns the canonical keywords (lowercase) found in `text`, deduped, in list order. */
 export function extractSkillKeywords(text: string): string[] {
   const lowerText = text.toLowerCase();
-  return CANONICAL_SKILLS.filter((keyword) =>
-    new RegExp(`\\b${keyword.replace(/[.+#]/g, '\\$&')}\\b`, 'i').test(lowerText),
-  );
+  return CANONICAL_SKILLS.filter((keyword) => {
+    const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // `\b` requires a word/non-word transition, which never fires right after
+    // a symbol like the trailing `+` in "c++" followed by a comma or space —
+    // both sides are non-word characters. Anchoring on alphanumeric adjacency
+    // instead handles keywords that end (or start) in punctuation correctly.
+    return new RegExp(`(?<![a-z0-9])${escaped}(?![a-z0-9])`, 'i').test(lowerText);
+  });
 }

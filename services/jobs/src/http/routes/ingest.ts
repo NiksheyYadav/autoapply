@@ -5,7 +5,13 @@ import { createEvent } from '@atlas/messaging';
 import { ingestJobsRequestSchema, type IngestionReport } from '@atlas/types';
 import { AppError, newTraceContext } from '@atlas/utils';
 import type { AppDeps } from '../../app.js';
-import { coerceEmploymentType, coerceRemoteType, computeJobHash, estimateSpamScore } from '../../lib/normalize.js';
+import {
+  coerceEmploymentType,
+  coerceRemoteType,
+  computeJobHash,
+  estimateSpamScore,
+  normalizeApplyUrl,
+} from '../../lib/normalize.js';
 import { findOrCreateByName } from '../../repo/companies.js';
 import { findByHash, insert, touchSeen } from '../../repo/jobs.js';
 
@@ -63,7 +69,7 @@ export function ingestRoute(app: FastifyInstance, deps: AppDeps): void {
           employmentType: coerceEmploymentType(posting.employment_type),
           source: posting.source,
           externalId: posting.external_id,
-          applyUrl: posting.apply_url ?? null,
+          applyUrl: normalizeApplyUrl(posting.apply_url),
           jobHash,
           skills: extractSkillKeywords(posting.description ?? ''),
           spamScore: estimateSpamScore(posting),

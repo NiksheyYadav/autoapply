@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, lt } from 'drizzle-orm';
+import { and, desc, eq, ilike, lt, or } from 'drizzle-orm';
 import { schema, type Database } from '@atlas/db';
 import type { EmploymentType, Job, JobSource, PaginationQuery, RemoteType } from '@atlas/types';
 import { decodeCursor, encodeCursor } from '@atlas/utils';
@@ -92,22 +92,36 @@ export async function listActive(
 ): Promise<ListJobsResult> {
   const cursorValue = pagination.cursor ? decodeCursor(pagination.cursor) : null;
   const cursorCreatedAt = typeof cursorValue?.createdAt === 'string' ? cursorValue.createdAt : null;
+  const cursorId = typeof cursorValue?.id === 'string' ? cursorValue.id : null;
 
   const conditions = [];
   if (filters.isActive !== undefined) conditions.push(eq(schema.jobs.isActive, filters.isActive));
   if (filters.remoteType) conditions.push(eq(schema.jobs.remoteType, filters.remoteType));
   if (filters.location) conditions.push(ilike(schema.jobs.location, `%${filters.location}%`));
-  if (cursorCreatedAt) conditions.push(lt(schema.jobs.createdAt, cursorCreatedAt));
+  if (cursorCreatedAt && cursorId) {
+    // `created_at` alone isn't unique — ties at the page boundary need a
+    // secondary key or the next page silently drops every other row sharing
+    // that exact timestamp, not just the ones already returned.
+    conditions.push(
+      or(
+        lt(schema.jobs.createdAt, cursorCreatedAt),
+        and(eq(schema.jobs.createdAt, cursorCreatedAt), lt(schema.jobs.jobId, cursorId)),
+      ),
+    );
+  }
 
   const rows = await db
     .select()
     .from(schema.jobs)
     .where(conditions.length > 0 ? and(...conditions) : undefined)
-    .orderBy(desc(schema.jobs.createdAt))
+    .orderBy(desc(schema.jobs.createdAt), desc(schema.jobs.jobId))
     .limit(pagination.limit + 1);
 
   const hasMore = rows.length > pagination.limit;
   const items = hasMore ? rows.slice(0, pagination.limit) : rows;
   const last = items[items.length - 1];
-  return { items, nextCursor: hasMore && last ? encodeCursor({ createdAt: last.createdAt }) : null };
+  return {
+    items,
+    nextCursor: hasMore && last ? encodeCursor({ createdAt: last.createdAt, id: last.jobId }) : null,
+  };
 }
