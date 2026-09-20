@@ -14,6 +14,7 @@ export default defineConfig({
       '@atlas/storage': r('./packages/storage/src/index.ts'),
       '@atlas/auth-kit': r('./packages/auth-kit/src/index.ts'),
       '@atlas/ai': r('./packages/ai/src/index.ts'),
+      '@atlas/observability': r('./packages/observability/src/index.ts'),
     },
   },
   test: {

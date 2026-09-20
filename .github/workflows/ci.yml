@@ -1,0 +1,76 @@
+name: CI
+
+# docs/07 § Deployment flow step 1: "CI builds and tests each service."
+# This is the gate everything in this repo has been verified against
+# locally (pnpm typecheck / lint / test) — running it in CI is what makes
+# that verification apply to every future change, not just the one that
+# happened to be run by hand.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (typecheck, lint, test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Scoped to packages/* and services/* (see tsconfig.json) — apps/web
+      # and apps/admin have their own bundler-based typecheck below, since
+      # they use a different module resolution than the backend.
+      - name: Typecheck (backend)
+        run: pnpm typecheck
+
+      - name: Lint (whole repo)
+        run: pnpm lint
+
+      # DB-backed integration suites self-skip without ATLAS_TEST_DATABASE_URL
+      # (see .env.example) — no Postgres service is wired up in this job yet,
+      # so those suites report as skipped here, not passing.
+      - name: Test (backend, DB-backed suites skipped)
+        run: pnpm test
+
+  frontend:
+    name: Frontend (typecheck, build)
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: ['@atlas/web', '@atlas/admin']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm --filter ${{ matrix.app }} run typecheck
+
+      # `next build` catches bundler-resolution issues typecheck alone
+      # doesn't (see the "wip"/"fix" commit history on apps/web for exactly
+      # what that class of bug looks like here).
+      - name: Build
+        run: pnpm --filter ${{ matrix.app }} run build

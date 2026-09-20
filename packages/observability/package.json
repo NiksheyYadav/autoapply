@@ -1,0 +1,17 @@
+{
+  "name": "@atlas/observability",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "dependencies": {
+    "@prometheus-io/client": "^0.16.1"
+  },
+  "peerDependencies": {
+    "fastify": "^5.0.0"
+  },
+  "devDependencies": {
+    "fastify": "^5.12.5"
+  }
+}

@@ -81,6 +81,32 @@ export async function registerUser(db: Database, input: RegisterUserInput): Prom
   });
 }
 
+export interface RegisterOAuthUserInput {
+  email: string;
+  fullName: string;
+  provider: 'google' | 'microsoft';
+}
+
+/**
+ * Creates a user with no local credential — the IdP already vouched for the
+ * email (docs/09 § Data protection: `passwordHash` stays null for SSO users).
+ * No organization is created; there's no way to collect one mid-redirect.
+ */
+export async function registerOAuthUser(db: Database, input: RegisterOAuthUserInput): Promise<UserRow> {
+  const [user] = await db
+    .insert(schema.users)
+    .values({
+      email: input.email,
+      fullName: input.fullName,
+      authProvider: input.provider,
+      passwordHash: null,
+      emailVerified: true,
+    })
+    .returning();
+  if (!user) throw new Error('registerOAuthUser: insert returned no row');
+  return user;
+}
+
 const MAX_FAILED_LOGINS = 10;
 const LOCKOUT_MINUTES = 15;
 

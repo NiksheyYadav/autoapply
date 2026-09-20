@@ -1,3 +1,4 @@
+import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import Fastify, { type FastifyBaseLogger, type FastifyError, type FastifyInstance } from 'fastify';
@@ -7,11 +8,14 @@ import { parseCorsOrigins } from '@atlas/config';
 import type { Database } from '@atlas/db';
 import type { ErrorCode } from '@atlas/types';
 import { isAppError, newUuid, toAppError, type Logger } from '@atlas/utils';
+import { createMetricsRegistry, metricsRoute, registerHttpMetrics } from '@atlas/observability';
 import type { AuthServiceEnv } from './env.js';
 import { healthRoute } from './http/routes/health.js';
 import { loginRoute } from './http/routes/login.js';
 import { logoutRoute } from './http/routes/logout.js';
 import { meRoute } from './http/routes/me.js';
+import { oauthCallbackRoute } from './http/routes/oauth-callback.js';
+import { oauthStartRoute } from './http/routes/oauth-start.js';
 import { refreshRoute } from './http/routes/refresh.js';
 import { registerRoute } from './http/routes/register.js';
 import type { TokenConfig } from './security/tokens.js';
@@ -45,10 +49,14 @@ export function buildApp(deps: AppDeps): FastifyInstance {
   });
 
   void app.register(cors, { origin: parseCorsOrigins(deps.env.CORS_ORIGINS) });
+  void app.register(cookie);
   void app.register(rateLimit, {
     max: deps.env.RATE_LIMIT_MAX,
     timeWindow: deps.env.RATE_LIMIT_WINDOW,
   });
+
+  const metrics = createMetricsRegistry('auth-service');
+  registerHttpMetrics(app, metrics);
 
   app.setErrorHandler((error: FastifyError | ZodError, request, reply) => {
     if (error instanceof ZodError) {
@@ -94,11 +102,14 @@ export function buildApp(deps: AppDeps): FastifyInstance {
   });
 
   healthRoute(app, deps);
+  metricsRoute(app, metrics);
   registerRoute(app, deps);
   loginRoute(app, deps);
   refreshRoute(app, deps);
   logoutRoute(app, deps);
   meRoute(app, deps);
+  oauthStartRoute(app, deps);
+  oauthCallbackRoute(app, deps);
 
   return app;
 }

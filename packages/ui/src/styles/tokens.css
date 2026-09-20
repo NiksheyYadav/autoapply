@@ -1,0 +1,205 @@
+/**
+ * "Obsidian" — Project Atlas's design language, v2. Pure black canvas, a
+ * single titanium-gold accent, editorial serif headlines over a technical
+ * sans body. One deliberate dark theme, not a light theme with a dark mode
+ * bolted on — the glow/glass/spotlight effects here only work on black.
+ */
+
+@theme {
+  --font-display: 'DM Serif Display', ui-serif, Georgia, serif;
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  /**
+   * A third, deliberately invented typographic register: not a body font,
+   * not a headline font — a "coordinate readout" voice for waypoint labels,
+   * status chips, and stat captions.
+   */
+  --font-mono: 'Fragment Mono', ui-monospace, 'SFMono-Regular', monospace;
+
+  --color-canvas: #000000;
+  --color-canvas-raised: #0a0a0c;
+  --color-surface: #111114;
+  --color-ink: #e4e4e7;
+  --color-ink-soft: #a1a1aa;
+  --color-ink-faint: #71717a;
+  --color-line: rgba(255, 255, 255, 0.08);
+  --color-line-strong: rgba(255, 255, 255, 0.18);
+
+  --color-accent: #e5a00d;
+  --color-accent-soft: rgba(229, 160, 13, 0.12);
+  --color-accent-ink: #000000;
+
+  --color-progress: #34d399;
+  --color-progress-soft: rgba(52, 211, 153, 0.12);
+
+  --color-warning: #fb923c;
+  --color-warning-soft: rgba(251, 146, 60, 0.12);
+  --color-serious: #f87171;
+  --color-serious-soft: rgba(248, 113, 113, 0.12);
+  --color-critical: #ef4444;
+
+  --shadow-color: 0 0 0;
+  --radius-card: 1.5rem;
+  --radius-control: 0.875rem;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+}
+
+/* --- Ambient grid + spotlight -------------------------------------------
+ * Shared by every page that wants the "premium dark" backdrop: a faint
+ * moving grid plus a radial glow that follows the cursor (set via
+ * Spotlight.tsx, which writes --spotlight-x/--spotlight-y). */
+.atlas-bg-grid {
+  background-size: 56px 56px;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  animation: atlas-grid-move 24s linear infinite;
+}
+
+@keyframes atlas-grid-move {
+  to {
+    background-position: 56px 56px;
+  }
+}
+
+.atlas-spotlight {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(700px circle at var(--spotlight-x, 50%) var(--spotlight-y, 0px), rgba(229, 160, 13, 0.07), transparent 40%);
+}
+
+/* --- GlowText -------------------------------------------------------------
+ * A single-hue titanium sweep plus a static text-shadow glow underneath —
+ * one signature headline moment, not sprinkled everywhere. */
+.atlas-glow-text__fg,
+.atlas-glow-text__halo {
+  background: linear-gradient(100deg, var(--color-accent) 0%, #fde68a 45%, var(--color-accent) 100%);
+  background-size: 220% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: atlas-glow-sweep 7s linear infinite;
+}
+
+.atlas-glow-text__fg {
+  text-shadow: 0 0 40px rgba(229, 160, 13, 0.35), 0 0 80px rgba(229, 160, 13, 0.12);
+}
+
+.atlas-glow-text__halo {
+  filter: blur(16px);
+  opacity: 0.6;
+}
+
+@keyframes atlas-glow-sweep {
+  to {
+    background-position: -220% 0;
+  }
+}
+
+/* --- ShimmerText ------------------------------------------------------- */
+.atlas-shimmer-text {
+  background: linear-gradient(90deg, var(--color-ink-faint) 0%, var(--color-ink) 50%, var(--color-ink-faint) 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: atlas-shimmer 3s linear infinite;
+}
+
+@keyframes atlas-shimmer {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+
+/* --- Marquee ---------------------------------------------------------- */
+.atlas-marquee {
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, black 8%, black 92%, transparent);
+  mask-image: linear-gradient(90deg, transparent, black 8%, black 92%, transparent);
+}
+
+.atlas-marquee__track {
+  display: flex;
+  width: max-content;
+  animation: atlas-marquee-scroll var(--atlas-marquee-duration, 28s) linear infinite;
+}
+
+.atlas-marquee__track--reverse {
+  animation-direction: reverse;
+}
+
+.atlas-marquee__group {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+}
+
+@keyframes atlas-marquee-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* --- Orbit --------------------------------------------------------------
+ * Used by AgentOrbit (apps/web hero visual): a node rotates around the
+ * center at a fixed radius while counter-rotating itself so its label
+ * stays upright. `--atlas-orbit-radius` is set per node via inline style. */
+.atlas-orbit {
+  animation: atlas-orbit var(--atlas-orbit-duration, 12s) linear infinite;
+  animation-delay: var(--atlas-orbit-delay, 0s);
+}
+
+@keyframes atlas-orbit {
+  from {
+    transform: rotate(0deg) translateX(var(--atlas-orbit-radius, 140px)) rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg) translateX(var(--atlas-orbit-radius, 140px)) rotate(-360deg);
+  }
+}
+
+/* --- No-scrollbar (drag-to-scroll galleries) ----------------------------- */
+.atlas-no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.atlas-no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* --- Glass dock ---------------------------------------------------------- */
+.atlas-glass {
+  background: rgba(10, 10, 12, 0.8);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .atlas-glow-text__fg,
+  .atlas-glow-text__halo,
+  .atlas-shimmer-text,
+  .atlas-marquee__track,
+  .atlas-orbit,
+  .atlas-bg-grid {
+    animation: none;
+  }
+}

@@ -2,7 +2,18 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "noEmit": true,
-    "types": ["node"]
+    "types": ["node"],
+    /**
+     * Only this service calls the global `fetch` directly (oauth.ts, to
+     * reach Google/Microsoft's token/userinfo endpoints). @types/node's own
+     * fetch typings don't reliably resolve `Response`'s full shape (.json,
+     * .ok) in every install layout — Vercel's isolated per-package build hit
+     * it even though the monorepo-wide root typecheck didn't. Pulling in the
+     * DOM lib gives fetch/Response/Headers a complete, standard type
+     * regardless of that resolution quirk; skipLibCheck avoids any
+     * DOM-vs-Node ambient-type friction.
+     */
+    "lib": ["ES2023", "DOM"]
   },
   "include": ["src/**/*.ts", "test/**/*.ts"]
 }
