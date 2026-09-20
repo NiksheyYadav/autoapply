@@ -29,6 +29,7 @@
     "dev:referrals": "pnpm --filter @atlas/referrals-service run dev",
     "dev:outreach": "pnpm --filter @atlas/outreach-service run dev",
     "dev:web": "pnpm --filter @atlas/web run dev",
+    "dev:admin": "pnpm --filter @atlas/admin run dev",
     "dev:learning": "pnpm --filter @atlas/learning-service run dev",
     "dev:analytics": "pnpm --filter @atlas/analytics-service run dev",
     "dev:connectors": "pnpm --filter @atlas/connectors-service run dev",

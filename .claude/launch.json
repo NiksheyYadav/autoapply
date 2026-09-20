@@ -6,6 +6,12 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "@atlas/web", "run", "dev"],
       "port": 3000
+    },
+    {
+      "name": "admin",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@atlas/admin", "run", "dev"],
+      "port": 3001
     }
   ]
 }
