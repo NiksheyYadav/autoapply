@@ -1,20 +1,21 @@
 import type { Metadata } from 'next';
-import { Fragment_Mono, Fraunces, Manrope } from 'next/font/google';
+import { DM_Serif_Display, Fragment_Mono, Inter } from 'next/font/google';
+import { Spotlight } from '@atlas/ui';
 import type { ReactNode } from 'react';
 import { SessionProvider } from '@/lib/auth-context';
 import './globals.css';
 
-const fraunces = Fraunces({
+const dmSerifDisplay = DM_Serif_Display({
   subsets: ['latin'],
   variable: '--font-display',
-  weight: ['400', '500', '600'],
+  weight: ['400'],
   style: ['normal', 'italic'],
 });
 
-const manrope = Manrope({
+const inter = Inter({
   subsets: ['latin'],
   variable: '--font-sans',
-  weight: ['400', '500', '600', '700', '800'],
+  weight: ['300', '400', '500', '600', '700'],
 });
 
 /** The "coordinate readout" register — matches apps/web; see packages/ui's tokens.css. */
@@ -31,8 +32,9 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={`${fraunces.variable} ${manrope.variable} ${fragmentMono.variable}`} suppressHydrationWarning>
-      <body>
+    <html lang="en" className={`${dmSerifDisplay.variable} ${inter.variable} ${fragmentMono.variable}`} suppressHydrationWarning>
+      <body className="atlas-bg-grid relative min-h-screen selection:bg-[var(--color-accent-soft)] selection:text-[var(--color-ink)]">
+        <Spotlight />
         <SessionProvider>{children}</SessionProvider>
       </body>
     </html>

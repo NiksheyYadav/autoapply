@@ -1,16 +1,16 @@
 'use client';
 
-import { Card, fadeUp, viewportOnce } from '@atlas/ui';
-import { AnimatePresence, motion } from 'framer-motion';
-import { Quote } from 'lucide-react';
+import { fadeUp, viewportOnce } from '@atlas/ui';
+import { motion } from 'framer-motion';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
 import * as React from 'react';
 
 /**
  * Styled like a testimonial slider, but deliberately not one: Atlas has no
  * real users to quote yet, and inventing named people with fabricated
- * quotes would be a fake-review pattern. These are the product's own
- * outcome statements, organized by situation instead of attributed to
- * anyone.
+ * first-person quotes would be a fake-review pattern. These are the
+ * product's own outcome statements, organized by situation instead of
+ * attributed to anyone.
  */
 const OUTCOMES = [
   {
@@ -35,59 +35,88 @@ const OUTCOMES = [
 ];
 
 export function Outcomes() {
-  const [index, setIndex] = React.useState(0);
+  const trackRef = React.useRef<HTMLDivElement>(null);
+  const dragState = React.useRef({ isDown: false, startX: 0, scrollLeft: 0 });
 
-  React.useEffect(() => {
-    const id = setInterval(() => setIndex((current) => (current + 1) % OUTCOMES.length), 5000);
-    return () => clearInterval(id);
-  }, []);
+  function scrollByCard(direction: 1 | -1) {
+    const track = trackRef.current;
+    if (!track) return;
+    const card = track.firstElementChild as HTMLElement | null;
+    const amount = (card?.offsetWidth ?? 400) + 24;
+    track.scrollBy({ left: amount * direction, behavior: 'smooth' });
+  }
 
-  const current = OUTCOMES[index];
+  function handleMouseDown(event: React.MouseEvent<HTMLDivElement>) {
+    const track = trackRef.current;
+    if (!track) return;
+    dragState.current = { isDown: true, startX: event.pageX - track.offsetLeft, scrollLeft: track.scrollLeft };
+  }
+
+  function endDrag() {
+    dragState.current.isDown = false;
+  }
+
+  function handleMouseMove(event: React.MouseEvent<HTMLDivElement>) {
+    const track = trackRef.current;
+    if (!track || !dragState.current.isDown) return;
+    event.preventDefault();
+    const x = event.pageX - track.offsetLeft;
+    const walk = (x - dragState.current.startX) * 1.5;
+    track.scrollLeft = dragState.current.scrollLeft - walk;
+  }
 
   return (
     <section className="px-6 py-20">
-      <div className="mx-auto max-w-3xl">
+      <div className="mx-auto max-w-6xl">
         <motion.div
           initial="hidden"
           whileInView="visible"
           viewport={viewportOnce}
           variants={fadeUp}
-          className="mb-10 text-center"
+          className="mb-10 flex items-end justify-between"
         >
-          <h2 className="font-[var(--font-display)] text-3xl font-medium text-[var(--color-ink)]">What changes for you</h2>
+          <h2 className="font-[var(--font-display)] text-3xl font-medium text-[var(--color-ink)] md:text-4xl">
+            What changes for you
+          </h2>
+          <div className="hidden gap-2 md:flex">
+            <button
+              type="button"
+              onClick={() => scrollByCard(-1)}
+              aria-label="Previous"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--color-line-strong)] transition-colors hover:bg-white/5"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollByCard(1)}
+              aria-label="Next"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--color-line-strong)] transition-colors hover:bg-white/5"
+            >
+              <ArrowRight className="h-4 w-4" />
+            </button>
+          </div>
         </motion.div>
 
-        <Card className="relative overflow-hidden px-8 py-10 text-center sm:px-14">
-          <Quote className="mx-auto mb-5 h-8 w-8 text-[var(--color-accent)]" strokeWidth={1.5} />
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, x: 24 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -24 }}
-              transition={{ duration: 0.4 }}
-            >
-              <p className="font-[var(--font-display)] text-xl leading-relaxed text-[var(--color-ink)] md:text-2xl">
-                “{current?.quote}”
-              </p>
-              <p className="mt-5 font-[var(--font-mono)] text-xs uppercase tracking-[0.18em] text-[var(--color-ink-faint)]">
-                {current?.tag}
-              </p>
-            </motion.div>
-          </AnimatePresence>
-        </Card>
-
-        <div className="mt-6 flex items-center justify-center gap-2">
-          {OUTCOMES.map((outcome, i) => (
-            <button
+        <div
+          ref={trackRef}
+          onMouseDown={handleMouseDown}
+          onMouseLeave={endDrag}
+          onMouseUp={endDrag}
+          onMouseMove={handleMouseMove}
+          className="atlas-no-scrollbar flex cursor-grab snap-x snap-mandatory gap-6 overflow-x-auto pb-4 active:cursor-grabbing"
+        >
+          {OUTCOMES.map((outcome) => (
+            <div
               key={outcome.tag}
-              type="button"
-              onClick={() => setIndex(i)}
-              aria-label={`Show: ${outcome.tag}`}
-              className={`h-1.5 rounded-full transition-all ${
-                i === index ? 'w-6 bg-[var(--color-accent)]' : 'w-1.5 bg-[var(--color-line-strong)]'
-              }`}
-            />
+              className="w-[85vw] shrink-0 snap-center rounded-[var(--radius-card)] border border-[var(--color-line)] bg-[var(--color-surface)] p-10 transition-colors duration-500 hover:border-[var(--color-accent)]/30 md:w-[440px]"
+            >
+              <div className="mb-6 font-[var(--font-display)] text-5xl text-[var(--color-accent)]">&ldquo;</div>
+              <p className="font-[var(--font-display)] text-xl leading-snug text-[var(--color-ink)] md:text-2xl">{outcome.quote}</p>
+              <div className="mt-8 font-[var(--font-mono)] text-xs uppercase tracking-[0.18em] text-[var(--color-ink-faint)]">
+                {outcome.tag}
+              </div>
+            </div>
           ))}
         </div>
       </div>

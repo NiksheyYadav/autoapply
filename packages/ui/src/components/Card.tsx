@@ -14,10 +14,7 @@ export function Card({ className, interactive = false, children, ...props }: Car
   if (!interactive) {
     return (
       <div
-        className={cn(
-          'rounded-[var(--radius-card)] border border-[var(--color-line)] bg-[var(--color-surface)] p-6 shadow-[0_1px_2px_rgb(var(--shadow-color)/0.04)]',
-          className,
-        )}
+        className={cn('rounded-[var(--radius-card)] border border-[var(--color-line)] bg-[var(--color-surface)] p-6', className)}
         {...props}
       >
         {children}
@@ -27,10 +24,10 @@ export function Card({ className, interactive = false, children, ...props }: Car
 
   return (
     <motion.div
-      whileHover={{ y: -3, boxShadow: '0 12px 24px -8px rgb(var(--shadow-color) / 0.16)' }}
+      whileHover={{ y: -3 }}
       transition={{ duration: 0.25, ease: EASE.standard }}
       className={cn(
-        'rounded-[var(--radius-card)] border border-[var(--color-line)] bg-[var(--color-surface)] p-6 shadow-[0_1px_2px_rgb(var(--shadow-color)/0.04)]',
+        'rounded-[var(--radius-card)] border border-[var(--color-line)] bg-[var(--color-surface)] p-6 transition-[border-color,box-shadow] duration-300 hover:border-[var(--color-accent)]/30 hover:shadow-[0_0_50px_-16px_var(--color-accent)]',
         className,
       )}
       {...(props as React.ComponentProps<typeof motion.div>)}

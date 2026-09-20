@@ -13,12 +13,13 @@ export function CtaSection() {
         whileInView="visible"
         viewport={viewportOnce}
         variants={fadeUp}
-        className="mx-auto max-w-2xl rounded-[var(--radius-card)] bg-[var(--color-ink)] px-10 py-14 text-center"
+        className="relative mx-auto max-w-2xl overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-line)] bg-[var(--color-surface)] px-10 py-16 text-center"
       >
-        <h2 className="font-[var(--font-display)] text-3xl font-medium text-[var(--color-canvas)] md:text-4xl">
+        <div className="absolute inset-0 -z-10" style={{ background: 'radial-gradient(circle at 50% 0%, rgba(229,160,13,0.1), transparent 60%)' }} />
+        <h2 className="font-[var(--font-display)] text-3xl font-medium text-[var(--color-ink)] md:text-4xl">
           Stop guessing which jobs are worth your time.
         </h2>
-        <p className="mx-auto mt-4 max-w-md text-[var(--color-ink-faint)]">
+        <p className="mx-auto mt-4 max-w-md text-[var(--color-ink-soft)]">
           Upload a resume, get a plotted route through your search in under a minute.
         </p>
         <Button asChild size="lg" className="mt-8">

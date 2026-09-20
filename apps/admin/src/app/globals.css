@@ -6,17 +6,8 @@
    without this, none of its className strings ever get scanned. */
 @source '../../../../packages/ui/src';
 
-html {
-  color-scheme: light dark;
-}
-
 body {
   font-family: var(--font-sans);
-}
-
-::selection {
-  background: var(--color-accent-soft);
-  color: var(--color-ink);
 }
 
 * {

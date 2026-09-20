@@ -1,58 +1,48 @@
 'use client';
 
-import { Button, GlowText, RoutePath, fadeUp, staggerContainer } from '@atlas/ui';
+import { Button, GlowText, KineticText, fadeUp, staggerContainer } from '@atlas/ui';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
-import { AmbientField } from './AmbientField';
+import { AgentOrbit } from './AgentOrbit';
 
 export function Hero() {
   return (
-    <section className="relative overflow-hidden px-6 pt-20 pb-16 md:pt-28">
-      <AmbientField />
-      <motion.div
-        variants={staggerContainer}
-        initial="hidden"
-        animate="visible"
-        className="mx-auto max-w-3xl text-center"
-      >
-        <motion.span
-          variants={fadeUp}
-          className="mb-6 inline-flex items-center gap-2 rounded-full border border-[var(--color-line)] bg-[var(--color-surface)] px-4 py-1.5 font-[var(--font-mono)] text-xs uppercase tracking-wide text-[var(--color-ink-soft)]"
-        >
-          Resume in, referral out
-        </motion.span>
-        <motion.h1
-          variants={fadeUp}
-          className="font-[var(--font-display)] text-4xl font-medium leading-[1.08] text-[var(--color-ink)] md:text-6xl"
-        >
-          Your job search, <GlowText className="italic">plotted</GlowText> and worked for you.
-        </motion.h1>
-        <motion.p variants={fadeUp} className="mx-auto mt-6 max-w-xl text-lg text-[var(--color-ink-soft)]">
-          Atlas parses your resume, scores every opening against it, tracks each application to the finish line, and
-          finds the one person at the company worth messaging first.
-        </motion.p>
-        <motion.div variants={fadeUp} className="mt-9 flex items-center justify-center gap-3">
-          <Button asChild size="lg">
-            <Link href="/register">
-              Start mapping your search
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </Button>
-          <Button asChild variant="secondary" size="lg">
-            <a href="#how-it-works">See how it works</a>
-          </Button>
-        </motion.div>
-      </motion.div>
+    <section className="relative overflow-hidden px-6 pt-24 pb-16 md:pt-32">
+      <div className="mx-auto grid max-w-6xl items-center gap-16 lg:grid-cols-2">
+        <motion.div variants={staggerContainer} initial="hidden" animate="visible">
+          <motion.span
+            variants={fadeUp}
+            className="mb-8 inline-flex items-center gap-2 rounded-full border border-[var(--color-line)] bg-white/5 px-3 py-1.5 font-[var(--font-mono)] text-xs uppercase tracking-wide text-[var(--color-accent)]"
+          >
+            <span className="h-2 w-2 animate-pulse rounded-full bg-[var(--color-accent)]" />
+            Resume in, referral out
+          </motion.span>
 
-      <motion.div
-        initial={{ opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.7, delay: 0.3 }}
-        className="mx-auto mt-16 max-w-3xl rounded-[var(--radius-card)] border border-[var(--color-line)] bg-[var(--color-surface)] p-8 shadow-[0_24px_60px_-24px_rgb(var(--shadow-color)/0.18)]"
-      >
-        <RoutePath waypoints={['Resume parsed', 'Matched & scored', 'Applied', 'Referral found']} />
-      </motion.div>
+          <h1 className="font-[var(--font-display)] text-5xl leading-[1.05] tracking-tight text-[var(--color-ink)] md:text-7xl">
+            <KineticText words={['Four', 'agents.']} />
+            <br />
+            <GlowText className="italic">One search.</GlowText>
+          </h1>
+
+          <motion.p variants={fadeUp} className="mt-8 max-w-lg text-lg leading-relaxed text-[var(--color-ink-soft)]">
+            Atlas parses your resume, scores every opening against it, tracks each application to the finish line, and
+            finds the one person at the company worth messaging first.
+          </motion.p>
+
+          <motion.div variants={fadeUp} className="mt-10 flex items-center gap-6">
+            <Button asChild size="lg">
+              <Link href="/register">
+                Start your search
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
+            <span className="text-sm text-[var(--color-ink-faint)]">No credit card required</span>
+          </motion.div>
+        </motion.div>
+
+        <AgentOrbit />
+      </div>
     </section>
   );
 }

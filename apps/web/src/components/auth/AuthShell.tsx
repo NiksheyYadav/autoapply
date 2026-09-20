@@ -1,9 +1,8 @@
 'use client';
 
-import { RoutePath, fadeUp } from '@atlas/ui';
+import { Logo, RoutePath, fadeUp } from '@atlas/ui';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { Compass } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 export function AuthShell({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
@@ -11,9 +10,8 @@ export function AuthShell({ title, subtitle, children }: { title: string; subtit
     <div className="grid min-h-screen md:grid-cols-2">
       <div className="flex flex-col justify-center px-6 py-16 md:px-16">
         <motion.div initial="hidden" animate="visible" variants={fadeUp} className="mx-auto w-full max-w-sm">
-          <Link href="/" className="mb-8 flex items-center gap-2 font-[var(--font-display)] text-lg font-medium text-[var(--color-ink)]">
-            <Compass className="h-5 w-5 text-[var(--color-accent)]" />
-            Atlas
+          <Link href="/" className="mb-8 inline-block">
+            <Logo />
           </Link>
           <h1 className="font-[var(--font-display)] text-2xl font-medium text-[var(--color-ink)]">{title}</h1>
           <p className="mt-1.5 text-sm text-[var(--color-ink-soft)]">{subtitle}</p>

@@ -8,15 +8,17 @@ import { cn } from '../lib/cn';
 import { springs } from '../motion';
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[var(--radius-control)] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-canvas)] disabled:pointer-events-none disabled:opacity-50',
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-canvas)] disabled:pointer-events-none disabled:opacity-50',
   {
     variants: {
       variant: {
-        default: 'bg-[var(--color-accent)] text-[var(--color-accent-ink)] shadow-sm hover:brightness-105',
-        secondary: 'bg-[var(--color-surface)] text-[var(--color-ink)] border border-[var(--color-line)] hover:border-[var(--color-line-strong)]',
-        ghost: 'text-[var(--color-ink)] hover:bg-[var(--color-surface)]',
-        outline: 'border border-[var(--color-line-strong)] text-[var(--color-ink)] hover:bg-[var(--color-surface)]',
-        destructive: 'bg-[var(--color-serious)] text-white hover:brightness-105',
+        default:
+          'bg-[var(--color-accent)] text-[var(--color-accent-ink)] hover:brightness-110 hover:shadow-[0_0_40px_-8px_var(--color-accent)]',
+        secondary:
+          'bg-white/5 text-[var(--color-ink)] border border-[var(--color-line)] hover:border-[var(--color-line-strong)] hover:bg-white/[0.07]',
+        ghost: 'text-[var(--color-ink)] hover:bg-white/5',
+        outline: 'border border-[var(--color-line-strong)] text-[var(--color-ink)] hover:bg-white/5',
+        destructive: 'bg-[var(--color-serious)] text-black hover:brightness-105',
       },
       size: {
         sm: 'h-9 px-3 text-sm',

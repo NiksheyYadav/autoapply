@@ -1,8 +1,8 @@
 'use client';
 
 import { useSession } from '@/lib/auth-context';
-import { Button } from '@atlas/ui';
-import { Compass, LogOut } from 'lucide-react';
+import { Button, Logo } from '@atlas/ui';
+import { LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import * as React from 'react';
 
@@ -30,9 +30,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="min-h-screen">
       <header className="flex items-center justify-between border-b border-[var(--color-line)] bg-[var(--color-canvas-raised)] px-6 py-4">
-        <div className="flex items-center gap-2 font-[var(--font-display)] text-lg font-medium text-[var(--color-ink)]">
-          <Compass className="h-5 w-5 text-[var(--color-accent)]" />
-          Atlas Admin
+        <div className="flex items-center gap-2">
+          <Logo />
+          <span className="font-[var(--font-display)] text-lg font-medium text-[var(--color-ink-faint)]">Admin</span>
         </div>
         <div className="flex items-center gap-4">
           <span className="text-sm text-[var(--color-ink-soft)]">{user?.full_name}</span>

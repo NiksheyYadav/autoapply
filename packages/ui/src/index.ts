@@ -10,3 +10,7 @@ export * from './components/Skeleton';
 export * from './components/RoutePath';
 export * from './components/GlowText';
 export * from './components/Marquee';
+export * from './components/Spotlight';
+export * from './components/KineticText';
+export * from './components/ShimmerText';
+export * from './components/Logo';

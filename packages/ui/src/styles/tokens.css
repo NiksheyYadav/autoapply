@@ -1,106 +1,49 @@
 /**
- * "Waypoint" — Project Atlas's own design language. Not a shadcn default
- * theme, not an indigo/violet AI-SaaS gradient: a warm paper canvas, a deep
- * ink-navy for structure, and a compass-needle coral as the one accent that
- * ever asks for attention. A cool mint marks progress/success so the two
- * signal colors never compete. See docs/01 for the stack this rides on.
+ * "Obsidian" — Project Atlas's design language, v2. Pure black canvas, a
+ * single titanium-gold accent, editorial serif headlines over a technical
+ * sans body. One deliberate dark theme, not a light theme with a dark mode
+ * bolted on — the glow/glass/spotlight effects here only work on black.
  */
 
 @theme {
-  --font-display: 'Fraunces', ui-serif, Georgia, serif;
-  --font-sans: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'DM Serif Display', ui-serif, Georgia, serif;
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
   /**
    * A third, deliberately invented typographic register: not a body font,
    * not a headline font — a "coordinate readout" voice for waypoint labels,
-   * status chips, and stat captions, reinforcing the map/route identity
-   * rather than reaching for a generic dev-tool monospace.
+   * status chips, and stat captions.
    */
   --font-mono: 'Fragment Mono', ui-monospace, 'SFMono-Regular', monospace;
 
-  /* --- Light (default) ------------------------------------------------- */
-  --color-canvas: #faf7f2;
-  --color-canvas-raised: #fffdfa;
-  --color-surface: #ffffff;
-  --color-ink: #12172b;
-  --color-ink-soft: #4b5468;
-  --color-ink-faint: #8b91a3;
-  --color-line: #e6e0d3;
-  --color-line-strong: #d3ccb9;
+  --color-canvas: #000000;
+  --color-canvas-raised: #0a0a0c;
+  --color-surface: #111114;
+  --color-ink: #e4e4e7;
+  --color-ink-soft: #a1a1aa;
+  --color-ink-faint: #71717a;
+  --color-line: rgba(255, 255, 255, 0.08);
+  --color-line-strong: rgba(255, 255, 255, 0.18);
 
-  --color-accent: #ee5a36;
-  --color-accent-soft: #ffe4d8;
-  --color-accent-ink: #ffffff;
+  --color-accent: #e5a00d;
+  --color-accent-soft: rgba(229, 160, 13, 0.12);
+  --color-accent-ink: #000000;
 
-  --color-progress: #0f9d78;
-  --color-progress-soft: #d7f3e8;
+  --color-progress: #34d399;
+  --color-progress-soft: rgba(52, 211, 153, 0.12);
 
-  --color-warning: #b9720a;
-  --color-warning-soft: #fbead0;
-  --color-serious: #cf3d3d;
-  --color-serious-soft: #fbe1e1;
-  --color-critical: #8f1f1f;
+  --color-warning: #fb923c;
+  --color-warning-soft: rgba(251, 146, 60, 0.12);
+  --color-serious: #f87171;
+  --color-serious-soft: rgba(248, 113, 113, 0.12);
+  --color-critical: #ef4444;
 
-  --shadow-color: 18 23 43;
-  --radius-card: 1.25rem;
-  --radius-control: 0.75rem;
+  --shadow-color: 0 0 0;
+  --radius-card: 1.5rem;
+  --radius-control: 0.875rem;
 }
 
-/* --- Dark ---------------------------------------------------------------
- * A deliberate re-step, not an automatic invert: the accent brightens, the
- * canvas goes to a near-black navy rather than pure black, and text warms
- * slightly so long reading sessions on the dashboard stay comfortable. */
-:root[data-theme='dark'] {
-  --color-canvas: #0c0f1e;
-  --color-canvas-raised: #10142a;
-  --color-surface: #151a33;
-  --color-ink: #f3efe6;
-  --color-ink-soft: #b3b9cc;
-  --color-ink-faint: #737a94;
-  --color-line: #262c4a;
-  --color-line-strong: #333a5c;
-
-  --color-accent: #ff8462;
-  --color-accent-soft: #3a2420;
-  --color-accent-ink: #1a0b06;
-
-  --color-progress: #3ddba0;
-  --color-progress-soft: #133027;
-
-  --color-warning: #e3a53e;
-  --color-warning-soft: #3a2c0f;
-  --color-serious: #ef6161;
-  --color-serious-soft: #3a1a1a;
-  --color-critical: #ff8a8a;
-
-  --shadow-color: 3 5 15;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    --color-canvas: #0c0f1e;
-    --color-canvas-raised: #10142a;
-    --color-surface: #151a33;
-    --color-ink: #f3efe6;
-    --color-ink-soft: #b3b9cc;
-    --color-ink-faint: #737a94;
-    --color-line: #262c4a;
-    --color-line-strong: #333a5c;
-
-    --color-accent: #ff8462;
-    --color-accent-soft: #3a2420;
-    --color-accent-ink: #1a0b06;
-
-    --color-progress: #3ddba0;
-    --color-progress-soft: #133027;
-
-    --color-warning: #e3a53e;
-    --color-warning-soft: #3a2c0f;
-    --color-serious: #ef6161;
-    --color-serious-soft: #3a1a1a;
-    --color-critical: #ff8a8a;
-
-    --shadow-color: 3 5 15;
-  }
+html {
+  color-scheme: dark;
 }
 
 body {
@@ -108,14 +51,38 @@ body {
   color: var(--color-ink);
 }
 
+/* --- Ambient grid + spotlight -------------------------------------------
+ * Shared by every page that wants the "premium dark" backdrop: a faint
+ * moving grid plus a radial glow that follows the cursor (set via
+ * Spotlight.tsx, which writes --spotlight-x/--spotlight-y). */
+.atlas-bg-grid {
+  background-size: 56px 56px;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  animation: atlas-grid-move 24s linear infinite;
+}
+
+@keyframes atlas-grid-move {
+  to {
+    background-position: 56px 56px;
+  }
+}
+
+.atlas-spotlight {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(700px circle at var(--spotlight-x, 50%) var(--spotlight-y, 0px), rgba(229, 160, 13, 0.07), transparent 40%);
+}
+
 /* --- GlowText -------------------------------------------------------------
- * Atlas's kinetic-text signature: a slow accent→progress sweep, built from
- * the design system's own two signal colors rather than a generic AI-SaaS
- * purple gradient. A blurred duplicate layer behind the glyphs gives the
- * glow; both layers share one animation so they stay in lockstep. */
+ * A single-hue titanium sweep plus a static text-shadow glow underneath —
+ * one signature headline moment, not sprinkled everywhere. */
 .atlas-glow-text__fg,
 .atlas-glow-text__halo {
-  background: linear-gradient(100deg, var(--color-accent) 0%, var(--color-progress) 50%, var(--color-accent) 100%);
+  background: linear-gradient(100deg, var(--color-accent) 0%, #fde68a 45%, var(--color-accent) 100%);
   background-size: 220% auto;
   -webkit-background-clip: text;
   background-clip: text;
@@ -123,14 +90,37 @@ body {
   animation: atlas-glow-sweep 7s linear infinite;
 }
 
+.atlas-glow-text__fg {
+  text-shadow: 0 0 40px rgba(229, 160, 13, 0.35), 0 0 80px rgba(229, 160, 13, 0.12);
+}
+
 .atlas-glow-text__halo {
   filter: blur(16px);
-  opacity: 0.55;
+  opacity: 0.6;
 }
 
 @keyframes atlas-glow-sweep {
   to {
     background-position: -220% 0;
+  }
+}
+
+/* --- ShimmerText ------------------------------------------------------- */
+.atlas-shimmer-text {
+  background: linear-gradient(90deg, var(--color-ink-faint) 0%, var(--color-ink) 50%, var(--color-ink-faint) 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: atlas-shimmer 3s linear infinite;
+}
+
+@keyframes atlas-shimmer {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
   }
 }
 
@@ -166,10 +156,50 @@ body {
   }
 }
 
+/* --- Orbit --------------------------------------------------------------
+ * Used by AgentOrbit (apps/web hero visual): a node rotates around the
+ * center at a fixed radius while counter-rotating itself so its label
+ * stays upright. `--atlas-orbit-radius` is set per node via inline style. */
+.atlas-orbit {
+  animation: atlas-orbit var(--atlas-orbit-duration, 12s) linear infinite;
+  animation-delay: var(--atlas-orbit-delay, 0s);
+}
+
+@keyframes atlas-orbit {
+  from {
+    transform: rotate(0deg) translateX(var(--atlas-orbit-radius, 140px)) rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg) translateX(var(--atlas-orbit-radius, 140px)) rotate(-360deg);
+  }
+}
+
+/* --- No-scrollbar (drag-to-scroll galleries) ----------------------------- */
+.atlas-no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.atlas-no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* --- Glass dock ---------------------------------------------------------- */
+.atlas-glass {
+  background: rgba(10, 10, 12, 0.8);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .atlas-glow-text__fg,
   .atlas-glow-text__halo,
-  .atlas-marquee__track {
+  .atlas-shimmer-text,
+  .atlas-marquee__track,
+  .atlas-orbit,
+  .atlas-bg-grid {
     animation: none;
   }
 }

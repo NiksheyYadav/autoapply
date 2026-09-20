@@ -1,9 +1,8 @@
 'use client';
 
-import { cn } from '@atlas/ui';
+import { Logo, cn } from '@atlas/ui';
 import { motion } from 'framer-motion';
 import {
-  Compass,
   FileText,
   LayoutDashboard,
   MailPlus,
@@ -28,9 +27,8 @@ export function Sidebar() {
 
   return (
     <aside className="hidden w-60 shrink-0 flex-col border-r border-[var(--color-line)] bg-[var(--color-canvas-raised)] p-5 md:flex">
-      <Link href="/" className="mb-8 flex items-center gap-2 px-2 font-[var(--font-display)] text-lg font-medium text-[var(--color-ink)]">
-        <Compass className="h-5 w-5 text-[var(--color-accent)]" />
-        Atlas
+      <Link href="/" className="mb-8 px-2">
+        <Logo size={26} />
       </Link>
       <nav className="flex flex-col gap-1">
         {NAV_ITEMS.map((item) => {
@@ -41,13 +39,13 @@ export function Sidebar() {
               href={item.href}
               className={cn(
                 'relative flex items-center gap-3 rounded-[var(--radius-control)] px-3 py-2.5 text-sm font-medium transition-colors',
-                active ? 'text-[var(--color-ink)]' : 'text-[var(--color-ink-soft)] hover:text-[var(--color-ink)]',
+                active ? 'text-[var(--color-accent)]' : 'text-[var(--color-ink-soft)] hover:text-[var(--color-ink)]',
               )}
             >
               {active ? (
                 <motion.span
                   layoutId="sidebar-active"
-                  className="absolute inset-0 rounded-[var(--radius-control)] bg-[var(--color-surface)] shadow-[0_1px_2px_rgb(var(--shadow-color)/0.06)]"
+                  className="absolute inset-0 rounded-[var(--radius-control)] border border-[var(--color-accent)]/20 bg-[var(--color-accent-soft)]"
                   transition={{ type: 'spring', stiffness: 400, damping: 32 }}
                 />
               ) : null}

@@ -2,9 +2,8 @@
 
 import { ApiError } from '@/lib/api';
 import { useSession } from '@/lib/auth-context';
-import { Button, Card, Input, Label, fadeUp } from '@atlas/ui';
+import { Button, Card, Input, Label, Logo, fadeUp } from '@atlas/ui';
 import { motion } from 'framer-motion';
-import { Compass } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import * as React from 'react';
 
@@ -33,9 +32,9 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-[var(--color-canvas-raised)] px-6">
       <motion.div initial="hidden" animate="visible" variants={fadeUp} className="w-full max-w-sm">
-        <div className="mb-8 flex items-center justify-center gap-2 font-[var(--font-display)] text-lg font-medium text-[var(--color-ink)]">
-          <Compass className="h-5 w-5 text-[var(--color-accent)]" />
-          Atlas Admin
+        <div className="mb-8 flex items-center justify-center gap-2">
+          <Logo />
+          <span className="font-[var(--font-display)] text-lg font-medium text-[var(--color-ink-faint)]">Admin</span>
         </div>
         <Card>
           <p className="mb-6 text-center text-sm text-[var(--color-ink-soft)]">
