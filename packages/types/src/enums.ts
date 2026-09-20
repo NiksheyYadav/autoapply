@@ -18,7 +18,7 @@ export const MEMBER_ROLES = ['member', 'student', 'recruiter', 'admin', 'owner']
 export const memberRoleSchema = z.enum(MEMBER_ROLES);
 export type MemberRole = z.infer<typeof memberRoleSchema>;
 
-export const AUTH_PROVIDERS = ['password', 'google', 'microsoft', 'saml'] as const;
+export const AUTH_PROVIDERS = ['password', 'google', 'microsoft', 'github', 'saml'] as const;
 export const authProviderSchema = z.enum(AUTH_PROVIDERS);
 export type AuthProvider = z.infer<typeof authProviderSchema>;
 

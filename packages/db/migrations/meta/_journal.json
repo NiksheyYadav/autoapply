@@ -15,6 +15,13 @@
       "when": 1789934435328,
       "tag": "0001_drop_sessions_table",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789937839121,
+      "tag": "0002_add_github_auth_provider",
+      "breakpoints": true
     }
   ]
 }

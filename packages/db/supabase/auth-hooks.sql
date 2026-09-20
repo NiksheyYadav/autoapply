@@ -40,6 +40,7 @@ begin
       when 'email' then 'password'
       when 'azure' then 'microsoft'
       when 'google' then 'google'
+      when 'github' then 'github'
       else 'password'
     end)::auth_provider,
     new.email_confirmed_at is not null
