@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
 import { DM_Serif_Display, Fragment_Mono, Inter } from 'next/font/google';
-import { Spotlight } from '@atlas/ui';
+import { CursorGlow, Spotlight } from '@atlas/ui';
 import type { ReactNode } from 'react';
 import { SessionProvider } from '@/lib/auth-context';
+import { TransitionProvider } from '@/components/transition/TransitionProvider';
 import './globals.css';
 
 const dmSerifDisplay = DM_Serif_Display({
@@ -35,7 +36,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en" className={`${dmSerifDisplay.variable} ${inter.variable} ${fragmentMono.variable}`} suppressHydrationWarning>
       <body className="atlas-bg-grid relative min-h-screen selection:bg-[var(--color-accent-soft)] selection:text-[var(--color-ink)]">
         <Spotlight />
-        <SessionProvider>{children}</SessionProvider>
+        <CursorGlow />
+        <TransitionProvider>
+          <SessionProvider>{children}</SessionProvider>
+        </TransitionProvider>
       </body>
     </html>
   );

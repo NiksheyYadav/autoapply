@@ -1,8 +1,9 @@
 'use client';
 
-import { Button, Logo } from '@atlas/ui';
+import { Logo } from '@atlas/ui';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import { TransitionLink } from '../transition/TransitionLink';
 
 export function NavBar() {
   return (
@@ -10,7 +11,7 @@ export function NavBar() {
       initial={{ y: -24, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.5 }}
-      className="sticky top-0 z-40 border-b border-[var(--color-line)] bg-[var(--color-canvas)]/80 backdrop-blur-md"
+      className="sticky top-0 z-40 border-b border-white/[0.03] bg-[var(--color-canvas)]/80 backdrop-blur-md"
     >
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
         <Link href="/">
@@ -28,9 +29,9 @@ export function NavBar() {
           <Link href="/login" className="text-sm font-medium text-[var(--color-ink-faint)] transition-colors hover:text-[var(--color-ink)]">
             Sign in
           </Link>
-          <Button asChild size="sm">
-            <Link href="/register">Get started</Link>
-          </Button>
+          <TransitionLink href="/register" size="sm">
+            Get started
+          </TransitionLink>
         </div>
       </div>
     </motion.header>

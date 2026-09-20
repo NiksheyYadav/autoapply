@@ -1,10 +1,10 @@
 'use client';
 
-import { Button, GlowText, KineticText, fadeUp, staggerContainer } from '@atlas/ui';
+import { GlowText, KineticText, fadeUp, staggerContainer } from '@atlas/ui';
 import { motion } from 'framer-motion';
-import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { AgentOrbit } from './AgentOrbit';
+import { TransitionLink } from '../transition/TransitionLink';
 
 export function Hero() {
   return (
@@ -31,12 +31,10 @@ export function Hero() {
           </motion.p>
 
           <motion.div variants={fadeUp} className="mt-10 flex items-center gap-6">
-            <Button asChild size="lg">
-              <Link href="/register">
-                Start your search
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </Button>
+            <TransitionLink href="/register" size="lg">
+              Start your search
+              <ArrowRight className="h-4 w-4" />
+            </TransitionLink>
             <span className="text-sm text-[var(--color-ink-faint)]">No credit card required</span>
           </motion.div>
         </motion.div>

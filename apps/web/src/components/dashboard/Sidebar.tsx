@@ -6,6 +6,7 @@ import {
   FileText,
   LayoutDashboard,
   MailPlus,
+  Plug,
   Search,
   SendHorizontal,
   Users,
@@ -20,6 +21,7 @@ const NAV_ITEMS = [
   { href: '/dashboard/applications', label: 'Applications', icon: SendHorizontal },
   { href: '/dashboard/referrals', label: 'Referrals', icon: Users },
   { href: '/dashboard/messages', label: 'Messages', icon: MailPlus },
+  { href: '/dashboard/connectors', label: 'Connectors', icon: Plug },
 ];
 
 export function Sidebar() {
