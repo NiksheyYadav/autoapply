@@ -6,6 +6,20 @@ export const authServiceEnvSchema = z.object({
   ...databaseEnvSchema.shape,
   ...httpEnvSchema.shape,
   ...authEnvSchema.shape,
+  /**
+   * OAuth sign-in providers. Left blank, a provider's routes 503 with
+   * OAUTH_PROVIDER_UNAVAILABLE rather than crashing the service — same
+   * "safe default, real driver is opt-in" shape as STORAGE_DRIVER/etc.
+   */
+  GOOGLE_CLIENT_ID: z.string().default(''),
+  GOOGLE_CLIENT_SECRET: z.string().default(''),
+  MICROSOFT_CLIENT_ID: z.string().default(''),
+  MICROSOFT_CLIENT_SECRET: z.string().default(''),
+  MICROSOFT_TENANT: z.string().min(1).default('common'),
+  /** This service's own externally-reachable origin, used to build the OAuth redirect_uri. */
+  OAUTH_REDIRECT_BASE_URL: z.string().min(1).default('http://localhost:4001'),
+  /** Where the browser lands after an OAuth callback completes. */
+  WEB_APP_URL: z.string().min(1).default('http://localhost:3000'),
 });
 
 export type AuthServiceEnv = z.infer<typeof authServiceEnvSchema>;

@@ -13,6 +13,7 @@
     "@atlas/observability": "workspace:*",
     "@atlas/types": "workspace:*",
     "@atlas/utils": "workspace:*",
+    "@fastify/cookie": "^11.1.2",
     "@fastify/cors": "^11.3.0",
     "@fastify/rate-limit": "^11.2.0",
     "drizzle-orm": "^0.45.2",

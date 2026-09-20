@@ -1,6 +1,6 @@
 'use client';
 
-import type { PublicUser } from '@atlas/types';
+import type { PublicUser, TokenPair } from '@atlas/types';
 import * as React from 'react';
 import * as authApi from './services/auth';
 
@@ -21,6 +21,8 @@ interface SessionState {
 interface SessionContextValue extends SessionState {
   login: (email: string, password: string) => Promise<void>;
   register: (input: { email: string; password: string; full_name: string; organization_name?: string }) => Promise<void>;
+  /** Tokens auth-service already issued via an OAuth redirect — see /oauth/callback. */
+  completeOAuthLogin: (tokens: TokenPair) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -65,6 +67,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
+  const completeOAuthLogin = React.useCallback(async (tokens: TokenPair) => {
+    localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refresh_token);
+    const profile = await authApi.me(tokens.access_token);
+    setState({ status: 'authenticated', user: profile.user, accessToken: tokens.access_token });
+  }, []);
+
   const logout = React.useCallback(async () => {
     if (state.accessToken) {
       await authApi.logout(state.accessToken).catch(() => undefined);
@@ -74,8 +82,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, [state.accessToken]);
 
   const value = React.useMemo<SessionContextValue>(
-    () => ({ ...state, login, register, logout }),
-    [state, login, register, logout],
+    () => ({ ...state, login, register, completeOAuthLogin, logout }),
+    [state, login, register, completeOAuthLogin, logout],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

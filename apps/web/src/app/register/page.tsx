@@ -3,6 +3,7 @@
 import { ApiError } from '@/lib/api';
 import { useSession } from '@/lib/auth-context';
 import { AuthShell } from '@/components/auth/AuthShell';
+import { OAuthButtons } from '@/components/auth/OAuthButtons';
 import { Button, Input, Label } from '@atlas/ui';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -33,6 +34,7 @@ export default function RegisterPage() {
 
   return (
     <AuthShell title="Create your account" subtitle="A resume upload away from your first plotted route.">
+      <OAuthButtons />
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
         <div>
           <Label htmlFor="full_name">Full name</Label>
