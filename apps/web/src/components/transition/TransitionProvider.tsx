@@ -34,7 +34,7 @@ export function TransitionProvider({ children }: { children: React.ReactNode }) 
 
   const navigate = React.useCallback((href: string, event: React.MouseEvent) => {
     setOrigin({ x: event.clientX, y: event.clientY });
-    pendingPath.current = href.split(/[?#]/)[0];
+    pendingPath.current = href.split(/[?#]/)[0] ?? href;
     setPhase('covering');
   }, []);
 
