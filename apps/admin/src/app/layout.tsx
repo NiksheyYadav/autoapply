@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Fraunces, Manrope } from 'next/font/google';
+import { Fragment_Mono, Fraunces, Manrope } from 'next/font/google';
 import type { ReactNode } from 'react';
 import { SessionProvider } from '@/lib/auth-context';
 import './globals.css';
@@ -17,6 +17,13 @@ const manrope = Manrope({
   weight: ['400', '500', '600', '700', '800'],
 });
 
+/** The "coordinate readout" register — matches apps/web; see packages/ui's tokens.css. */
+const fragmentMono = Fragment_Mono({
+  subsets: ['latin'],
+  variable: '--font-mono',
+  weight: ['400'],
+});
+
 export const metadata: Metadata = {
   title: 'Atlas Admin',
   description: 'Organization operations for Atlas: usage, applications, and platform model health.',
@@ -24,7 +31,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={`${fraunces.variable} ${manrope.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`${fraunces.variable} ${manrope.variable} ${fragmentMono.variable}`} suppressHydrationWarning>
       <body>
         <SessionProvider>{children}</SessionProvider>
       </body>

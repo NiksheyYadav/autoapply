@@ -9,6 +9,13 @@
 @theme {
   --font-display: 'Fraunces', ui-serif, Georgia, serif;
   --font-sans: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+  /**
+   * A third, deliberately invented typographic register: not a body font,
+   * not a headline font — a "coordinate readout" voice for waypoint labels,
+   * status chips, and stat captions, reinforcing the map/route identity
+   * rather than reaching for a generic dev-tool monospace.
+   */
+  --font-mono: 'Fragment Mono', ui-monospace, 'SFMono-Regular', monospace;
 
   /* --- Light (default) ------------------------------------------------- */
   --color-canvas: #faf7f2;
@@ -99,4 +106,70 @@
 body {
   background: var(--color-canvas);
   color: var(--color-ink);
+}
+
+/* --- GlowText -------------------------------------------------------------
+ * Atlas's kinetic-text signature: a slow accent→progress sweep, built from
+ * the design system's own two signal colors rather than a generic AI-SaaS
+ * purple gradient. A blurred duplicate layer behind the glyphs gives the
+ * glow; both layers share one animation so they stay in lockstep. */
+.atlas-glow-text__fg,
+.atlas-glow-text__halo {
+  background: linear-gradient(100deg, var(--color-accent) 0%, var(--color-progress) 50%, var(--color-accent) 100%);
+  background-size: 220% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: atlas-glow-sweep 7s linear infinite;
+}
+
+.atlas-glow-text__halo {
+  filter: blur(16px);
+  opacity: 0.55;
+}
+
+@keyframes atlas-glow-sweep {
+  to {
+    background-position: -220% 0;
+  }
+}
+
+/* --- Marquee ---------------------------------------------------------- */
+.atlas-marquee {
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, black 8%, black 92%, transparent);
+  mask-image: linear-gradient(90deg, transparent, black 8%, black 92%, transparent);
+}
+
+.atlas-marquee__track {
+  display: flex;
+  width: max-content;
+  animation: atlas-marquee-scroll var(--atlas-marquee-duration, 28s) linear infinite;
+}
+
+.atlas-marquee__track--reverse {
+  animation-direction: reverse;
+}
+
+.atlas-marquee__group {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+}
+
+@keyframes atlas-marquee-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .atlas-glow-text__fg,
+  .atlas-glow-text__halo,
+  .atlas-marquee__track {
+    animation: none;
+  }
 }

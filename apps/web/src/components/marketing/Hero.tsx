@@ -1,13 +1,15 @@
 'use client';
 
-import { Button, RoutePath, fadeUp, staggerContainer } from '@atlas/ui';
+import { Button, GlowText, RoutePath, fadeUp, staggerContainer } from '@atlas/ui';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
+import { AmbientField } from './AmbientField';
 
 export function Hero() {
   return (
     <section className="relative overflow-hidden px-6 pt-20 pb-16 md:pt-28">
+      <AmbientField />
       <motion.div
         variants={staggerContainer}
         initial="hidden"
@@ -16,7 +18,7 @@ export function Hero() {
       >
         <motion.span
           variants={fadeUp}
-          className="mb-6 inline-flex items-center gap-2 rounded-full border border-[var(--color-line)] bg-[var(--color-surface)] px-4 py-1.5 text-xs font-medium text-[var(--color-ink-soft)]"
+          className="mb-6 inline-flex items-center gap-2 rounded-full border border-[var(--color-line)] bg-[var(--color-surface)] px-4 py-1.5 font-[var(--font-mono)] text-xs uppercase tracking-wide text-[var(--color-ink-soft)]"
         >
           Resume in, referral out
         </motion.span>
@@ -24,7 +26,7 @@ export function Hero() {
           variants={fadeUp}
           className="font-[var(--font-display)] text-4xl font-medium leading-[1.08] text-[var(--color-ink)] md:text-6xl"
         >
-          Your job search, <em className="italic text-[var(--color-accent)]">plotted</em> and worked for you.
+          Your job search, <GlowText className="italic">plotted</GlowText> and worked for you.
         </motion.h1>
         <motion.p variants={fadeUp} className="mx-auto mt-6 max-w-xl text-lg text-[var(--color-ink-soft)]">
           Atlas parses your resume, scores every opening against it, tracks each application to the finish line, and

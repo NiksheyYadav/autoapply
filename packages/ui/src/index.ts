@@ -8,3 +8,5 @@ export * from './components/ProgressRing';
 export * from './components/StatCounter';
 export * from './components/Skeleton';
 export * from './components/RoutePath';
+export * from './components/GlowText';
+export * from './components/Marquee';
