@@ -1,3 +1,4 @@
+import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createDatabase } from '@atlas/db';
 import { createLogger } from '@atlas/utils';
 import { buildApp } from './app.js';
@@ -10,14 +11,25 @@ const { db, sql, close } = createDatabase({ url: env.DATABASE_URL, maxConnection
 const tokenConfig = createTokenConfig(env);
 
 export const app = buildApp({ db, sql, env, logger, tokenConfig });
+const ready = app.ready();
 
-const shutdown = async (signal: string): Promise<void> => {
-  logger.info({ signal }, 'shutting down');
-  await app.close();
-  await close();
-  process.exit(0);
-};
-process.on('SIGTERM', () => void shutdown('SIGTERM'));
-process.on('SIGINT', () => void shutdown('SIGINT'));
+// Vercel invokes this module as a serverless request handler — it never calls
+// app.listen(), so the app must be dispatched onto the request/response pair
+// it hands us instead of a bound socket.
+export default async function handler(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  await ready;
+  app.server.emit('request', req, res);
+}
 
-await app.listen({ host: env.HOST, port: env.PORT });
+if (!process.env.VERCEL) {
+  const shutdown = async (signal: string): Promise<void> => {
+    logger.info({ signal }, 'shutting down');
+    await app.close();
+    await close();
+    process.exit(0);
+  };
+  process.on('SIGTERM', () => void shutdown('SIGTERM'));
+  process.on('SIGINT', () => void shutdown('SIGINT'));
+
+  await app.listen({ host: env.HOST, port: env.PORT });
+}

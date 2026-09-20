@@ -1,6 +1,6 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 
 const CONTACTS = [
   { top: '30%', left: '62%', delay: 0 },
@@ -21,6 +21,10 @@ export interface RadarSweepProps {
  * UnderConstruction and the not-found/error pages.
  */
 export function RadarSweep({ size = 240, className }: RadarSweepProps) {
+  // The CSS `prefers-reduced-motion` block only disables .atlas-orb's CSS
+  // keyframes — these loops run on Framer Motion, so they need their own gate.
+  const reducedMotion = useReducedMotion();
+
   return (
     <div className={className} style={{ width: size, height: size }} aria-hidden="true">
       <div className="relative h-full w-full overflow-hidden rounded-full border border-[var(--color-line-strong)]">
@@ -36,8 +40,8 @@ export function RadarSweep({ size = 240, className }: RadarSweepProps) {
             background: 'conic-gradient(from 0deg, var(--color-accent) 0deg, transparent 60deg, transparent 360deg)',
             opacity: 0.35,
           }}
-          animate={{ rotate: 360 }}
-          transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
+          animate={reducedMotion ? undefined : { rotate: 360 }}
+          transition={reducedMotion ? undefined : { duration: 4, repeat: Infinity, ease: 'linear' }}
         />
 
         {CONTACTS.map((contact, index) => (
@@ -45,8 +49,8 @@ export function RadarSweep({ size = 240, className }: RadarSweepProps) {
             key={index}
             className="absolute h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--color-accent)]"
             style={{ top: contact.top, left: contact.left }}
-            animate={{ opacity: [0, 1, 0], scale: [0.6, 1.3, 0.6] }}
-            transition={{ duration: 2.4, repeat: Infinity, delay: contact.delay, ease: 'easeInOut' }}
+            animate={reducedMotion ? undefined : { opacity: [0, 1, 0], scale: [0.6, 1.3, 0.6] }}
+            transition={reducedMotion ? undefined : { duration: 2.4, repeat: Infinity, delay: contact.delay, ease: 'easeInOut' }}
           />
         ))}
 
