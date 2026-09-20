@@ -1,9 +1,9 @@
 'use client';
 
-import { Button, fadeUp, viewportOnce } from '@atlas/ui';
+import { fadeUp, viewportOnce } from '@atlas/ui';
 import { motion } from 'framer-motion';
-import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
+import { TransitionLink } from '../transition/TransitionLink';
 
 export function CtaSection() {
   return (
@@ -22,12 +22,10 @@ export function CtaSection() {
         <p className="mx-auto mt-4 max-w-md text-[var(--color-ink-soft)]">
           Upload a resume, get a plotted route through your search in under a minute.
         </p>
-        <Button asChild size="lg" className="mt-8">
-          <Link href="/register">
-            Create your free account
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-        </Button>
+        <TransitionLink href="/register" size="lg" className="mt-8">
+          Create your free account
+          <ArrowRight className="h-4 w-4" />
+        </TransitionLink>
       </motion.div>
     </section>
   );

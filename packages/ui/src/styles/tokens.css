@@ -156,6 +156,25 @@ body {
   }
 }
 
+/* --- Floating orbs (page-wide ambient background) ------------------------ */
+@keyframes atlas-float-seq {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(30px, -40px) scale(1.06);
+  }
+  66% {
+    transform: translate(-25px, 25px) scale(0.96);
+  }
+}
+
+.atlas-orb {
+  animation: atlas-float-seq var(--atlas-orb-duration, 18s) ease-in-out infinite;
+  animation-delay: var(--atlas-orb-delay, 0s);
+}
+
 /* --- Orbit --------------------------------------------------------------
  * Used by AgentOrbit (apps/web hero visual): a node rotates around the
  * center at a fixed radius while counter-rotating itself so its label
@@ -199,6 +218,7 @@ body {
   .atlas-shimmer-text,
   .atlas-marquee__track,
   .atlas-orbit,
+  .atlas-orb,
   .atlas-bg-grid {
     animation: none;
   }

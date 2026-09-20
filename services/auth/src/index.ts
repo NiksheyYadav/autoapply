@@ -1,17 +1,27 @@
+import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createDatabase } from '@atlas/db';
 import { createLogger } from '@atlas/utils';
 import { buildApp } from './app.js';
 import { loadAuthServiceEnv } from './env.js';
 import { createTokenConfig } from './security/tokens.js';
 
-async function main(): Promise<void> {
-  const env = loadAuthServiceEnv();
-  const logger = createLogger({ service: 'auth-service', level: env.LOG_LEVEL, pretty: env.LOG_PRETTY });
-  const { db, sql, close } = createDatabase({ url: env.DATABASE_URL, maxConnections: env.DATABASE_POOL_MAX });
-  const tokenConfig = createTokenConfig(env);
+const env = loadAuthServiceEnv();
+const logger = createLogger({ service: 'auth-service', level: env.LOG_LEVEL, pretty: env.LOG_PRETTY });
+const { db, sql, close } = createDatabase({ url: env.DATABASE_URL, maxConnections: env.DATABASE_POOL_MAX });
+const tokenConfig = createTokenConfig(env);
 
-  const app = buildApp({ db, sql, env, logger, tokenConfig });
+export const app = buildApp({ db, sql, env, logger, tokenConfig });
+const ready = app.ready();
 
+// Vercel invokes this module as a serverless request handler — it never calls
+// app.listen(), so the app must be dispatched onto the request/response pair
+// it hands us instead of a bound socket.
+export default async function handler(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  await ready;
+  app.server.emit('request', req, res);
+}
+
+if (!process.env.VERCEL) {
   const shutdown = async (signal: string): Promise<void> => {
     logger.info({ signal }, 'shutting down');
     await app.close();
@@ -23,8 +33,3 @@ async function main(): Promise<void> {
 
   await app.listen({ host: env.HOST, port: env.PORT });
 }
-
-main().catch((error: unknown) => {
-  console.error(error);
-  process.exit(1);
-});
