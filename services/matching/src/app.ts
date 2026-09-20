@@ -8,6 +8,7 @@ import type { Database } from '@atlas/db';
 import type { EventBroker } from '@atlas/messaging';
 import type { ErrorCode } from '@atlas/types';
 import { isAppError, newUuid, toAppError, type Logger } from '@atlas/utils';
+import { createMetricsRegistry, metricsRoute, registerHttpMetrics } from '@atlas/observability';
 import type { MatchingServiceEnv } from './env.js';
 import { healthRoute } from './http/routes/health.js';
 
@@ -42,6 +43,9 @@ export function buildApp(deps: AppDeps): FastifyInstance {
     max: deps.env.RATE_LIMIT_MAX,
     timeWindow: deps.env.RATE_LIMIT_WINDOW,
   });
+
+  const metrics = createMetricsRegistry('matching-service');
+  registerHttpMetrics(app, metrics);
 
   app.setErrorHandler((error: FastifyError | ZodError, request, reply) => {
     if (error instanceof ZodError) {
@@ -85,6 +89,7 @@ export function buildApp(deps: AppDeps): FastifyInstance {
   });
 
   healthRoute(app, deps);
+  metricsRoute(app, metrics);
 
   return app;
 }

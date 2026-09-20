@@ -138,4 +138,11 @@ describe.skipIf(!testDatabaseUrl)('jobs-service HTTP flow', () => {
     expect(res.statusCode).toBe(200);
     expect(res.json().items).toEqual([]);
   });
+
+  it('exposes Prometheus metrics, including counts for requests made during this suite', async () => {
+    const res = await app.inject({ method: 'GET', url: '/metrics' });
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toContain('service="jobs-service"');
+    expect(res.body).toContain('http_requests_total');
+  });
 });

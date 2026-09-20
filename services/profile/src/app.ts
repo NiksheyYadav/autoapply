@@ -11,6 +11,7 @@ import type { EventBroker } from '@atlas/messaging';
 import type { StorageDriver } from '@atlas/storage';
 import type { ErrorCode } from '@atlas/types';
 import { isAppError, newUuid, toAppError, type Logger } from '@atlas/utils';
+import { createMetricsRegistry, metricsRoute, registerHttpMetrics } from '@atlas/observability';
 import type { ProfileServiceEnv } from './env.js';
 import { getResumeRoute } from './http/routes/get-resume.js';
 import { healthRoute } from './http/routes/health.js';
@@ -54,6 +55,9 @@ export function buildApp(deps: AppDeps): FastifyInstance {
     limits: { fileSize: deps.env.BODY_LIMIT_BYTES, files: 1 },
   });
 
+  const metrics = createMetricsRegistry('profile-service');
+  registerHttpMetrics(app, metrics);
+
   app.setErrorHandler((error: FastifyError | ZodError, request, reply) => {
     if (error instanceof ZodError) {
       reply.status(400).send({
@@ -96,6 +100,7 @@ export function buildApp(deps: AppDeps): FastifyInstance {
   });
 
   healthRoute(app, deps);
+  metricsRoute(app, metrics);
   uploadResumeRoute(app, deps);
   getResumeRoute(app, deps);
   listResumesRoute(app, deps);

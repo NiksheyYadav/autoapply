@@ -7,6 +7,7 @@ import { parseCorsOrigins } from '@atlas/config';
 import type { Database } from '@atlas/db';
 import type { ErrorCode } from '@atlas/types';
 import { isAppError, newUuid, toAppError, type Logger } from '@atlas/utils';
+import { createMetricsRegistry, metricsRoute, registerHttpMetrics } from '@atlas/observability';
 import type { AuthServiceEnv } from './env.js';
 import { healthRoute } from './http/routes/health.js';
 import { loginRoute } from './http/routes/login.js';
@@ -49,6 +50,9 @@ export function buildApp(deps: AppDeps): FastifyInstance {
     max: deps.env.RATE_LIMIT_MAX,
     timeWindow: deps.env.RATE_LIMIT_WINDOW,
   });
+
+  const metrics = createMetricsRegistry('auth-service');
+  registerHttpMetrics(app, metrics);
 
   app.setErrorHandler((error: FastifyError | ZodError, request, reply) => {
     if (error instanceof ZodError) {
@@ -94,6 +98,7 @@ export function buildApp(deps: AppDeps): FastifyInstance {
   });
 
   healthRoute(app, deps);
+  metricsRoute(app, metrics);
   registerRoute(app, deps);
   loginRoute(app, deps);
   refreshRoute(app, deps);

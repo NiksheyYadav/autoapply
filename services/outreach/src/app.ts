@@ -9,6 +9,7 @@ import type { Database } from '@atlas/db';
 import type { EventBroker } from '@atlas/messaging';
 import type { ErrorCode } from '@atlas/types';
 import { isAppError, newUuid, toAppError, type Logger } from '@atlas/utils';
+import { createMetricsRegistry, metricsRoute, registerHttpMetrics } from '@atlas/observability';
 import type { OutreachServiceEnv } from './env.js';
 import { createMessageRoute } from './http/routes/create-message.js';
 import { getMessageRoute } from './http/routes/get-message.js';
@@ -52,6 +53,9 @@ export function buildApp(deps: AppDeps): FastifyInstance {
     timeWindow: deps.env.RATE_LIMIT_WINDOW,
   });
 
+  const metrics = createMetricsRegistry('outreach-service');
+  registerHttpMetrics(app, metrics);
+
   app.setErrorHandler((error: FastifyError | ZodError, request, reply) => {
     if (error instanceof ZodError) {
       reply.status(400).send({
@@ -94,6 +98,7 @@ export function buildApp(deps: AppDeps): FastifyInstance {
   });
 
   healthRoute(app, deps);
+  metricsRoute(app, metrics);
   createMessageRoute(app, deps);
   listMessagesRoute(app, deps);
   getMessageRoute(app, deps);

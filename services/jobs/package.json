@@ -12,6 +12,7 @@
     "@atlas/auth-kit": "workspace:*",
     "@atlas/config": "workspace:*",
     "@atlas/db": "workspace:*",
+    "@atlas/observability": "workspace:*",
     "@atlas/messaging": "workspace:*",
     "@atlas/types": "workspace:*",
     "@atlas/utils": "workspace:*",
