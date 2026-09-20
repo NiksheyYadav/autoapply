@@ -1,4 +1,4 @@
-import { and, desc, eq, lt, or } from 'drizzle-orm';
+import { and, desc, eq, inArray, lt, or } from 'drizzle-orm';
 import { schema, type Database } from '@atlas/db';
 import type { Message, MessageChannel, PaginationQuery } from '@atlas/types';
 import { decodeCursor, encodeCursor } from '@atlas/utils';
@@ -66,14 +66,23 @@ export async function setScheduled(db: Database, messageId: string, scheduledFor
   return row;
 }
 
-export async function setSent(db: Database, messageId: string): Promise<MessageRow> {
+/**
+ * Atomically claims a message for sending by flipping it straight to `sent`
+ * *before* the external transport call, guarded by the status check in the
+ * `WHERE` clause. Two concurrent requests (a real race, or a client retrying
+ * a slow first attempt) can't both pass this: only one UPDATE matches a row,
+ * the other gets `null` back and must not call the transport. If the send
+ * itself then fails, the caller reverts the claim via `setFailed`.
+ */
+const CLAIMABLE_STATUSES = ['draft', 'scheduled', 'failed'] as const;
+
+export async function claimForSending(db: Database, messageId: string): Promise<MessageRow | null> {
   const [row] = await db
     .update(schema.messages)
     .set({ status: 'sent', sentAt: new Date().toISOString() })
-    .where(eq(schema.messages.messageId, messageId))
+    .where(and(eq(schema.messages.messageId, messageId), inArray(schema.messages.status, CLAIMABLE_STATUSES)))
     .returning();
-  if (!row) throw new Error('setSent: message disappeared mid-update');
-  return row;
+  return row ?? null;
 }
 
 export async function setFailed(db: Database, messageId: string): Promise<MessageRow> {

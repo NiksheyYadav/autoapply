@@ -25,5 +25,5 @@ export function getResume(resumeId: string, accessToken: string): Promise<Resume
 }
 
 export function listResumes(accessToken: string): Promise<Page<Resume>> {
-  return apiFetch(SERVICE_URLS.profile, '/v1/resumes', { accessToken });
+  return apiFetch<Page<Resume>>(SERVICE_URLS.profile, '/v1/resumes', { accessToken });
 }

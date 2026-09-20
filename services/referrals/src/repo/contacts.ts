@@ -1,4 +1,4 @@
-import { and, desc, eq, lt, or } from 'drizzle-orm';
+import { and, desc, eq, inArray, lt, or } from 'drizzle-orm';
 import { schema, type Database } from '@atlas/db';
 import type { Contact, PaginationQuery } from '@atlas/types';
 import { decodeCursor, encodeCursor } from '@atlas/utils';
@@ -87,7 +87,7 @@ export async function listForCompany(
   };
 }
 
-/** Top N contacts for a company by relevance — used by both the worker and the read API. */
+/** Top N contacts for a company by relevance — used by the worker's single-company fan-out. */
 export async function topContactsForCompany(db: Database, companyId: string, limit: number): Promise<ContactRow[]> {
   return db
     .select()
@@ -95,4 +95,36 @@ export async function topContactsForCompany(db: Database, companyId: string, lim
     .where(eq(schema.contacts.companyId, companyId))
     .orderBy(desc(schema.contacts.relevanceScore), desc(schema.contacts.contactId))
     .limit(limit);
+}
+
+/**
+ * Batched sibling of `topContactsForCompany` for the multi-company read path
+ * (`findReferralCandidatesForUser`) — one query for every company instead of
+ * one per company. Grouping and the per-company `limit` happen in memory;
+ * with a handful of companies and a curated contacts table this is far
+ * cheaper than N round trips, without needing a window-function query.
+ */
+export async function topContactsForCompanies(
+  db: Database,
+  companyIds: string[],
+  limitPerCompany: number,
+): Promise<Map<string, ContactRow[]>> {
+  const result = new Map<string, ContactRow[]>();
+  if (companyIds.length === 0) return result;
+
+  const rows = await db
+    .select()
+    .from(schema.contacts)
+    .where(inArray(schema.contacts.companyId, companyIds))
+    .orderBy(desc(schema.contacts.relevanceScore), desc(schema.contacts.contactId));
+
+  for (const row of rows) {
+    const bucket = result.get(row.companyId);
+    if (bucket) {
+      if (bucket.length < limitPerCompany) bucket.push(row);
+    } else {
+      result.set(row.companyId, [row]);
+    }
+  }
+  return result;
 }

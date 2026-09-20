@@ -41,14 +41,21 @@ export function connectRoute(app: FastifyInstance, deps: AppDeps): void {
     try {
       const existing = await findByUserAndProvider(deps.db, actor.user_id, provider);
       if (existing) {
-        // Reconnecting replaces the credential; the old one must not linger.
-        await deps.secretStore.delete(existing.secretRef);
+        // Update the row to point at the new secret *before* touching the
+        // old one — if replaceConnection fails, the row still points at a
+        // live secret instead of a deleted one. Only retire the old secret
+        // once the swap has actually committed.
         const updated = await replaceConnection(deps.db, {
           connectorAccountId: existing.connectorAccountId,
           externalAccountId: body.external_account_id,
           secretRef: ref,
           scopes: body.scopes,
           consentGrantedAt,
+        });
+        await deps.secretStore.delete(existing.secretRef).catch((cause: unknown) => {
+          // The connection itself is healthy (it points at the new secret) —
+          // a leftover old secret is cleanup debt, not a broken connector.
+          request.log.warn({ err: cause, connectorAccountId: existing.connectorAccountId }, 'failed to delete replaced connector secret');
         });
         const response: ConnectResponse = { connector: toConnectorAccountView(updated) };
         reply.status(200).send(response);

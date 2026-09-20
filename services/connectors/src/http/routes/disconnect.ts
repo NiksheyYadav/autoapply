@@ -22,12 +22,11 @@ export function disconnectRoute(app: FastifyInstance, deps: AppDeps): void {
       throw new AppError('NOT_FOUND', `No connection for provider "${provider}"`);
     }
 
-    // Best-effort: the credential is gone from the store either way once we
-    // mark the row revoked, and a missing file is already a no-op (local
-    // driver's delete uses `force: true`).
-    await deps.secretStore.delete(existing.secretRef).catch((cause: unknown) => {
-      request.log.warn({ err: cause, connectorAccountId: existing.connectorAccountId }, 'failed to delete connector secret');
-    });
+    // Delete before marking revoked, not best-effort: if this throws, the
+    // row must stay un-revoked so the credential isn't left sitting in the
+    // secret store with no record admitting it's still there. The caller
+    // sees the failure and can retry disconnect.
+    await deps.secretStore.delete(existing.secretRef);
 
     const updated = await markRevoked(deps.db, existing.connectorAccountId);
     const response: DisconnectResponse = { connector: toConnectorAccountView(updated) };

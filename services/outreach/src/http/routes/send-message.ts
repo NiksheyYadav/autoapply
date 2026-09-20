@@ -5,7 +5,7 @@ import { createEvent } from '@atlas/messaging';
 import { uuidSchema, type MessageResponse } from '@atlas/types';
 import { AppError, newTraceContext } from '@atlas/utils';
 import type { AppDeps } from '../../app.js';
-import { findById, setFailed, setSent, toMessage } from '../../repo/messages.js';
+import { claimForSending, findById, setFailed, toMessage } from '../../repo/messages.js';
 
 const paramsSchema = z.object({ id: uuidSchema });
 
@@ -18,27 +18,33 @@ export function sendMessageRoute(app: FastifyInstance, deps: AppDeps): void {
     if (!row || row.userId !== actor.user_id) {
       throw new AppError('NOT_FOUND', 'Message not found');
     }
-    if (row.status !== 'draft' && row.status !== 'scheduled') {
+
+    // Claim atomically *before* calling the external transport — a
+    // conditional UPDATE, not a read-then-write — so a concurrent request or
+    // a client retrying a slow first attempt can't both reach transport.send
+    // for the same message. Only the request that wins the claim proceeds;
+    // the other sees `null` and fails fast without sending anything.
+    const claimed = await claimForSending(deps.db, id);
+    if (!claimed) {
       throw new AppError('VALIDATION_ERROR', `Cannot send a message that is already "${row.status}"`);
     }
 
     try {
-      await deps.transport.send(toMessage(row));
+      await deps.transport.send(toMessage(claimed));
     } catch (cause) {
       await setFailed(deps.db, id);
       throw cause;
     }
 
-    const updated = await setSent(deps.db, id);
     await deps.broker.publish(
       createEvent(
         'outreach.sent',
-        { message_id: updated.messageId, user_id: updated.userId, contact_id: updated.contactId, channel: updated.channel },
-        newTraceContext({ user_id: updated.userId }),
+        { message_id: claimed.messageId, user_id: claimed.userId, contact_id: claimed.contactId, channel: claimed.channel },
+        newTraceContext({ user_id: claimed.userId }),
       ),
     );
 
-    const response: MessageResponse = { message: toMessage(updated) };
+    const response: MessageResponse = { message: toMessage(claimed) };
     reply.status(200).send(response);
   });
 }

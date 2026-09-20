@@ -1,4 +1,4 @@
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import { schema, type Database } from '@atlas/db';
 import type { Company, Job } from '@atlas/types';
 
@@ -50,6 +50,21 @@ export async function findCompanyById(db: Database, companyId: string): Promise<
   };
 }
 
+/** Batched sibling of `findCompanyById` — one query for N companies instead of N. */
+export async function findCompaniesByIds(db: Database, companyIds: string[]): Promise<Company[]> {
+  if (companyIds.length === 0) return [];
+  const rows = await db.select().from(schema.companies).where(inArray(schema.companies.companyId, companyIds));
+  return rows.map((row) => ({
+    company_id: row.companyId,
+    name: row.name,
+    normalized_name: row.normalizedName,
+    industry: row.industry,
+    website: row.website,
+    domain: row.domain,
+    created_at: row.createdAt,
+  }));
+}
+
 export interface UserApplicationCompany {
   applicationId: string;
   jobId: string;
@@ -74,4 +89,20 @@ export async function listUserApplicationCompanies(
     .orderBy(desc(schema.applications.createdAt))
     .limit(limit);
   return rows;
+}
+
+/**
+ * The authorization rule for a company's contacts: you've applied to a job
+ * there. Without this, `GET /v1/companies/:id/contacts` would let any
+ * authenticated user enumerate every company's contacts (names, emails,
+ * LinkedIn URLs) by guessing UUIDs.
+ */
+export async function hasUserAppliedToCompany(db: Database, userId: string, companyId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ applicationId: schema.applications.applicationId })
+    .from(schema.applications)
+    .innerJoin(schema.jobs, eq(schema.applications.jobId, schema.jobs.jobId))
+    .where(and(eq(schema.applications.userId, userId), eq(schema.jobs.companyId, companyId)))
+    .limit(1);
+  return row !== undefined;
 }

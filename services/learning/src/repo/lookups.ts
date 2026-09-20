@@ -27,11 +27,20 @@ export async function listRecentScores(db: Database, limit = SAMPLE_LIMIT): Prom
   return rows;
 }
 
-/** `${userId}:${jobId}` pairs with an application — a Set for O(1) lookup while scoring in memory. */
+/**
+ * `${userId}:${jobId}` pairs with an application — a Set for O(1) lookup
+ * while scoring in memory. Ordered by recency, same as `listRecentScores`:
+ * an unordered `LIMIT` here would take an arbitrary slice once there are
+ * more than SAMPLE_LIMIT applications, so a real application could fall
+ * outside the sample and get misclassified as "not applied" even though its
+ * score is in the recent-scores sample. Ordering both by recency keeps the
+ * two samples aligned to the same window.
+ */
 export async function listApplicationPairs(db: Database, limit = SAMPLE_LIMIT): Promise<Set<string>> {
   const rows = await db
     .select({ userId: schema.applications.userId, jobId: schema.applications.jobId })
     .from(schema.applications)
+    .orderBy(desc(schema.applications.createdAt))
     .limit(limit);
   return new Set(rows.map((row) => `${row.userId}:${row.jobId}`));
 }
