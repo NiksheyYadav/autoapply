@@ -2,8 +2,8 @@
 
 import { animate, useInView, useMotionValue, useTransform, motion } from 'framer-motion';
 import * as React from 'react';
-import { cn } from '../lib/cn.js';
-import { DURATION, viewportOnce } from '../motion.js';
+import { cn } from '../lib/cn';
+import { DURATION, viewportOnce } from '../motion';
 
 export interface StatCounterProps {
   value: number;

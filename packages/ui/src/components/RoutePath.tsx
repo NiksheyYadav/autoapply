@@ -2,8 +2,8 @@
 
 import { motion } from 'framer-motion';
 import * as React from 'react';
-import { cn } from '../lib/cn.js';
-import { EASE } from '../motion.js';
+import { cn } from '../lib/cn';
+import { EASE } from '../motion';
 
 export interface RoutePathProps {
   className?: string;

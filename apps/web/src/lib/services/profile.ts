@@ -1,6 +1,6 @@
 import type { CreateResumeResponse, Page, Resume, ResumeResponse } from '@atlas/types';
-import { ApiError, apiFetch } from '../api.js';
-import { SERVICE_URLS } from '../config.js';
+import { ApiError, apiFetch } from '../api';
+import { SERVICE_URLS } from '../config';
 
 export async function uploadResume(file: File, accessToken: string): Promise<CreateResumeResponse> {
   const form = new FormData();

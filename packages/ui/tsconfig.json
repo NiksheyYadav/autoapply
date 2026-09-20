@@ -4,7 +4,13 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
-    "types": ["react"]
+    "types": ["react"],
+    /* Only ever consumed by bundler-based apps (apps/web, apps/admin), never
+       run directly the way services/* are — extensionless relative imports
+       match what those bundlers actually resolve, unlike the NodeNext
+       convention the backend packages use. */
+    "module": "esnext",
+    "moduleResolution": "bundler"
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"]
 }

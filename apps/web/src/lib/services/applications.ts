@@ -1,6 +1,6 @@
 import type { ApplicationResponse, CreateApplicationRequest, ListApplicationsResponse } from '@atlas/types';
-import { apiFetch } from '../api.js';
-import { SERVICE_URLS } from '../config.js';
+import { apiFetch } from '../api';
+import { SERVICE_URLS } from '../config';
 
 export function createApplication(
   input: CreateApplicationRequest,

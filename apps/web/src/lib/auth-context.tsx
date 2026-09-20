@@ -2,7 +2,7 @@
 
 import type { PublicUser } from '@atlas/types';
 import * as React from 'react';
-import * as authApi from './services/auth.js';
+import * as authApi from './services/auth';
 
 /**
  * Refresh token lives in localStorage and the access token only in memory —

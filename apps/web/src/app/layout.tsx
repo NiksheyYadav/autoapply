@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Fraunces, Manrope } from 'next/font/google';
 import type { ReactNode } from 'react';
-import { SessionProvider } from '@/lib/auth-context.js';
+import { SessionProvider } from '@/lib/auth-context';
 import './globals.css';
 
 const fraunces = Fraunces({

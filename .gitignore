@@ -3,6 +3,9 @@ dist/
 build/
 coverage/
 .turbo/
+.next/
+next-env.d.ts
+*.tsbuildinfo
 
 # Env & secrets — never commit real values (see docs/09, docs/10)
 .env

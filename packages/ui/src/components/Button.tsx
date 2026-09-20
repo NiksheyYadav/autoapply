@@ -4,8 +4,8 @@ import { Slot } from '@radix-ui/react-slot';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { motion } from 'framer-motion';
 import * as React from 'react';
-import { cn } from '../lib/cn.js';
-import { springs } from '../motion.js';
+import { cn } from '../lib/cn';
+import { springs } from '../motion';
 
 const buttonVariants = cva(
   'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[var(--radius-control)] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-canvas)] disabled:pointer-events-none disabled:opacity-50',

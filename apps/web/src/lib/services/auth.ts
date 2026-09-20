@@ -1,6 +1,6 @@
 import type { AuthSessionResponse, LoginRequest, MemberRole, Permissions, PublicUser, RegisterRequest, TokenPair } from '@atlas/types';
-import { apiFetch } from '../api.js';
-import { SERVICE_URLS } from '../config.js';
+import { apiFetch } from '../api';
+import { SERVICE_URLS } from '../config';
 
 export function register(input: RegisterRequest): Promise<AuthSessionResponse> {
   return apiFetch<AuthSessionResponse>(SERVICE_URLS.auth, '/v1/auth/register', { method: 'POST', body: input });

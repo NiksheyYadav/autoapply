@@ -2,8 +2,8 @@
 
 import { motion, useInView } from 'framer-motion';
 import * as React from 'react';
-import { cn } from '../lib/cn.js';
-import { DURATION, EASE, viewportOnce } from '../motion.js';
+import { cn } from '../lib/cn';
+import { DURATION, EASE, viewportOnce } from '../motion';
 
 export interface ProgressRingProps {
   /** 0–100. */

@@ -2,8 +2,8 @@
 
 import { motion } from 'framer-motion';
 import * as React from 'react';
-import { cn } from '../lib/cn.js';
-import { EASE } from '../motion.js';
+import { cn } from '../lib/cn';
+import { EASE } from '../motion';
 
 export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   /** Lifts and gains a stronger border on hover — for cards that are also links/buttons. */

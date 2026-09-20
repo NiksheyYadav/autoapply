@@ -1,6 +1,6 @@
 import type { JobRecommendationsResponse } from '@atlas/types';
-import { apiFetch } from '../api.js';
-import { SERVICE_URLS } from '../config.js';
+import { apiFetch } from '../api';
+import { SERVICE_URLS } from '../config';
 
 export function getRecommendations(userId: string, accessToken: string): Promise<JobRecommendationsResponse> {
   const query = new URLSearchParams({ user_id: userId, limit: '20' });

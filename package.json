@@ -28,6 +28,7 @@
     "dev:applications": "pnpm --filter @atlas/applications-service run dev",
     "dev:referrals": "pnpm --filter @atlas/referrals-service run dev",
     "dev:outreach": "pnpm --filter @atlas/outreach-service run dev",
+    "dev:web": "pnpm --filter @atlas/web run dev",
     "dev:workers": "pnpm --filter @atlas/jobs-service run dev:worker"
   },
   "devDependencies": {
