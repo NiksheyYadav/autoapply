@@ -8,6 +8,13 @@
       "when": 1785675778996,
       "tag": "0000_demonic_black_tarantula",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789934435328,
+      "tag": "0001_drop_sessions_table",
+      "breakpoints": true
     }
   ]
 }
