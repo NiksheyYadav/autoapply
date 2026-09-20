@@ -2,27 +2,9 @@
 
 import { Logo, cn } from '@atlas/ui';
 import { motion } from 'framer-motion';
-import {
-  FileText,
-  LayoutDashboard,
-  MailPlus,
-  Plug,
-  Search,
-  SendHorizontal,
-  Users,
-} from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-
-const NAV_ITEMS = [
-  { href: '/dashboard', label: 'Overview', icon: LayoutDashboard, exact: true },
-  { href: '/dashboard/resume', label: 'Resume', icon: FileText },
-  { href: '/dashboard/jobs', label: 'Jobs', icon: Search },
-  { href: '/dashboard/applications', label: 'Applications', icon: SendHorizontal },
-  { href: '/dashboard/referrals', label: 'Referrals', icon: Users },
-  { href: '/dashboard/messages', label: 'Messages', icon: MailPlus },
-  { href: '/dashboard/connectors', label: 'Connectors', icon: Plug },
-];
+import { DASHBOARD_NAV_ITEMS } from './nav-items';
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -33,7 +15,7 @@ export function Sidebar() {
         <Logo size={26} />
       </Link>
       <nav className="flex flex-col gap-1">
-        {NAV_ITEMS.map((item) => {
+        {DASHBOARD_NAV_ITEMS.map((item) => {
           const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);
           return (
             <Link

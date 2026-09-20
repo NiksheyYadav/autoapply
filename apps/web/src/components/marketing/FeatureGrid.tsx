@@ -26,7 +26,7 @@ export function FeatureGrid() {
         >
           <motion.div variants={fadeUp} className="md:col-span-2">
             <MagneticHover strength={6} className="block h-full w-full">
-              <Card interactive className="relative h-full overflow-hidden p-10">
+              <Card interactive className="relative h-full overflow-hidden p-6 sm:p-10">
                 <div className="absolute top-0 right-0 h-64 w-64 rounded-full bg-[var(--color-accent)]/5 blur-3xl" />
                 <div className="relative z-10">
                   <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-xl border border-[var(--color-accent)]/20 bg-[var(--color-accent-soft)]">
@@ -44,7 +44,7 @@ export function FeatureGrid() {
 
           <motion.div variants={fadeUp}>
             <MagneticHover strength={6} className="block h-full w-full">
-              <Card interactive className="h-full p-10">
+              <Card interactive className="h-full p-6 sm:p-10">
                 <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-xl border border-[var(--color-line-strong)] bg-white/5">
                   <MapPinned className="h-5 w-5 text-[var(--color-ink)]" strokeWidth={2} />
                 </div>
@@ -58,7 +58,7 @@ export function FeatureGrid() {
 
           <motion.div variants={fadeUp}>
             <MagneticHover strength={6} className="block h-full w-full">
-              <Card interactive className="h-full p-10">
+              <Card interactive className="h-full p-6 sm:p-10">
                 <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-xl border border-[var(--color-line-strong)] bg-white/5">
                   <SendHorizontal className="h-5 w-5 text-[var(--color-ink)]" strokeWidth={2} />
                 </div>
@@ -72,7 +72,7 @@ export function FeatureGrid() {
 
           <motion.div variants={fadeUp} className="md:col-span-2">
             <MagneticHover strength={6} className="block h-full w-full">
-              <Card interactive className="flex h-full items-center gap-8 p-10">
+              <Card interactive className="flex h-full flex-col items-start gap-6 p-6 sm:flex-row sm:items-center sm:gap-8 sm:p-10">
                 <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border border-[var(--color-accent)]/20 bg-[var(--color-accent-soft)]">
                   <Users className="h-6 w-6 text-[var(--color-accent)]" strokeWidth={2} />
                 </div>
