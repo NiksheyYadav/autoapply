@@ -74,16 +74,16 @@ export interface ListForUserResult {
   nextCursor: string | null;
 }
 
-export async function listForUser(
+async function listByCondition(
   db: Database,
-  userId: string,
+  scopeCondition: ReturnType<typeof eq>,
   pagination: PaginationQuery,
 ): Promise<ListForUserResult> {
   const cursorValue = pagination.cursor ? decodeCursor(pagination.cursor) : null;
   const cursorCreatedAt = typeof cursorValue?.createdAt === 'string' ? cursorValue.createdAt : null;
   const cursorId = typeof cursorValue?.id === 'string' ? cursorValue.id : null;
 
-  const conditions = [eq(schema.applications.userId, userId)];
+  const conditions = [scopeCondition];
   if (cursorCreatedAt && cursorId) {
     // `created_at` alone isn't unique — a secondary key at the page boundary
     // keeps ties from being silently dropped (the same fix applied across
@@ -109,6 +109,23 @@ export async function listForUser(
     items,
     nextCursor: hasMore && last ? encodeCursor({ createdAt: last.createdAt, id: last.applicationId }) : null,
   };
+}
+
+export async function listForUser(
+  db: Database,
+  userId: string,
+  pagination: PaginationQuery,
+): Promise<ListForUserResult> {
+  return listByCondition(db, eq(schema.applications.userId, userId), pagination);
+}
+
+/** Org-wide view for admin/owner staff (apps/admin) — same pagination contract as `listForUser`. */
+export async function listForOrganization(
+  db: Database,
+  organizationId: string,
+  pagination: PaginationQuery,
+): Promise<ListForUserResult> {
+  return listByCondition(db, eq(schema.applications.organizationId, organizationId), pagination);
 }
 
 export interface AppendEventInput {

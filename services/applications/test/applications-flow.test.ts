@@ -220,4 +220,53 @@ describe.skipIf(!testDatabaseUrl)('applications-service HTTP flow', () => {
     });
     expect(finalRes.json().application.submitted_at).not.toBeNull();
   });
+
+  describe('org-wide listing (apps/admin)', () => {
+    const organizationId = randomUUID();
+    let adminToken: string;
+    let orgScopeJobId: string;
+
+    beforeAll(async () => {
+      await dbHandle.db.insert(schema.organizations).values({ organizationId, name: `Org ${organizationId.slice(0, 8)}`, type: 'enterprise' });
+      adminToken = await signTestToken({ sub: userId, sid: randomUUID(), org: organizationId, role: 'admin', email });
+
+      // A fresh job: applications_user_job_key means (userId, job_id) can
+      // only apply once, and userId already applied to jobId/secondJobId above.
+      const [job] = await dbHandle.db
+        .insert(schema.jobs)
+        .values({ companyId, title: 'Org Scope Job', source: 'manual', jobHash: randomUUID().replace(/-/g, '').padEnd(64, '0'), isActive: true })
+        .returning();
+      orgScopeJobId = job!.jobId;
+
+      await app.inject({
+        method: 'POST',
+        url: '/v1/applications',
+        headers: { authorization: `Bearer ${adminToken}`, 'idempotency-key': 'idem-key-org-scope' },
+        payload: { job_id: orgScopeJobId, resume_id: resumeId, mode: 'manual' },
+      });
+    });
+
+    afterAll(async () => {
+      await dbHandle.db.delete(schema.organizations).where(eq(schema.organizations.organizationId, organizationId));
+    });
+
+    it('rejects scope=organization from a non-admin caller', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/v1/applications?scope=organization',
+        headers: { authorization: `Bearer ${token}` },
+      });
+      expect(res.statusCode).toBe(403);
+    });
+
+    it('lets an org admin list the whole organization\'s applications', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/v1/applications?scope=organization',
+        headers: { authorization: `Bearer ${adminToken}` },
+      });
+      expect(res.statusCode).toBe(200);
+      expect(res.json().items.every((a: { organization_id: string }) => a.organization_id === organizationId)).toBe(true);
+    });
+  });
 });
