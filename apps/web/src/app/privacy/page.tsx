@@ -31,7 +31,7 @@ export default function PrivacyPage() {
             <ul className="flex flex-col gap-2 leading-relaxed">
               <li>
                 <strong className="text-[var(--color-ink)]">Account information</strong> — your name and email address,
-                either entered directly or provided by Google/Microsoft when you sign in with one of those.
+                either entered directly or provided by Google, Microsoft, or GitHub when you sign in with one of those.
               </li>
               <li>
                 <strong className="text-[var(--color-ink)]">Resume and profile data</strong> — resumes you upload, and the
@@ -69,8 +69,8 @@ export default function PrivacyPage() {
               >
                 Supabase
               </a>
-              . If you sign in with Google or Microsoft, those providers process your sign-in per their own privacy
-              policies. The site itself is hosted on{' '}
+              . If you sign in with Google, Microsoft, or GitHub, those providers process your sign-in per their own
+              privacy policies. The site itself is hosted on{' '}
               <a
                 href="https://vercel.com/legal/privacy-policy"
                 className="text-[var(--color-accent)] underline underline-offset-2"
@@ -86,8 +86,9 @@ export default function PrivacyPage() {
           <section>
             <h2 className="mb-3 text-xl font-medium text-[var(--color-ink)]">Your data, your call</h2>
             <p className="leading-relaxed">
-              You can delete your uploaded resumes and profile data from your dashboard at any time. To delete your
-              account entirely, contact us at the address below and we&apos;ll remove your account and associated data.
+              The dashboard doesn&apos;t yet have a self-service delete button. Until it does, contact us at the
+              address below to delete a specific resume, your profile data, or your account entirely — we&apos;ll
+              remove it by hand.
             </p>
           </section>
 

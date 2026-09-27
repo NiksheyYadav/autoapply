@@ -31,6 +31,17 @@ declare
 begin
   v_provider := coalesce(new.raw_app_meta_data ->> 'provider', 'email');
 
+  -- public.users.email is NOT NULL and the sole contact identifier the rest
+  -- of the app relies on. GitHub (and, in principle, other OAuth providers)
+  -- can omit it when the account has no verified/public email — fail with a
+  -- clear, diagnosable error here rather than an opaque NOT NULL violation.
+  -- There's no "add your email" follow-up flow yet, so this is a deliberate
+  -- reject, not a silent workaround.
+  if new.email is null then
+    raise exception 'atlas: % sign-in did not return an email address; public.users.email cannot be null', v_provider
+      using errcode = '23502';
+  end if;
+
   insert into public.users (user_id, email, full_name, auth_provider, email_verified)
   values (
     new.id,
