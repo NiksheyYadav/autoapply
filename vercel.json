@@ -3,25 +3,25 @@
   "framework": null,
   "installCommand": "pnpm install --frozen-lockfile",
   "functions": {
-    "services/auth/src/index.ts": { "maxDuration": 30 },
-    "services/profile/src/index.ts": { "maxDuration": 30 },
-    "services/jobs/src/index.ts": { "maxDuration": 30 },
-    "services/matching/src/index.ts": { "maxDuration": 30 },
-    "services/applications/src/index.ts": { "maxDuration": 30 },
-    "services/referrals/src/index.ts": { "maxDuration": 30 },
-    "services/outreach/src/index.ts": { "maxDuration": 30 },
-    "services/learning/src/index.ts": { "maxDuration": 30 },
-    "services/analytics/src/index.ts": { "maxDuration": 30 }
+    "api/auth/index.ts": { "maxDuration": 30 },
+    "api/profile/index.ts": { "maxDuration": 30 },
+    "api/jobs/index.ts": { "maxDuration": 30 },
+    "api/matching/index.ts": { "maxDuration": 30 },
+    "api/applications/index.ts": { "maxDuration": 30 },
+    "api/referrals/index.ts": { "maxDuration": 30 },
+    "api/outreach/index.ts": { "maxDuration": 30 },
+    "api/learning/index.ts": { "maxDuration": 30 },
+    "api/analytics/index.ts": { "maxDuration": 30 }
   },
   "rewrites": [
-    { "source": "/v1/auth/:path*", "destination": "/services/auth/src/index" },
-    { "source": "/v1/profile/:path*", "destination": "/services/profile/src/index" },
-    { "source": "/v1/jobs/:path*", "destination": "/services/jobs/src/index" },
-    { "source": "/v1/matching/:path*", "destination": "/services/matching/src/index" },
-    { "source": "/v1/applications/:path*", "destination": "/services/applications/src/index" },
-    { "source": "/v1/referrals/:path*", "destination": "/services/referrals/src/index" },
-    { "source": "/v1/outreach/:path*", "destination": "/services/outreach/src/index" },
-    { "source": "/v1/learning/:path*", "destination": "/services/learning/src/index" },
-    { "source": "/v1/analytics/:path*", "destination": "/services/analytics/src/index" }
+    { "source": "/v1/auth/:path*", "destination": "/api/auth" },
+    { "source": "/v1/profile/:path*", "destination": "/api/profile" },
+    { "source": "/v1/jobs/:path*", "destination": "/api/jobs" },
+    { "source": "/v1/matching/:path*", "destination": "/api/matching" },
+    { "source": "/v1/applications/:path*", "destination": "/api/applications" },
+    { "source": "/v1/referrals/:path*", "destination": "/api/referrals" },
+    { "source": "/v1/outreach/:path*", "destination": "/api/outreach" },
+    { "source": "/v1/learning/:path*", "destination": "/api/learning" },
+    { "source": "/v1/analytics/:path*", "destination": "/api/analytics" }
   ]
 }
