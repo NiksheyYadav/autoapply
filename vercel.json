@@ -1,0 +1,27 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "pnpm install --frozen-lockfile",
+  "functions": {
+    "services/auth/src/index.ts": {},
+    "services/profile/src/index.ts": {},
+    "services/jobs/src/index.ts": {},
+    "services/matching/src/index.ts": {},
+    "services/applications/src/index.ts": {},
+    "services/referrals/src/index.ts": {},
+    "services/outreach/src/index.ts": {},
+    "services/learning/src/index.ts": {},
+    "services/analytics/src/index.ts": {}
+  },
+  "rewrites": [
+    { "source": "/v1/auth/:path*", "destination": "/services/auth/src/index" },
+    { "source": "/v1/profile/:path*", "destination": "/services/profile/src/index" },
+    { "source": "/v1/jobs/:path*", "destination": "/services/jobs/src/index" },
+    { "source": "/v1/matching/:path*", "destination": "/services/matching/src/index" },
+    { "source": "/v1/applications/:path*", "destination": "/services/applications/src/index" },
+    { "source": "/v1/referrals/:path*", "destination": "/services/referrals/src/index" },
+    { "source": "/v1/outreach/:path*", "destination": "/services/outreach/src/index" },
+    { "source": "/v1/learning/:path*", "destination": "/services/learning/src/index" },
+    { "source": "/v1/analytics/:path*", "destination": "/services/analytics/src/index" }
+  ]
+}
