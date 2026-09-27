@@ -1,4 +1,4 @@
-import { baseEnvSchema, databaseEnvSchema, httpEnvSchema, loadEnv, messagingEnvSchema } from '@atlas/config';
+import { baseEnvSchema, databaseEnvSchema, httpEnvSchema, loadEnv, messagingEnvSchema, supabaseAuthEnvSchema } from '@atlas/config';
 import { z } from 'zod';
 
 export const analyticsServiceEnvSchema = z.object({
@@ -6,10 +6,7 @@ export const analyticsServiceEnvSchema = z.object({
   ...databaseEnvSchema.shape,
   ...httpEnvSchema.shape,
   ...messagingEnvSchema.shape,
-  /** Verifies auth-service's JWTs; must match its JWT_SECRET/ISSUER/AUDIENCE. */
-  JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
-  JWT_ISSUER: z.string().min(1).default('atlas'),
-  JWT_AUDIENCE: z.string().min(1).default('atlas-clients'),
+  ...supabaseAuthEnvSchema.shape,
 });
 
 export type AnalyticsServiceEnv = z.infer<typeof analyticsServiceEnvSchema>;

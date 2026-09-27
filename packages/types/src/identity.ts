@@ -78,10 +78,16 @@ export interface AuthenticatedActor {
   session_id: string;
 }
 
-/** Access-token claims. Kept small — tokens are not a data channel. */
+/**
+ * Access-token claims, flattened out of Supabase's actual JWT shape (`org`/
+ * `role` come from `app_metadata.org_id`/`app_metadata.role`, stamped by the
+ * custom_access_token_hook in packages/db/supabase/auth-hooks.sql — see
+ * packages/auth-kit/src/tokens.ts for the extraction). Kept small — tokens
+ * are not a data channel.
+ */
 export const accessTokenClaimsSchema = z.object({
   sub: uuidSchema,
-  sid: uuidSchema,
+  session_id: uuidSchema,
   org: uuidSchema.nullable(),
   role: memberRoleSchema.nullable(),
   email: z.email(),

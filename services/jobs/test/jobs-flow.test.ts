@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
-import { SignJWT } from 'jose';
+import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import type { FastifyInstance } from 'fastify';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { createTokenVerifierConfig } from '@atlas/auth-kit';
 import { createBroker } from '@atlas/messaging';
 import { createDatabase, schema, type DatabaseHandle } from '@atlas/db';
 import { createSilentLogger } from '@atlas/utils';
@@ -11,17 +12,32 @@ import { loadJobsServiceEnv } from '../src/env.js';
 
 // DB-backed tests self-skip when ATLAS_TEST_DATABASE_URL is unset (see .env.example).
 const testDatabaseUrl = process.env.ATLAS_TEST_DATABASE_URL;
-const JWT_SECRET = 'x'.repeat(32);
+const SUPABASE_URL = 'https://test-project.supabase.co';
 
-async function signTestToken(claims: { sub: string; sid: string; org: string | null; role: string | null; email: string }) {
-  return new SignJWT({ sid: claims.sid, org: claims.org, role: claims.role, email: claims.email })
-    .setProtectedHeader({ alg: 'HS256' })
-    .setSubject(claims.sub)
-    .setIssuer('atlas')
-    .setAudience('atlas-clients')
-    .setIssuedAt()
-    .setExpirationTime(Math.floor(Date.now() / 1000) + 900)
-    .sign(new TextEncoder().encode(JWT_SECRET));
+let signTestToken: (claims: { sub: string; sid: string; org: string | null; role: string | null; email: string }) => Promise<string>;
+
+// createRemoteJWKSet fetches over HTTP — stub it to serve a locally
+// generated key instead of hitting a real Supabase project.
+async function stubJwks(): Promise<void> {
+  const { publicKey, privateKey } = await generateKeyPair('ES256');
+  const jwk = await exportJWK(publicKey);
+  jwk.kid = 'test-key';
+  jwk.alg = 'ES256';
+  jwk.use = 'sig';
+  vi.stubGlobal(
+    'fetch',
+    async () => new Response(JSON.stringify({ keys: [jwk] }), { status: 200, headers: { 'content-type': 'application/json' } }),
+  );
+
+  signTestToken = async (claims) =>
+    new SignJWT({ session_id: claims.sid, email: claims.email, app_metadata: { org_id: claims.org, role: claims.role } })
+      .setProtectedHeader({ alg: 'ES256', kid: 'test-key' })
+      .setSubject(claims.sub)
+      .setIssuer(`${SUPABASE_URL}/auth/v1`)
+      .setAudience('authenticated')
+      .setIssuedAt()
+      .setExpirationTime(Math.floor(Date.now() / 1000) + 900)
+      .sign(privateKey);
 }
 
 describe.skipIf(!testDatabaseUrl)('jobs-service HTTP flow', () => {
@@ -34,7 +50,8 @@ describe.skipIf(!testDatabaseUrl)('jobs-service HTTP flow', () => {
   const companyName = `Test Co ${randomUUID().slice(0, 8)}`;
 
   beforeAll(async () => {
-    const env = loadJobsServiceEnv({ DATABASE_URL: testDatabaseUrl, PORT: '4003', JWT_SECRET });
+    await stubJwks();
+    const env = loadJobsServiceEnv({ DATABASE_URL: testDatabaseUrl, PORT: '4003', SUPABASE_URL });
     dbHandle = createDatabase({ url: env.DATABASE_URL });
     const broker = createBroker({ driver: 'memory', logger: createSilentLogger() });
     app = buildApp({
@@ -43,7 +60,7 @@ describe.skipIf(!testDatabaseUrl)('jobs-service HTTP flow', () => {
       env,
       logger: createSilentLogger(),
       broker,
-      tokenVerifier: { secret: new TextEncoder().encode(JWT_SECRET), issuer: 'atlas', audience: 'atlas-clients' },
+      tokenVerifier: createTokenVerifierConfig(env),
     });
     await app.ready();
 

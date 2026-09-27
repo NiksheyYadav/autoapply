@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
-import { SignJWT } from 'jose';
+import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import type { FastifyInstance } from 'fastify';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { createTokenVerifierConfig } from '@atlas/auth-kit';
 import { createBroker, createEvent, type MemoryBroker, type Subscription } from '@atlas/messaging';
 import { createDatabase, schema, type DatabaseHandle } from '@atlas/db';
 import { createSilentLogger, newTraceContext } from '@atlas/utils';
@@ -12,17 +13,32 @@ import { registerConsumers } from '../src/worker.js';
 
 // DB-backed tests self-skip when ATLAS_TEST_DATABASE_URL is unset (see .env.example).
 const testDatabaseUrl = process.env.ATLAS_TEST_DATABASE_URL;
-const JWT_SECRET = 'x'.repeat(32);
+const SUPABASE_URL = 'https://test-project.supabase.co';
 
-async function signTestToken(claims: { sub: string; sid: string; org: string | null; role: string | null; email: string }) {
-  return new SignJWT({ sid: claims.sid, org: claims.org, role: claims.role, email: claims.email })
-    .setProtectedHeader({ alg: 'HS256' })
-    .setSubject(claims.sub)
-    .setIssuer('atlas')
-    .setAudience('atlas-clients')
-    .setIssuedAt()
-    .setExpirationTime(Math.floor(Date.now() / 1000) + 900)
-    .sign(new TextEncoder().encode(JWT_SECRET));
+let signTestToken: (claims: { sub: string; sid: string; org: string | null; role: string | null; email: string }) => Promise<string>;
+
+// createRemoteJWKSet fetches over HTTP — stub it to serve a locally
+// generated key instead of hitting a real Supabase project.
+async function stubJwks(): Promise<void> {
+  const { publicKey, privateKey } = await generateKeyPair('ES256');
+  const jwk = await exportJWK(publicKey);
+  jwk.kid = 'test-key';
+  jwk.alg = 'ES256';
+  jwk.use = 'sig';
+  vi.stubGlobal(
+    'fetch',
+    async () => new Response(JSON.stringify({ keys: [jwk] }), { status: 200, headers: { 'content-type': 'application/json' } }),
+  );
+
+  signTestToken = async (claims) =>
+    new SignJWT({ session_id: claims.sid, email: claims.email, app_metadata: { org_id: claims.org, role: claims.role } })
+      .setProtectedHeader({ alg: 'ES256', kid: 'test-key' })
+      .setSubject(claims.sub)
+      .setIssuer(`${SUPABASE_URL}/auth/v1`)
+      .setAudience('authenticated')
+      .setIssuedAt()
+      .setExpirationTime(Math.floor(Date.now() / 1000) + 900)
+      .sign(privateKey);
 }
 
 describe.skipIf(!testDatabaseUrl)('referrals-service HTTP flow', () => {
@@ -39,7 +55,8 @@ describe.skipIf(!testDatabaseUrl)('referrals-service HTTP flow', () => {
   let applicationId: string;
 
   beforeAll(async () => {
-    const env = loadReferralsServiceEnv({ DATABASE_URL: testDatabaseUrl, PORT: '4006', JWT_SECRET });
+    await stubJwks();
+    const env = loadReferralsServiceEnv({ DATABASE_URL: testDatabaseUrl, PORT: '4006', SUPABASE_URL });
     dbHandle = createDatabase({ url: env.DATABASE_URL });
     broker = createBroker({ driver: 'memory', logger: createSilentLogger() }) as MemoryBroker;
     app = buildApp({
@@ -48,12 +65,18 @@ describe.skipIf(!testDatabaseUrl)('referrals-service HTTP flow', () => {
       env,
       logger: createSilentLogger(),
       broker,
-      tokenVerifier: { secret: new TextEncoder().encode(JWT_SECRET), issuer: 'atlas', audience: 'atlas-clients' },
+      tokenVerifier: createTokenVerifierConfig(env),
     });
     await app.ready();
     subscriptions = await registerConsumers({ db: dbHandle.db, broker, logger: createSilentLogger() });
 
-    await dbHandle.db.insert(schema.users).values({ userId, email, fullName: 'Referrals Flow Test User', authProvider: 'password' });
+    // public.users.user_id FKs to auth.users.id (see packages/db/supabase/auth-hooks.sql);
+    // inserting into auth.users fires handle_new_user, which creates the matching
+    // public.users row itself.
+    await dbHandle.sql`
+      insert into auth.users (id, instance_id, aud, role, email, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
+      values (${userId}, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', ${email}, now(), '{"provider":"email"}'::jsonb, ${JSON.stringify({ full_name: 'Referrals Flow Test User' })}::jsonb, now(), now())
+    `;
     const [company] = await dbHandle.db
       .insert(schema.companies)
       .values({ name: companyName, normalizedName: companyName.toLowerCase() })
@@ -85,7 +108,8 @@ describe.skipIf(!testDatabaseUrl)('referrals-service HTTP flow', () => {
     await dbHandle.db.delete(schema.contacts).where(eq(schema.contacts.companyId, companyId));
     await dbHandle.db.delete(schema.jobs).where(eq(schema.jobs.companyId, companyId));
     await dbHandle.db.delete(schema.companies).where(eq(schema.companies.companyId, companyId));
-    await dbHandle.db.delete(schema.users).where(eq(schema.users.userId, userId));
+    // Cascades to public.users via the auth.users FK.
+    await dbHandle.sql`delete from auth.users where id = ${userId}`;
     await app.close();
     await broker.close();
     await dbHandle.close();

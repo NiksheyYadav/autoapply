@@ -7,6 +7,6 @@ export function buildActor(claims: AccessTokenClaims, permissions: Permissions =
     organization_id: claims.org,
     role: claims.role,
     permissions,
-    session_id: claims.sid,
+    session_id: claims.session_id,
   };
 }

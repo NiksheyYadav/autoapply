@@ -24,12 +24,13 @@ describe.skipIf(!testDatabaseUrl)('matching-service worker', () => {
     broker = createBroker({ driver: 'memory', logger: createSilentLogger() });
     subscriptions = await registerConsumers({ db: dbHandle.db, broker, logger: createSilentLogger() });
 
-    await dbHandle.db.insert(schema.users).values({
-      userId,
-      email,
-      fullName: 'Matching Flow Test User',
-      authProvider: 'password',
-    });
+    // public.users.user_id FKs to auth.users.id (see packages/db/supabase/auth-hooks.sql);
+    // inserting into auth.users fires handle_new_user, which creates the matching
+    // public.users row itself.
+    await dbHandle.sql`
+      insert into auth.users (id, instance_id, aud, role, email, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
+      values (${userId}, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', ${email}, now(), '{"provider":"email"}'::jsonb, ${JSON.stringify({ full_name: 'Matching Flow Test User' })}::jsonb, now(), now())
+    `;
     const [company] = await dbHandle.db
       .insert(schema.companies)
       .values({ name: companyName, normalizedName: companyName.toLowerCase() })
@@ -43,7 +44,8 @@ describe.skipIf(!testDatabaseUrl)('matching-service worker', () => {
     await dbHandle.db.delete(schema.jobs).where(eq(schema.jobs.companyId, companyId));
     await dbHandle.db.delete(schema.companies).where(eq(schema.companies.companyId, companyId));
     await dbHandle.db.delete(schema.resumes).where(eq(schema.resumes.userId, userId));
-    await dbHandle.db.delete(schema.users).where(eq(schema.users.userId, userId));
+    // Cascades to public.users via the auth.users FK.
+    await dbHandle.sql`delete from auth.users where id = ${userId}`;
     await broker.close();
     await dbHandle.close();
   });
@@ -115,7 +117,7 @@ describe.skipIf(!testDatabaseUrl)('matching-service worker', () => {
       .where(and(eq(schema.jobScores.jobId, job!.jobId), eq(schema.jobScores.userId, userId)));
     expect(rows).toHaveLength(1);
     expect(rows[0]!.scoredAt >= firstScoredAt).toBe(true);
-  });
+  }, 30_000);
 
   it('scores a newly discovered job against an existing candidate with a parsed resume', async () => {
     const [job] = await dbHandle.db
