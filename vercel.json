@@ -3,15 +3,15 @@
   "framework": null,
   "installCommand": "pnpm install --frozen-lockfile",
   "functions": {
-    "services/auth/src/index.ts": {},
-    "services/profile/src/index.ts": {},
-    "services/jobs/src/index.ts": {},
-    "services/matching/src/index.ts": {},
-    "services/applications/src/index.ts": {},
-    "services/referrals/src/index.ts": {},
-    "services/outreach/src/index.ts": {},
-    "services/learning/src/index.ts": {},
-    "services/analytics/src/index.ts": {}
+    "services/auth/src/index.ts": { "maxDuration": 30 },
+    "services/profile/src/index.ts": { "maxDuration": 30 },
+    "services/jobs/src/index.ts": { "maxDuration": 30 },
+    "services/matching/src/index.ts": { "maxDuration": 30 },
+    "services/applications/src/index.ts": { "maxDuration": 30 },
+    "services/referrals/src/index.ts": { "maxDuration": 30 },
+    "services/outreach/src/index.ts": { "maxDuration": 30 },
+    "services/learning/src/index.ts": { "maxDuration": 30 },
+    "services/analytics/src/index.ts": { "maxDuration": 30 }
   },
   "rewrites": [
     { "source": "/v1/auth/:path*", "destination": "/services/auth/src/index" },
