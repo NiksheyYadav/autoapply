@@ -1,16 +1,16 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { createTokenVerifierConfig } from '@atlas/auth-kit';
 import { createDatabase } from '@atlas/db';
 import { createLogger } from '@atlas/utils';
 import { buildApp } from './app.js';
 import { loadAuthServiceEnv } from './env.js';
-import { createTokenConfig } from './security/tokens.js';
 
 const env = loadAuthServiceEnv();
 const logger = createLogger({ service: 'auth-service', level: env.LOG_LEVEL, pretty: env.LOG_PRETTY });
 const { db, sql, close } = createDatabase({ url: env.DATABASE_URL, maxConnections: env.DATABASE_POOL_MAX });
-const tokenConfig = createTokenConfig(env);
+const tokenVerifier = createTokenVerifierConfig(env);
 
-export const app = buildApp({ db, sql, env, logger, tokenConfig });
+export const app = buildApp({ db, sql, env, logger, tokenVerifier });
 const ready = app.ready();
 
 // Vercel invokes this module as a serverless request handler — it never calls
