@@ -74,3 +74,17 @@ export function toAppError(value: unknown): AppError {
 export function statusCodeFor(code: ErrorCode): number {
   return STATUS_BY_CODE[code];
 }
+
+/**
+ * Postgres error codes (e.g. unique_violation `23505`) for conflict-detection
+ * `catch` blocks across the repo. `postgres`/drizzle-orm wrap the raw driver
+ * error in their own error class and move it to `.cause` rather than
+ * throwing it directly, so a plain `(cause as { code }).code` check silently
+ * misses it — check one level of `.cause` unwrapping too.
+ */
+export function pgErrorCode(cause: unknown): string | undefined {
+  if (typeof cause !== 'object' || cause === null) return undefined;
+  const direct = (cause as { code?: unknown }).code;
+  if (typeof direct === 'string') return direct;
+  return pgErrorCode((cause as { cause?: unknown }).cause);
+}

@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { schema, type Database } from '@atlas/db';
+import { pgErrorCode } from '@atlas/utils';
 import { normalizeCompanyName } from '../lib/normalize.js';
 
 type CompanyRow = typeof schema.companies.$inferSelect;
@@ -29,7 +30,7 @@ export async function findOrCreateByName(
     return created;
   } catch (cause) {
     // Two ingests racing to create the same company for the first time.
-    if ((cause as { code?: string }).code === UNIQUE_VIOLATION) {
+    if (pgErrorCode(cause) === UNIQUE_VIOLATION) {
       const [raced] = await db
         .select()
         .from(schema.companies)

@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { getActor, requireAuth } from '@atlas/auth-kit';
 import { createMessageRequestSchema, type MessageResponse } from '@atlas/types';
-import { AppError, IDEMPOTENCY_HEADER } from '@atlas/utils';
+import { AppError, IDEMPOTENCY_HEADER, pgErrorCode } from '@atlas/utils';
 import type { AppDeps } from '../../app.js';
 import { draftMessage } from '../../lib/drafter.js';
 import { findByUserAndIdempotencyKey, insertMessage, toMessage } from '../../repo/messages.js';
@@ -96,7 +96,7 @@ export function createMessageRoute(app: FastifyInstance, deps: AppDeps): void {
       const response: MessageResponse = { message: toMessage(created) };
       reply.status(201).send(response);
     } catch (cause) {
-      if ((cause as { code?: string }).code === UNIQUE_VIOLATION) {
+      if (pgErrorCode(cause) === UNIQUE_VIOLATION) {
         const raced = await findByUserAndIdempotencyKey(deps.db, actor.user_id, idempotencyKey);
         if (raced) {
           const response: MessageResponse = { message: toMessage(raced) };

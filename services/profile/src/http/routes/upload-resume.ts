@@ -4,7 +4,7 @@ import { getActor, requireAuth } from '@atlas/auth-kit';
 import { parseResumeText, scoreResume } from '@atlas/ai';
 import { createEvent } from '@atlas/messaging';
 import type { AtsReport, CreateResumeResponse, ParsedProfile } from '@atlas/types';
-import { AppError, newTraceContext } from '@atlas/utils';
+import { AppError, newTraceContext, pgErrorCode } from '@atlas/utils';
 import type { AppDeps } from '../../app.js';
 import { extractText } from '../../lib/extract-text.js';
 import { sha256HexBuffer } from '../../lib/hash.js';
@@ -69,7 +69,7 @@ export function uploadResumeRoute(app: FastifyInstance, deps: AppDeps): void {
         // Another request for the same user+bytes won the race between our
         // findByUserAndHash check and this insert — that's the same idempotent
         // case above, not a failure.
-        if ((cause as { code?: string }).code === UNIQUE_VIOLATION) {
+        if (pgErrorCode(cause) === UNIQUE_VIOLATION) {
           const raced = await findByUserAndHash(deps.db, actor.user_id, contentHash);
           if (raced) {
             const response: CreateResumeResponse = { resume_id: raced.resumeId, status: raced.status };

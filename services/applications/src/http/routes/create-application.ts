@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { getActor, requireAuth } from '@atlas/auth-kit';
 import { createEvent } from '@atlas/messaging';
 import { createApplicationRequestSchema, type ApplicationResponse } from '@atlas/types';
-import { AppError, IDEMPOTENCY_HEADER, newTraceContext } from '@atlas/utils';
+import { AppError, IDEMPOTENCY_HEADER, newTraceContext, pgErrorCode } from '@atlas/utils';
 import type { AppDeps } from '../../app.js';
 import { findActiveJob, findParsedResumeOwnedBy } from '../../repo/lookups.js';
 import { findByUserAndIdempotencyKey, findByUserAndJob, insertApplication, toApplication } from '../../repo/applications.js';
@@ -83,7 +83,7 @@ export function createApplicationRoute(app: FastifyInstance, deps: AppDeps): voi
     } catch (cause) {
       // Another request from the same user raced us between the checks above
       // and this insert. Resolve it the same way the checks would have.
-      if ((cause as { code?: string }).code === UNIQUE_VIOLATION) {
+      if (pgErrorCode(cause) === UNIQUE_VIOLATION) {
         const racedByKey = await findByUserAndIdempotencyKey(deps.db, actor.user_id, idempotencyKey);
         if (racedByKey) {
           const response: ApplicationResponse = { application: toApplication(racedByKey) };

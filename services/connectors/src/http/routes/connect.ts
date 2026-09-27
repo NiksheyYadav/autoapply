@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { getActor, requireAuth } from '@atlas/auth-kit';
-import { AppError } from '@atlas/utils';
+import { AppError, pgErrorCode } from '@atlas/utils';
 import type { AppDeps } from '../../app.js';
 import { isConnectorProvider } from '../../lib/providers.js';
 import { toConnectorAccountView, type ConnectorAccountView } from '../../lib/public-view.js';
@@ -74,7 +74,7 @@ export function connectRoute(app: FastifyInstance, deps: AppDeps): void {
       const response: ConnectResponse = { connector: toConnectorAccountView(created) };
       reply.status(201).send(response);
     } catch (cause) {
-      if ((cause as { code?: string }).code === UNIQUE_VIOLATION) {
+      if (pgErrorCode(cause) === UNIQUE_VIOLATION) {
         // Someone else already connected this exact provider account — the
         // secret we just wrote is orphaned and must not be left behind.
         await deps.secretStore.delete(ref);

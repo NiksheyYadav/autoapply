@@ -3,7 +3,7 @@ import { getActor, requireAuth } from '@atlas/auth-kit';
 import { extractSkillKeywords } from '@atlas/ai';
 import { createEvent } from '@atlas/messaging';
 import { ingestJobsRequestSchema, type IngestionReport } from '@atlas/types';
-import { AppError, newTraceContext } from '@atlas/utils';
+import { AppError, newTraceContext, pgErrorCode } from '@atlas/utils';
 import type { AppDeps } from '../../app.js';
 import {
   coerceEmploymentType,
@@ -87,7 +87,7 @@ export function ingestRoute(app: FastifyInstance, deps: AppDeps): void {
       } catch (cause) {
         // Another ingest request won the race to insert this exact job between
         // our findByHash check and our insert — that's a duplicate, not a failure.
-        if ((cause as { code?: string }).code === UNIQUE_VIOLATION) {
+        if (pgErrorCode(cause) === UNIQUE_VIOLATION) {
           const raced = await findByHash(deps.db, jobHash);
           if (raced) {
             await touchSeen(deps.db, raced.jobId);
