@@ -1,35 +1,73 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { createTokenVerifierConfig } from '@atlas/auth-kit';
-import { createDatabase } from '@atlas/db';
-import { createLogger } from '@atlas/utils';
-import { buildApp } from './app.js';
-import { loadAuthServiceEnv } from './env.js';
 
-const env = loadAuthServiceEnv();
-const logger = createLogger({ service: 'auth-service', level: env.LOG_LEVEL, pretty: env.LOG_PRETTY });
-const { db, sql, close } = createDatabase({ url: env.DATABASE_URL, maxConnections: env.DATABASE_POOL_MAX });
-const tokenVerifier = createTokenVerifierConfig(env);
-
-export const app = buildApp({ db, sql, env, logger, tokenVerifier });
-const ready = app.ready();
-
-// Vercel invokes this module as a serverless request handler — it never calls
-// app.listen(), so the app must be dispatched onto the request/response pair
-// it hands us instead of a bound socket.
-export default async function handler(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  await ready;
-  app.server.emit('request', req, res);
-}
-
-if (!process.env.VERCEL) {
-  const shutdown = async (signal: string): Promise<void> => {
-    logger.info({ signal }, 'shutting down');
-    await app.close();
-    await close();
-    process.exit(0);
+// TEMPORARY diagnostic build — isolates which init step crashes on Vercel's
+// runtime (no accessible logs on this plan tier; surface it in the response
+// body instead). Reverting immediately after reading the result.
+export default async function handler(_req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const report: Record<string, unknown> = {
+    env: {
+      SUPABASE_URL: process.env.SUPABASE_URL ?? null,
+      hasDatabaseUrl: Boolean(process.env.DATABASE_URL),
+      NODE_ENV: process.env.NODE_ENV ?? null,
+      AUTH_SERVICE_PORT: process.env.AUTH_SERVICE_PORT ?? null,
+      VERCEL: process.env.VERCEL ?? null,
+    },
   };
-  process.on('SIGTERM', () => void shutdown('SIGTERM'));
-  process.on('SIGINT', () => void shutdown('SIGINT'));
 
-  await app.listen({ host: env.HOST, port: env.PORT });
+  try {
+    const { loadAuthServiceEnv } = await import('./env.js');
+    const env = loadAuthServiceEnv();
+    report.envLoaded = { PORT: env.PORT, CORS_ORIGINS: env.CORS_ORIGINS };
+  } catch (err) {
+    report.envLoadError = err instanceof Error ? { message: err.message, stack: err.stack } : String(err);
+    res.statusCode = 500;
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify(report, null, 2));
+    return;
+  }
+
+  try {
+    const { createDatabase } = await import('@atlas/db');
+    const { close } = createDatabase({ url: process.env.DATABASE_URL!, maxConnections: 1 });
+    report.dbClientCreated = true;
+    await close();
+  } catch (err) {
+    report.dbClientError = err instanceof Error ? { message: err.message, stack: err.stack } : String(err);
+    res.statusCode = 500;
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify(report, null, 2));
+    return;
+  }
+
+  try {
+    const { createTokenVerifierConfig } = await import('@atlas/auth-kit');
+    createTokenVerifierConfig({ SUPABASE_URL: process.env.SUPABASE_URL! });
+    report.tokenVerifierCreated = true;
+  } catch (err) {
+    report.tokenVerifierError = err instanceof Error ? { message: err.message, stack: err.stack } : String(err);
+    res.statusCode = 500;
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify(report, null, 2));
+    return;
+  }
+
+  try {
+    const Fastify = (await import('fastify')).default;
+    const app = Fastify();
+    app.get('/x', async () => ({ ok: true }));
+    await app.ready();
+    report.fastifyReady = true;
+    await app.close();
+  } catch (err) {
+    report.fastifyError = err instanceof Error ? { message: err.message, stack: err.stack } : String(err);
+    res.statusCode = 500;
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify(report, null, 2));
+    return;
+  }
+
+  report.allStepsOk = true;
+  res.statusCode = 200;
+  res.setHeader('content-type', 'application/json');
+  res.end(JSON.stringify(report, null, 2));
 }
