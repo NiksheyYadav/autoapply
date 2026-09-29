@@ -14,12 +14,12 @@
   },
   "rewrites": [
     { "source": "/v1/auth/:path*", "destination": "/api/auth" },
-    { "source": "/v1/profile/:path*", "destination": "/api/profile" },
+    { "source": "/v1/resumes/:path*", "destination": "/api/profile" },
     { "source": "/v1/jobs/:path*", "destination": "/api/jobs" },
-    { "source": "/v1/matching/:path*", "destination": "/api/matching" },
     { "source": "/v1/applications/:path*", "destination": "/api/applications" },
     { "source": "/v1/referrals/:path*", "destination": "/api/referrals" },
-    { "source": "/v1/outreach/:path*", "destination": "/api/outreach" },
+    { "source": "/v1/contacts/:path*", "destination": "/api/referrals" },
+    { "source": "/v1/messages/:path*", "destination": "/api/outreach" },
     { "source": "/v1/learning/:path*", "destination": "/api/learning" },
     { "source": "/v1/analytics/:path*", "destination": "/api/analytics" }
   ]
