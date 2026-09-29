@@ -43,5 +43,13 @@ for (const name of services) {
     target: 'node22',
     format: 'esm',
     logLevel: 'info',
+    // pino (via @atlas/utils' logger) does a dynamic require('node:os')
+    // internally — esbuild's ESM output has no ambient `require`, so
+    // that call fails at runtime ("Dynamic require of 'node:os' is not
+    // supported") even though the bundle itself builds cleanly. Shim a
+    // real `require` backed by Node's own module system.
+    banner: {
+      js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);",
+    },
   });
 }
