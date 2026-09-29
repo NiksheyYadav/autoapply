@@ -1,6 +1,13 @@
 // Bundles each backend service into a single self-contained Vercel
-// function under api/<name>/index.js. Run at Vercel build time, not
-// committed — see vercel.json / the atlas-backend project's buildCommand.
+// function under api/<name>/index.js. The output is committed (Vercel's
+// zero-config function detection for "Other" framework projects scans
+// the git checkout directly, before any buildCommand runs — a build
+// step can't generate new function source files this way, only static
+// output). Re-run this — `node scripts/bundle-backend.mjs` — and commit
+// the result whenever a service or a workspace package it depends on
+// changes. It also re-runs as part of atlas-backend's buildCommand
+// (see vercel.json) as a freshness safety net, but that alone is not
+// sufficient: the committed copy is what Vercel's function scan sees.
 //
 // Why this exists: workspace packages (packages/*) publish their exports
 // as raw TypeScript ("./src/index.ts"), which tsx transpiles on the fly
