@@ -2,71 +2,28 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "pnpm install --frozen-lockfile",
   "functions": {
-    "api/auth/index.js": {
-      "maxDuration": 30
-    },
+    "api/auth/index.js": { "maxDuration": 30 },
     "api/profile/index.js": {
       "maxDuration": 30,
       "includeFiles": "{node_modules/@napi-rs/**,node_modules/.pnpm/@napi-rs+canvas*/**}"
     },
-    "api/jobs/index.js": {
-      "maxDuration": 30
-    },
-    "api/matching/index.js": {
-      "maxDuration": 30
-    },
-    "api/applications/index.js": {
-      "maxDuration": 30
-    },
-    "api/referrals/index.js": {
-      "maxDuration": 30
-    },
-    "api/outreach/index.js": {
-      "maxDuration": 30
-    },
-    "api/learning/index.js": {
-      "maxDuration": 30
-    },
-    "api/analytics/index.js": {
-      "maxDuration": 30
-    }
+    "api/jobs/index.js": { "maxDuration": 30 },
+    "api/matching/index.js": { "maxDuration": 30 },
+    "api/applications/index.js": { "maxDuration": 30 },
+    "api/referrals/index.js": { "maxDuration": 30 },
+    "api/outreach/index.js": { "maxDuration": 30 },
+    "api/learning/index.js": { "maxDuration": 30 },
+    "api/analytics/index.js": { "maxDuration": 30 }
   },
   "rewrites": [
-    {
-      "source": "/v1/auth/:path*",
-      "destination": "/api/auth"
-    },
-    {
-      "source": "/v1/resumes/:path*",
-      "destination": "/api/profile"
-    },
-    {
-      "source": "/v1/jobs/:path*",
-      "destination": "/api/jobs"
-    },
-    {
-      "source": "/v1/applications/:path*",
-      "destination": "/api/applications"
-    },
-    {
-      "source": "/v1/referrals/:path*",
-      "destination": "/api/referrals"
-    },
-    {
-      "source": "/v1/contacts/:path*",
-      "destination": "/api/referrals"
-    },
-    {
-      "source": "/v1/messages/:path*",
-      "destination": "/api/outreach"
-    },
-    {
-      "source": "/v1/learning/:path*",
-      "destination": "/api/learning"
-    },
-    {
-      "source": "/v1/analytics/:path*",
-      "destination": "/api/analytics"
-    }
+    { "source": "/v1/auth/:path*", "destination": "/api/auth" },
+    { "source": "/v1/resumes/:path*", "destination": "/api/profile" },
+    { "source": "/v1/jobs/:path*", "destination": "/api/jobs" },
+    { "source": "/v1/applications/:path*", "destination": "/api/applications" },
+    { "source": "/v1/referrals/:path*", "destination": "/api/referrals" },
+    { "source": "/v1/contacts/:path*", "destination": "/api/referrals" },
+    { "source": "/v1/messages/:path*", "destination": "/api/outreach" },
+    { "source": "/v1/learning/:path*", "destination": "/api/learning" },
+    { "source": "/v1/analytics/:path*", "destination": "/api/analytics" }
   ]
 }
