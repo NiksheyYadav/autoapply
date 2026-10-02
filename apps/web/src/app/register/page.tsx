@@ -16,19 +16,41 @@ export default function RegisterPage() {
   const [password, setPassword] = React.useState('');
   const [error, setError] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
+  const [confirmationSentTo, setConfirmationSentTo] = React.useState<string | null>(null);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
     setSubmitting(true);
     try {
-      await register({ email, password, full_name: fullName });
-      router.push('/dashboard');
+      const { needsEmailConfirmation } = await register({ email, password, full_name: fullName });
+      if (needsEmailConfirmation) {
+        setConfirmationSentTo(email);
+      } else {
+        router.push('/dashboard');
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Something went wrong. Try again.');
     } finally {
       setSubmitting(false);
     }
+  }
+
+  if (confirmationSentTo) {
+    return (
+      <AuthShell title="Check your email" subtitle="One more step before your first plotted route.">
+        <p className="text-sm text-[var(--color-ink-soft)]">
+          We sent a confirmation link to <span className="font-medium text-[var(--color-ink)]">{confirmationSentTo}</span>.
+          Open it on this device to finish creating your account.
+        </p>
+        <p className="mt-6 text-center text-sm text-[var(--color-ink-soft)]">
+          Already confirmed?{' '}
+          <Link href="/login" className="font-medium text-[var(--color-accent)]">
+            Sign in
+          </Link>
+        </p>
+      </AuthShell>
+    );
   }
 
   return (

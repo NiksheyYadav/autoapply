@@ -1,12 +1,30 @@
 'use client';
 
 import type { PublicUser } from '@atlas/types';
-import type { Session } from '@supabase/supabase-js';
+import type { AuthError, Session } from '@supabase/supabase-js';
 import * as React from 'react';
 import * as authApi from './services/auth';
 import { createClient } from './supabase/client';
 
 export type OAuthProvider = 'google' | 'azure' | 'github';
+
+/**
+ * Supabase deliberately returns the same "invalid credentials" error for a wrong
+ * password and for an account that has no password at all (signed up with
+ * Google/GitHub), so it can't be told apart — point at both possibilities.
+ */
+function friendlyAuthError(error: AuthError): string {
+  switch (error.code) {
+    case 'invalid_credentials':
+      return 'Incorrect email or password. If you signed up with Google or GitHub, use that button above instead.';
+    case 'email_not_confirmed':
+      return 'Please confirm your email first — check your inbox for the link we sent.';
+    case 'user_already_exists':
+      return 'An account with this email already exists. Sign in instead.';
+    default:
+      return error.message;
+  }
+}
 
 interface SessionState {
   status: 'loading' | 'authenticated' | 'unauthenticated';
@@ -16,7 +34,13 @@ interface SessionState {
 
 interface SessionContextValue extends SessionState {
   login: (email: string, password: string) => Promise<void>;
-  register: (input: { email: string; password: string; full_name: string; organization_name?: string }) => Promise<void>;
+  /** `needsEmailConfirmation` is true when Supabase created the user but no session yet (confirm-email is on). */
+  register: (input: {
+    email: string;
+    password: string;
+    full_name: string;
+    organization_name?: string;
+  }) => Promise<{ needsEmailConfirmation: boolean }>;
   /** 'azure' is Supabase's provider id for Microsoft — not our own naming. */
   signInWithOAuth: (provider: OAuthProvider) => Promise<void>;
   logout: () => Promise<void>;
@@ -58,19 +82,25 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const login = React.useCallback(
     async (email: string, password: string) => {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw new Error(error.message);
+      if (error) throw new Error(friendlyAuthError(error));
     },
     [supabase],
   );
 
   const register = React.useCallback(
     async (input: { email: string; password: string; full_name: string; organization_name?: string }) => {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email: input.email,
         password: input.password,
-        options: { data: { full_name: input.full_name, organization_name: input.organization_name } },
+        options: {
+          // Without this, the confirmation link falls back to Supabase's Site URL
+          // instead of the deployment (preview, prod, localhost) the user signed up on.
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          data: { full_name: input.full_name, organization_name: input.organization_name },
+        },
       });
-      if (error) throw new Error(error.message);
+      if (error) throw new Error(friendlyAuthError(error));
+      return { needsEmailConfirmation: data.session === null };
     },
     [supabase],
   );
