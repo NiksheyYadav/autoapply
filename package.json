@@ -35,6 +35,9 @@
     "dev:connectors": "pnpm --filter @atlas/connectors-service run dev",
     "dev:workers": "pnpm --filter @atlas/jobs-service run dev:worker"
   },
+  "dependencies": {
+    "@napi-rs/canvas": "0.1.80"
+  },
   "devDependencies": {
     "@eslint/js": "^9.20.0",
     "@types/node": "^24.0.0",

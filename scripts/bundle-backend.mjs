@@ -43,6 +43,12 @@ for (const name of services) {
     target: 'node22',
     format: 'esm',
     logLevel: 'info',
+    // Native addon (pulled in by pdf-parse → pdfjs-dist in the profile
+    // service) — can't be inlined. pdfjs needs it at module load to
+    // polyfill DOMMatrix; without it the whole service crashes before
+    // serving a request. Installed at the repo root (package.json) so it
+    // resolves from api/<name>/ at runtime and Vercel traces it in.
+    external: ['@napi-rs/canvas'],
     // pino (via @atlas/utils' logger) does a dynamic require('node:os')
     // internally — esbuild's ESM output has no ambient `require`, so
     // that call fails at runtime ("Dynamic require of 'node:os' is not

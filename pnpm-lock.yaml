@@ -7,6 +7,10 @@ settings:
 importers:
 
   .:
+    dependencies:
+      '@napi-rs/canvas':
+        specifier: 0.1.80
+        version: 0.1.80
     devDependencies:
       '@eslint/js':
         specifier: ^9.20.0
