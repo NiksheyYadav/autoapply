@@ -61,26 +61,47 @@ for (const name of services) {
 }
 
 // TEMPORARY diagnostic (revert after reading): move the real profile bundle
-// to _impl.js and front it with a wrapper that reports native-dep presence
-// and any load error in the response body (no runtime logs on this plan).
+// to _impl.js and front it with a step-gated wrapper — ?step=fs|resolve|load|impl
+// — so a hard native crash in one step can be told apart from the others
+// (no runtime logs on this plan; a process crash never reaches a catch).
 import { renameSync, writeFileSync } from 'node:fs';
 renameSync('api/profile/index.js', 'api/profile/_impl.js');
 writeFileSync(
   'api/profile/index.js',
   `import fs from 'node:fs';
+import path from 'node:path';
 import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
+const here = path.dirname(fileURLToPath(import.meta.url));
+function send(res, code, body) { res.statusCode = code; res.setHeader('content-type', 'application/json'); res.end(JSON.stringify(body, null, 2)); }
 export default async function handler(req, res) {
-  const report = {};
-  try { const s = fs.lstatSync('/var/task/node_modules/@napi-rs/canvas'); report.rootCanvas = { symlink: s.isSymbolicLink(), dir: s.isDirectory() }; } catch (e) { report.rootCanvas = String(e.message); }
-  try { report.napiDir = fs.readdirSync('/var/task/node_modules/@napi-rs'); } catch (e) { report.napiDir = String(e.message); }
-  try { report.pnpmNapi = fs.readdirSync('/var/task/node_modules/.pnpm').filter((n) => n.includes('napi')); } catch (e) { report.pnpmNapi = String(e.message); }
-  try { const r = createRequire(import.meta.url); report.resolved = r.resolve('@napi-rs/canvas'); r('@napi-rs/canvas'); report.canvasLoad = 'ok'; } catch (e) { report.canvasErr = String(e.message).slice(0, 800); }
-  let mod;
-  try { mod = await import('./_impl.js'); } catch (e) { report.implErr = String(e.message); report.stack = String(e.stack).slice(0, 1500); }
-  if (mod) return mod.default(req, res);
-  res.statusCode = 500;
-  res.setHeader('content-type', 'application/json');
-  res.end(JSON.stringify(report, null, 2));
+  const step = new URL(req.url, 'http://x').searchParams.get('step') || 'impl';
+  const report = { step, here, node: process.versions.node, arch: process.arch, platform: process.platform };
+  try {
+    if (step === 'fs') {
+      report.hereFiles = fs.readdirSync(here).map((f) => [f, fs.statSync(path.join(here, f)).size]);
+      for (const p of ['/var/task/node_modules/@napi-rs', '/var/task/node_modules/.pnpm']) {
+        try { report[p] = fs.readdirSync(p).filter((n) => p.endsWith('napi-rs') || n.includes('napi')); } catch (e) { report[p] = String(e.message); }
+      }
+      try { const s = fs.lstatSync('/var/task/node_modules/@napi-rs/canvas'); report.canvasLink = { symlink: s.isSymbolicLink(), target: s.isSymbolicLink() ? fs.readlinkSync('/var/task/node_modules/@napi-rs/canvas') : null }; } catch (e) { report.canvasLink = String(e.message); }
+      return send(res, 200, report);
+    }
+    const r = createRequire(import.meta.url);
+    if (step === 'resolve') {
+      report.resolved = r.resolve('@napi-rs/canvas');
+      const dir = path.dirname(report.resolved);
+      report.canvasDir = fs.readdirSync(dir);
+      try { report.siblings = fs.readdirSync(path.dirname(fs.realpathSync(dir))); } catch (e) { report.siblings = String(e.message); }
+      return send(res, 200, report);
+    }
+    if (step === 'load') { const c = r('@napi-rs/canvas'); report.canvasKeys = Object.keys(c).slice(0, 15); return send(res, 200, report); }
+    const mod = await import('./_impl.js');
+    return mod.default(req, res);
+  } catch (e) {
+    report.error = String(e && e.message).slice(0, 1200);
+    report.stack = String(e && e.stack).slice(0, 1500);
+    return send(res, 500, report);
+  }
 }
 `,
 );
