@@ -1,42 +1,41 @@
-import { errors as joseErrors, jwtVerify } from 'jose';
+import { createRemoteJWKSet, errors as joseErrors, jwtVerify } from 'jose';
 import { accessTokenClaimsSchema, type AccessTokenClaims } from '@atlas/types';
 import { AppError } from '@atlas/utils';
 
 /**
- * The verify-only half of auth-service's token config. Any service that
- * trusts the same JWT_SECRET/issuer/audience can check a caller's identity
- * without a network call back to auth-service or its own DB.
+ * Supabase-issued access tokens are verified against the project's own JWKS
+ * — no shared secret to distribute to every service, just the (non-secret)
+ * project URL. `custom_access_token_hook` (packages/db/supabase/auth-hooks.sql)
+ * stamps org_id/role into app_metadata at issuance time; that's the only
+ * non-standard part of the claim shape this needs to unpack.
  */
 export interface TokenVerifierConfig {
-  secret: Uint8Array;
+  jwks: ReturnType<typeof createRemoteJWKSet>;
   issuer: string;
-  audience: string;
 }
 
 export interface TokenVerifierEnvSource {
-  JWT_SECRET: string;
-  JWT_ISSUER: string;
-  JWT_AUDIENCE: string;
+  SUPABASE_URL: string;
 }
 
 export function createTokenVerifierConfig(env: TokenVerifierEnvSource): TokenVerifierConfig {
+  const authBase = `${env.SUPABASE_URL}/auth/v1`;
   return {
-    secret: new TextEncoder().encode(env.JWT_SECRET),
-    issuer: env.JWT_ISSUER,
-    audience: env.JWT_AUDIENCE,
+    jwks: createRemoteJWKSet(new URL(`${authBase}/.well-known/jwks.json`)),
+    issuer: authBase,
   };
 }
 
-/** Verifies signature, issuer, audience, and expiry, then re-validates the claim shape. */
+/** Verifies signature, issuer, and expiry, then re-validates the claim shape. */
 export async function verifyAccessToken(
   token: string,
   config: TokenVerifierConfig,
 ): Promise<AccessTokenClaims> {
   let payload: Record<string, unknown>;
   try {
-    ({ payload } = await jwtVerify(token, config.secret, {
+    ({ payload } = await jwtVerify(token, config.jwks, {
       issuer: config.issuer,
-      audience: config.audience,
+      audience: 'authenticated',
     }));
   } catch (cause) {
     const message =
@@ -44,11 +43,12 @@ export async function verifyAccessToken(
     throw new AppError('UNAUTHENTICATED', message, { cause });
   }
 
+  const appMetadata = (payload.app_metadata ?? {}) as Record<string, unknown>;
   const parsed = accessTokenClaimsSchema.safeParse({
     sub: payload.sub,
-    sid: payload.sid,
-    org: payload.org ?? null,
-    role: payload.role ?? null,
+    session_id: payload.session_id,
+    org: appMetadata.org_id ?? null,
+    role: appMetadata.role ?? null,
     email: payload.email,
   });
   if (!parsed.success) {

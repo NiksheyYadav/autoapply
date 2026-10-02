@@ -1,16 +1,12 @@
 'use client';
 
-import type { PublicUser, TokenPair } from '@atlas/types';
+import type { PublicUser } from '@atlas/types';
+import type { Session } from '@supabase/supabase-js';
 import * as React from 'react';
 import * as authApi from './services/auth';
+import { createClient } from './supabase/client';
 
-/**
- * Refresh token lives in localStorage and the access token only in memory —
- * a reasonable MVP tradeoff for a client-only app with no API gateway/BFF
- * yet (docs/01). A production deployment should front this with an
- * httpOnly-cookie session instead; this is not that.
- */
-const REFRESH_TOKEN_KEY = 'atlas.refresh_token';
+export type OAuthProvider = 'google' | 'azure' | 'github';
 
 interface SessionState {
   status: 'loading' | 'authenticated' | 'unauthenticated';
@@ -21,69 +17,83 @@ interface SessionState {
 interface SessionContextValue extends SessionState {
   login: (email: string, password: string) => Promise<void>;
   register: (input: { email: string; password: string; full_name: string; organization_name?: string }) => Promise<void>;
-  /** Tokens auth-service already issued via an OAuth redirect — see /oauth/callback. */
-  completeOAuthLogin: (tokens: TokenPair) => Promise<void>;
+  /** 'azure' is Supabase's provider id for Microsoft — not our own naming. */
+  signInWithOAuth: (provider: OAuthProvider) => Promise<void>;
   logout: () => Promise<void>;
 }
 
 const SessionContext = React.createContext<SessionContextValue | null>(null);
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
+  const [supabase] = React.useState(() => createClient());
   const [state, setState] = React.useState<SessionState>({ status: 'loading', user: null, accessToken: null });
 
-  const hydrate = React.useCallback(async () => {
-    const storedRefreshToken = typeof window === 'undefined' ? null : localStorage.getItem(REFRESH_TOKEN_KEY);
-    if (!storedRefreshToken) {
-      setState({ status: 'unauthenticated', user: null, accessToken: null });
-      return;
-    }
-    try {
-      const tokens = await authApi.refresh(storedRefreshToken);
-      localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refresh_token);
-      const profile = await authApi.me(tokens.access_token);
-      setState({ status: 'authenticated', user: profile.user, accessToken: tokens.access_token });
-    } catch {
-      localStorage.removeItem(REFRESH_TOKEN_KEY);
-      setState({ status: 'unauthenticated', user: null, accessToken: null });
-    }
-  }, []);
-
-  React.useEffect(() => {
-    void hydrate();
-  }, [hydrate]);
-
-  const login = React.useCallback(async (email: string, password: string) => {
-    const session = await authApi.login({ email, password });
-    localStorage.setItem(REFRESH_TOKEN_KEY, session.tokens.refresh_token);
-    setState({ status: 'authenticated', user: session.user, accessToken: session.tokens.access_token });
-  }, []);
-
-  const register = React.useCallback(
-    async (input: { email: string; password: string; full_name: string; organization_name?: string }) => {
-      const session = await authApi.register(input);
-      localStorage.setItem(REFRESH_TOKEN_KEY, session.tokens.refresh_token);
-      setState({ status: 'authenticated', user: session.user, accessToken: session.tokens.access_token });
+  const applySession = React.useCallback(
+    async (session: Session | null) => {
+      if (!session) {
+        setState({ status: 'unauthenticated', user: null, accessToken: null });
+        return;
+      }
+      try {
+        const profile = await authApi.me(session.access_token);
+        setState({ status: 'authenticated', user: profile.user, accessToken: session.access_token });
+      } catch {
+        setState({ status: 'unauthenticated', user: null, accessToken: null });
+      }
     },
     [],
   );
 
-  const completeOAuthLogin = React.useCallback(async (tokens: TokenPair) => {
-    localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refresh_token);
-    const profile = await authApi.me(tokens.access_token);
-    setState({ status: 'authenticated', user: profile.user, accessToken: tokens.access_token });
-  }, []);
+  React.useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => void applySession(data.session));
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      void applySession(session);
+    });
+    return () => subscription.unsubscribe();
+  }, [supabase, applySession]);
+
+  const login = React.useCallback(
+    async (email: string, password: string) => {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw new Error(error.message);
+    },
+    [supabase],
+  );
+
+  const register = React.useCallback(
+    async (input: { email: string; password: string; full_name: string; organization_name?: string }) => {
+      const { error } = await supabase.auth.signUp({
+        email: input.email,
+        password: input.password,
+        options: { data: { full_name: input.full_name, organization_name: input.organization_name } },
+      });
+      if (error) throw new Error(error.message);
+    },
+    [supabase],
+  );
+
+  const signInWithOAuth = React.useCallback(
+    async (provider: OAuthProvider) => {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: { redirectTo: `${window.location.origin}/auth/callback` },
+      });
+      if (error) throw new Error(error.message);
+    },
+    [supabase],
+  );
 
   const logout = React.useCallback(async () => {
-    if (state.accessToken) {
-      await authApi.logout(state.accessToken).catch(() => undefined);
-    }
-    localStorage.removeItem(REFRESH_TOKEN_KEY);
+    await supabase.auth.signOut();
     setState({ status: 'unauthenticated', user: null, accessToken: null });
-  }, [state.accessToken]);
+  }, [supabase]);
 
   const value = React.useMemo<SessionContextValue>(
-    () => ({ ...state, login, register, completeOAuthLogin, logout }),
-    [state, login, register, completeOAuthLogin, logout],
+    () => ({ ...state, login, register, signInWithOAuth, logout }),
+    [state, login, register, signInWithOAuth, logout],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

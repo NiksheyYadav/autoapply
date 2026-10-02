@@ -11,6 +11,9 @@ export default tseslint.config(
       '**/.next/**',
       'packages/db/migrations/**',
       '**/.venv/**',
+      // esbuild-bundled Vercel function output (scripts/bundle-backend.mjs)
+      // — vendored build artifact, not hand-written source.
+      'api/**',
     ],
   },
   eslint.configs.recommended,

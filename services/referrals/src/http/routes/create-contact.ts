@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { requireAuth } from '@atlas/auth-kit';
 import { createContactRequestSchema, type ContactResponse } from '@atlas/types';
-import { AppError } from '@atlas/utils';
+import { AppError, pgErrorCode } from '@atlas/utils';
 import type { AppDeps } from '../../app.js';
 import { findByCompanyAndEmail, insertContact, toContact } from '../../repo/contacts.js';
 import { findCompanyById } from '../../repo/lookups.js';
@@ -44,7 +44,7 @@ export function createContactRoute(app: FastifyInstance, deps: AppDeps): void {
       const response: ContactResponse = { contact: toContact(created) };
       reply.status(201).send(response);
     } catch (cause) {
-      if ((cause as { code?: string }).code === UNIQUE_VIOLATION && body.email) {
+      if (pgErrorCode(cause) === UNIQUE_VIOLATION && body.email) {
         const raced = await findByCompanyAndEmail(deps.db, body.company_id, body.email);
         if (raced) {
           const response: ContactResponse = { contact: toContact(raced) };

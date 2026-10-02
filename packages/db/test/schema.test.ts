@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import * as schema from '../src/schema/index.js';
 
 const migrationsDir = fileURLToPath(new URL('../migrations', import.meta.url));
+const authHooksPath = fileURLToPath(new URL('../supabase/auth-hooks.sql', import.meta.url));
 
 function readGeneratedSql(): string {
   const files = readdirSync(migrationsDir).filter((file) => file.endsWith('.sql'));
@@ -99,6 +100,26 @@ describe('generated migration', () => {
   it('cascades deletes from users so data-deletion requests are satisfiable', () => {
     // docs/09 § Compliance posture: support data export and deletion workflows.
     expect(sqlText).toMatch(/"resumes_user_id_users_user_id_fk"[\s\S]{0,200}ON DELETE cascade/);
-    expect(sqlText).toMatch(/"sessions_user_id_users_user_id_fk"[\s\S]{0,200}ON DELETE cascade/);
+  });
+
+  it('never re-adds the sessions table Supabase Auth now owns', () => {
+    // Refresh-token rotation moved to Supabase Auth (packages/db/supabase/auth-hooks.sql)
+    // when the sessions table was dropped — it should never come back.
+    expect(tables.map((table) => getTableConfig(table).name)).not.toContain('sessions');
+  });
+});
+
+describe('Supabase auth provisioning', () => {
+  const authHooksSql = readFileSync(authHooksPath, 'utf8');
+
+  it('cascades from auth.users so a Supabase account deletion removes the app profile too', () => {
+    expect(authHooksSql).toMatch(
+      /references auth\.users \(id\) on delete cascade/,
+    );
+  });
+
+  it('grants the access-token hook only to supabase_auth_admin', () => {
+    expect(authHooksSql).toContain('grant execute on function public.custom_access_token_hook to supabase_auth_admin');
+    expect(authHooksSql).toContain('revoke execute on function public.custom_access_token_hook from authenticated, anon, public');
   });
 });

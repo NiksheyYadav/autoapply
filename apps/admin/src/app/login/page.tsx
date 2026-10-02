@@ -1,6 +1,5 @@
 'use client';
 
-import { ApiError } from '@/lib/api';
 import { useSession } from '@/lib/auth-context';
 import { Button, Card, Input, Label, Logo, fadeUp } from '@atlas/ui';
 import { motion } from 'framer-motion';
@@ -23,7 +22,7 @@ export default function LoginPage() {
       await login(email, password);
       router.push('/dashboard');
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'Something went wrong. Try again.');
+      setError(cause instanceof Error ? cause.message : 'Something went wrong. Try again.');
     } finally {
       setSubmitting(false);
     }

@@ -1,6 +1,5 @@
 'use client';
 
-import { ApiError } from '@/lib/api';
 import { useSession } from '@/lib/auth-context';
 import { AuthShell } from '@/components/auth/AuthShell';
 import { OAuthButtons } from '@/components/auth/OAuthButtons';
@@ -9,22 +8,20 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import * as React from 'react';
 
-const OAUTH_ERROR_MESSAGES: Record<string, string> = {
-  denied: 'You closed or declined the sign-in prompt.',
-  state: 'That sign-in link expired. Please try again.',
-  provider: "That sign-in provider isn't recognized.",
-  oauth_provider_unavailable: "That sign-in provider isn't enabled on this deployment yet.",
-  upstream_unavailable: 'The sign-in provider had trouble responding. Please try again.',
-  session: 'Something went wrong finishing sign-in. Please try again.',
-};
-
+/**
+ * `oauth_error=session` comes from our own app/auth/callback/route.ts when
+ * exchangeCodeForSession fails. `error_description` is Supabase/the provider's
+ * own query param when the user denies consent or the provider errors out
+ * before ever reaching our callback route.
+ */
 function OAuthErrorNotice() {
   const searchParams = useSearchParams();
-  const code = searchParams.get('oauth_error');
-  if (!code) return null;
+  const ownError = searchParams.get('oauth_error');
+  const providerError = searchParams.get('error_description');
+  if (!ownError && !providerError) return null;
   return (
     <p className="mb-5 rounded-[var(--radius-control)] border border-[var(--color-serious)]/25 bg-[var(--color-serious-soft)] px-4 py-3 text-sm text-[var(--color-serious)]">
-      {OAUTH_ERROR_MESSAGES[code] ?? 'Sign-in did not complete. Please try again.'}
+      {providerError?.replace(/\+/g, ' ') ?? 'Something went wrong finishing sign-in. Please try again.'}
     </p>
   );
 }
@@ -45,7 +42,7 @@ export default function LoginPage() {
       await login(email, password);
       router.push('/dashboard');
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'Something went wrong. Try again.');
+      setError(cause instanceof Error ? cause.message : 'Something went wrong. Try again.');
     } finally {
       setSubmitting(false);
     }

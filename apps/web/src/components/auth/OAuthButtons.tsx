@@ -1,7 +1,8 @@
 'use client';
 
 import { Button } from '@atlas/ui';
-import { SERVICE_URLS } from '@/lib/config';
+import * as React from 'react';
+import { useSession, type OAuthProvider } from '@/lib/auth-context';
 
 function GoogleMark() {
   return (
@@ -25,27 +26,52 @@ function MicrosoftMark() {
   );
 }
 
+function GitHubMark() {
+  return (
+    <svg viewBox="0 0 16 16" className="h-4 w-4" aria-hidden="true" fill="currentColor">
+      <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z" />
+    </svg>
+  );
+}
+
 /**
- * Full-page redirects to auth-service's OAuth start route, not a client
- * fetch — there's no API gateway/BFF yet (docs/01), so the browser has to
- * make the round trip to the provider itself. See services/auth's
- * oauth-start/oauth-callback routes and /oauth/callback in this app.
+ * Supabase's own hosted OAuth flow (redirect to the provider, back through
+ * /auth/callback) — replaces the old full-page redirects to auth-service's
+ * now-deleted oauth-start route. Microsoft's Supabase provider id is
+ * 'azure', not 'microsoft'.
  */
 export function OAuthButtons() {
+  const { signInWithOAuth } = useSession();
+  const [pending, setPending] = React.useState<OAuthProvider | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+
+  async function handleClick(provider: OAuthProvider) {
+    setError(null);
+    setPending(provider);
+    try {
+      await signInWithOAuth(provider);
+      // On success the browser navigates away to the provider — no need to clear `pending`.
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Something went wrong. Try again.');
+      setPending(null);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-3">
-      <Button asChild variant="secondary" size="lg">
-        <a href={`${SERVICE_URLS.auth}/v1/auth/oauth/google/start`}>
-          <GoogleMark />
-          Continue with Google
-        </a>
+      <Button variant="secondary" size="lg" disabled={pending !== null} onClick={() => void handleClick('google')}>
+        <GoogleMark />
+        {pending === 'google' ? 'Redirecting…' : 'Continue with Google'}
       </Button>
-      <Button asChild variant="secondary" size="lg">
-        <a href={`${SERVICE_URLS.auth}/v1/auth/oauth/microsoft/start`}>
-          <MicrosoftMark />
-          Continue with Microsoft
-        </a>
+      <Button variant="secondary" size="lg" disabled={pending !== null} onClick={() => void handleClick('azure')}>
+        <MicrosoftMark />
+        {pending === 'azure' ? 'Redirecting…' : 'Continue with Microsoft'}
       </Button>
+      <Button variant="secondary" size="lg" disabled={pending !== null} onClick={() => void handleClick('github')}>
+        <GitHubMark />
+        {pending === 'github' ? 'Redirecting…' : 'Continue with GitHub'}
+      </Button>
+      {error ? <p className="text-sm text-[var(--color-serious)]">{error}</p> : null}
       <div className="my-1 flex items-center gap-3 text-xs text-[var(--color-ink-faint)]">
         <span className="h-px flex-1 bg-[var(--color-line)]" />
         or continue with email

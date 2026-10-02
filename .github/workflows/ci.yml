@@ -72,5 +72,14 @@ jobs:
       # `next build` catches bundler-resolution issues typecheck alone
       # doesn't (see the "wip"/"fix" commit history on apps/web for exactly
       # what that class of bug looks like here).
+      #
+      # SessionProvider builds a Supabase browser client eagerly, including
+      # during static generation of /_not-found — so these must be set even
+      # though nothing in this build actually calls Supabase. They're the
+      # publishable anon key and project URL (meant to ship in client JS),
+      # not secrets, so a real value here is safe.
       - name: Build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://qkqllkfgxsmhjintkqfm.supabase.co
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_DGb1kAEeNl_w2Tbk9gT2rA_M75FcXhv
         run: pnpm --filter ${{ matrix.app }} run build

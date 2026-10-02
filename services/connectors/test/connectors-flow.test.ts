@@ -3,9 +3,10 @@ import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { eq } from 'drizzle-orm';
-import { SignJWT } from 'jose';
+import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import type { FastifyInstance } from 'fastify';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { createTokenVerifierConfig } from '@atlas/auth-kit';
 import { createDatabase, schema, type DatabaseHandle } from '@atlas/db';
 import { createSilentLogger } from '@atlas/utils';
 import { buildApp } from '../src/app.js';
@@ -14,17 +15,32 @@ import { createSecretStore } from '../src/lib/secret-store.js';
 
 // DB-backed tests self-skip when ATLAS_TEST_DATABASE_URL is unset (see .env.example).
 const testDatabaseUrl = process.env.ATLAS_TEST_DATABASE_URL;
-const JWT_SECRET = 'x'.repeat(32);
+const SUPABASE_URL = 'https://test-project.supabase.co';
 
-async function signTestToken(claims: { sub: string; sid: string; org: string | null; role: string | null; email: string }) {
-  return new SignJWT({ sid: claims.sid, org: claims.org, role: claims.role, email: claims.email })
-    .setProtectedHeader({ alg: 'HS256' })
-    .setSubject(claims.sub)
-    .setIssuer('atlas')
-    .setAudience('atlas-clients')
-    .setIssuedAt()
-    .setExpirationTime(Math.floor(Date.now() / 1000) + 900)
-    .sign(new TextEncoder().encode(JWT_SECRET));
+let signTestToken: (claims: { sub: string; sid: string; org: string | null; role: string | null; email: string }) => Promise<string>;
+
+// createRemoteJWKSet fetches over HTTP — stub it to serve a locally
+// generated key instead of hitting a real Supabase project.
+async function stubJwks(): Promise<void> {
+  const { publicKey, privateKey } = await generateKeyPair('ES256');
+  const jwk = await exportJWK(publicKey);
+  jwk.kid = 'test-key';
+  jwk.alg = 'ES256';
+  jwk.use = 'sig';
+  vi.stubGlobal(
+    'fetch',
+    async () => new Response(JSON.stringify({ keys: [jwk] }), { status: 200, headers: { 'content-type': 'application/json' } }),
+  );
+
+  signTestToken = async (claims) =>
+    new SignJWT({ session_id: claims.sid, email: claims.email, app_metadata: { org_id: claims.org, role: claims.role } })
+      .setProtectedHeader({ alg: 'ES256', kid: 'test-key' })
+      .setSubject(claims.sub)
+      .setIssuer(`${SUPABASE_URL}/auth/v1`)
+      .setAudience('authenticated')
+      .setIssuedAt()
+      .setExpirationTime(Math.floor(Date.now() / 1000) + 900)
+      .sign(privateKey);
 }
 
 describe.skipIf(!testDatabaseUrl)('connectors-service HTTP flow', () => {
@@ -37,7 +53,8 @@ describe.skipIf(!testDatabaseUrl)('connectors-service HTTP flow', () => {
   const otherUserId = randomUUID();
 
   beforeAll(async () => {
-    const env = loadConnectorsServiceEnv({ DATABASE_URL: testDatabaseUrl, PORT: '4011', JWT_SECRET });
+    await stubJwks();
+    const env = loadConnectorsServiceEnv({ DATABASE_URL: testDatabaseUrl, PORT: '4011', SUPABASE_URL });
     dbHandle = createDatabase({ url: env.DATABASE_URL });
     secretsRoot = await mkdtemp(join(tmpdir(), 'atlas-connectors-test-'));
     const secretStore = createSecretStore({ driver: 'local', localRoot: secretsRoot });
@@ -47,14 +64,22 @@ describe.skipIf(!testDatabaseUrl)('connectors-service HTTP flow', () => {
       env,
       logger: createSilentLogger(),
       secretStore,
-      tokenVerifier: { secret: new TextEncoder().encode(JWT_SECRET), issuer: 'atlas', audience: 'atlas-clients' },
+      tokenVerifier: createTokenVerifierConfig(env),
     });
     await app.ready();
 
-    await dbHandle.db.insert(schema.users).values([
-      { userId, email: `connectors-flow-${userId}@example.com`, fullName: 'User', authProvider: 'password' },
-      { userId: otherUserId, email: `connectors-flow-other-${otherUserId}@example.com`, fullName: 'Other User', authProvider: 'password' },
-    ]);
+    // public.users.user_id FKs to auth.users.id (see packages/db/supabase/auth-hooks.sql);
+    // inserting into auth.users fires handle_new_user, which creates the matching
+    // public.users row itself.
+    for (const u of [
+      { id: userId, email: `connectors-flow-${userId}@example.com`, fullName: 'User' },
+      { id: otherUserId, email: `connectors-flow-other-${otherUserId}@example.com`, fullName: 'Other User' },
+    ]) {
+      await dbHandle.sql`
+        insert into auth.users (id, instance_id, aud, role, email, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
+        values (${u.id}, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', ${u.email}, now(), '{"provider":"email"}'::jsonb, ${JSON.stringify({ full_name: u.fullName })}::jsonb, now(), now())
+      `;
+    }
 
     token = await signTestToken({ sub: userId, sid: randomUUID(), org: null, role: null, email: 'user@example.com' });
     otherToken = await signTestToken({ sub: otherUserId, sid: randomUUID(), org: null, role: null, email: 'other@example.com' });
@@ -63,8 +88,8 @@ describe.skipIf(!testDatabaseUrl)('connectors-service HTTP flow', () => {
   afterAll(async () => {
     await dbHandle.db.delete(schema.connectorAccounts).where(eq(schema.connectorAccounts.userId, userId));
     await dbHandle.db.delete(schema.connectorAccounts).where(eq(schema.connectorAccounts.userId, otherUserId));
-    await dbHandle.db.delete(schema.users).where(eq(schema.users.userId, userId));
-    await dbHandle.db.delete(schema.users).where(eq(schema.users.userId, otherUserId));
+    // Cascades to public.users via the auth.users FK.
+    await dbHandle.sql`delete from auth.users where id in (${userId}, ${otherUserId})`;
     await app.close();
     await dbHandle.close();
     await rm(secretsRoot, { recursive: true, force: true });

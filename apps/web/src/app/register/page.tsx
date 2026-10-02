@@ -1,6 +1,5 @@
 'use client';
 
-import { ApiError } from '@/lib/api';
 import { useSession } from '@/lib/auth-context';
 import { AuthShell } from '@/components/auth/AuthShell';
 import { OAuthButtons } from '@/components/auth/OAuthButtons';
@@ -26,7 +25,7 @@ export default function RegisterPage() {
       await register({ email, password, full_name: fullName });
       router.push('/dashboard');
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'Something went wrong. Try again.');
+      setError(cause instanceof Error ? cause.message : 'Something went wrong. Try again.');
     } finally {
       setSubmitting(false);
     }

@@ -40,21 +40,13 @@ export const storageEnvSchema = z.object({
   S3_ENDPOINT: z.string().optional(),
 });
 
-export const authEnvSchema = z.object({
-  /**
-   * 32 chars minimum. Short secrets are the single most common way a JWT
-   * deployment becomes forgeable, so this is enforced rather than documented.
-   */
-  JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
-  JWT_ISSUER: z.string().min(1).default('atlas'),
-  JWT_AUDIENCE: z.string().min(1).default('atlas-clients'),
-  ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().min(60).max(86_400).default(900),
-  REFRESH_TOKEN_TTL_SECONDS: z.coerce
-    .number()
-    .int()
-    .min(3600)
-    .max(31_536_000)
-    .default(2_592_000),
+/**
+ * Every service that verifies a caller's identity needs only the (non-secret)
+ * Supabase project URL — tokens are checked against its JWKS, not a shared
+ * secret. See packages/auth-kit/src/tokens.ts.
+ */
+export const supabaseAuthEnvSchema = z.object({
+  SUPABASE_URL: z.string().url('SUPABASE_URL must be a valid URL'),
 });
 
 export const httpEnvSchema = z.object({

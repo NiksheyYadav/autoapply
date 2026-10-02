@@ -50,7 +50,10 @@ export const organizations = pgTable(
 export const users = pgTable(
   'users',
   {
-    userId: uuid('user_id').primaryKey().defaultRandom(),
+    /** Same UUID as the corresponding auth.users.id — see the handle_new_user
+     * trigger in packages/db/supabase/auth-hooks.sql. No default: the row is
+     * always created by that trigger, never inserted directly by app code. */
+    userId: uuid('user_id').primaryKey(),
     /** Points at the resume currently treated as the canonical profile. */
     profileId: uuid('profile_id'),
     email: varchar('email', { length: 320 }).notNull(),
@@ -119,36 +122,6 @@ export const students = pgTable(
   ],
 );
 
-/**
- * Refresh-token sessions. Only the SHA-256 of the token is stored, so a
- * database leak does not hand an attacker usable sessions.
- */
-export const sessions = pgTable(
-  'sessions',
-  {
-    sessionId: uuid('session_id').primaryKey().defaultRandom(),
-    userId: uuid('user_id')
-      .notNull()
-      .references(() => users.userId, { onDelete: 'cascade' }),
-    organizationId: uuid('organization_id').references(() => organizations.organizationId, {
-      onDelete: 'set null',
-    }),
-    refreshTokenHash: varchar('refresh_token_hash', { length: 64 }).notNull(),
-    userAgent: varchar('user_agent', { length: 500 }),
-    ipAddress: varchar('ip_address', { length: 64 }),
-    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'string' }).notNull(),
-    revokedAt: timestamp('revoked_at', { withTimezone: true, mode: 'string' }),
-    /** Set when this session was replaced by rotation, for reuse detection. */
-    rotatedToSessionId: uuid('rotated_to_session_id'),
-    createdAt: timestamps.createdAt,
-  },
-  (table) => [
-    uniqueIndex('sessions_refresh_hash_key').on(table.refreshTokenHash),
-    index('sessions_user_idx').on(table.userId),
-    index('sessions_expires_idx').on(table.expiresAt),
-  ],
-);
-
 /** Immutable audit trail (docs/09 § Compliance posture). Append-only. */
 export const auditLogs = pgTable(
   'audit_logs',
@@ -174,7 +147,6 @@ export const auditLogs = pgTable(
 
 export const usersRelations = relations(users, ({ many }) => ({
   memberships: many(organizationMembers),
-  sessions: many(sessions),
 }));
 
 export const organizationsRelations = relations(organizations, ({ many }) => ({
@@ -193,6 +165,3 @@ export const organizationMembersRelations = relations(organizationMembers, ({ on
   }),
 }));
 
-export const sessionsRelations = relations(sessions, ({ one }) => ({
-  user: one(users, { fields: [sessions.userId], references: [users.userId] }),
-}));

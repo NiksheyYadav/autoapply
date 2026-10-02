@@ -2,21 +2,46 @@ import { randomUUID } from 'node:crypto';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { eq } from 'drizzle-orm';
-import { SignJWT } from 'jose';
+import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import type { FastifyInstance } from 'fastify';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { createTokenVerifierConfig } from '@atlas/auth-kit';
 import { createBroker } from '@atlas/messaging';
 import { createStorage } from '@atlas/storage';
-import { createDatabase, schema, type DatabaseHandle } from '@atlas/db';
+import { createDatabase, type DatabaseHandle } from '@atlas/db';
 import { createSilentLogger } from '@atlas/utils';
 import { buildApp } from '../src/app.js';
 import { loadProfileServiceEnv } from '../src/env.js';
 
 // DB-backed tests self-skip when ATLAS_TEST_DATABASE_URL is unset (see .env.example).
 const testDatabaseUrl = process.env.ATLAS_TEST_DATABASE_URL;
+const SUPABASE_URL = 'https://test-project.supabase.co';
 
-const JWT_SECRET = 'x'.repeat(32);
+let signTestToken: (claims: { sub: string; sid: string; org: string | null; role: string | null; email: string }) => Promise<string>;
+
+// createRemoteJWKSet fetches over HTTP — stub it to serve a locally
+// generated key instead of hitting a real Supabase project.
+async function stubJwks(): Promise<void> {
+  const { publicKey, privateKey } = await generateKeyPair('ES256');
+  const jwk = await exportJWK(publicKey);
+  jwk.kid = 'test-key';
+  jwk.alg = 'ES256';
+  jwk.use = 'sig';
+  vi.stubGlobal(
+    'fetch',
+    async () => new Response(JSON.stringify({ keys: [jwk] }), { status: 200, headers: { 'content-type': 'application/json' } }),
+  );
+
+  signTestToken = async (claims) =>
+    new SignJWT({ session_id: claims.sid, email: claims.email, app_metadata: { org_id: claims.org, role: claims.role } })
+      .setProtectedHeader({ alg: 'ES256', kid: 'test-key' })
+      .setSubject(claims.sub)
+      .setIssuer(`${SUPABASE_URL}/auth/v1`)
+      .setAudience('authenticated')
+      .setIssuedAt()
+      .setExpirationTime(Math.floor(Date.now() / 1000) + 900)
+      .sign(privateKey);
+}
 
 function buildMultipartBody(
   boundary: string,
@@ -37,17 +62,6 @@ function buildMultipartBody(
   return Buffer.concat(parts.map((p) => (Buffer.isBuffer(p) ? p : Buffer.from(p, 'utf8'))));
 }
 
-async function signTestToken(claims: { sub: string; sid: string; org: string | null; role: string | null; email: string }) {
-  return new SignJWT({ sid: claims.sid, org: claims.org, role: claims.role, email: claims.email })
-    .setProtectedHeader({ alg: 'HS256' })
-    .setSubject(claims.sub)
-    .setIssuer('atlas')
-    .setAudience('atlas-clients')
-    .setIssuedAt()
-    .setExpirationTime(Math.floor(Date.now() / 1000) + 900)
-    .sign(new TextEncoder().encode(JWT_SECRET));
-}
-
 describe.skipIf(!testDatabaseUrl)('profile-service HTTP flow', () => {
   let app: FastifyInstance;
   let dbHandle: DatabaseHandle;
@@ -59,19 +73,28 @@ describe.skipIf(!testDatabaseUrl)('profile-service HTTP flow', () => {
   const otherEmail = `profile-flow-${otherUserId}@example.com`;
 
   beforeAll(async () => {
+    await stubJwks();
     const env = loadProfileServiceEnv({
       DATABASE_URL: testDatabaseUrl,
       PORT: '4002',
-      JWT_SECRET,
+      SUPABASE_URL,
     });
     dbHandle = createDatabase({ url: env.DATABASE_URL });
 
     // profile-service never creates users — a real one has to exist for the
     // resumes.user_id foreign key, same as it would via a real auth-service signup.
-    await dbHandle.db.insert(schema.users).values([
-      { userId, email, fullName: 'Profile Flow Test User', authProvider: 'password' },
-      { userId: otherUserId, email: otherEmail, fullName: 'Someone Else', authProvider: 'password' },
-    ]);
+    // public.users.user_id FKs to auth.users.id (see packages/db/supabase/auth-hooks.sql);
+    // inserting into auth.users fires handle_new_user, which creates the matching
+    // public.users row itself — no separate insert needed.
+    for (const u of [
+      { id: userId, email, fullName: 'Profile Flow Test User' },
+      { id: otherUserId, email: otherEmail, fullName: 'Someone Else' },
+    ]) {
+      await dbHandle.sql`
+        insert into auth.users (id, instance_id, aud, role, email, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
+        values (${u.id}, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', ${u.email}, now(), '{"provider":"email"}'::jsonb, ${JSON.stringify({ full_name: u.fullName })}::jsonb, now(), now())
+      `;
+    }
 
     storageRoot = await mkdtemp(join(tmpdir(), 'atlas-profile-test-'));
     const storage = createStorage({ driver: 'local', localRoot: storageRoot });
@@ -84,7 +107,7 @@ describe.skipIf(!testDatabaseUrl)('profile-service HTTP flow', () => {
       logger: createSilentLogger(),
       broker,
       storage,
-      tokenVerifier: { secret: new TextEncoder().encode(JWT_SECRET), issuer: 'atlas', audience: 'atlas-clients' },
+      tokenVerifier: createTokenVerifierConfig(env),
     });
     await app.ready();
 
@@ -92,8 +115,8 @@ describe.skipIf(!testDatabaseUrl)('profile-service HTTP flow', () => {
   });
 
   afterAll(async () => {
-    await dbHandle.db.delete(schema.users).where(eq(schema.users.userId, userId));
-    await dbHandle.db.delete(schema.users).where(eq(schema.users.userId, otherUserId));
+    // Cascades to public.users via the auth.users FK (packages/db/supabase/auth-hooks.sql).
+    await dbHandle.sql`delete from auth.users where id in (${userId}, ${otherUserId})`;
     await app.close();
     await dbHandle.close();
     await rm(storageRoot, { recursive: true, force: true });

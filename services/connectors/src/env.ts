@@ -1,4 +1,4 @@
-import { baseEnvSchema, databaseEnvSchema, httpEnvSchema, loadEnv } from '@atlas/config';
+import { baseEnvSchema, databaseEnvSchema, httpEnvSchema, loadEnv, supabaseAuthEnvSchema } from '@atlas/config';
 import { z } from 'zod';
 
 export const connectorsServiceEnvSchema = z
@@ -6,10 +6,7 @@ export const connectorsServiceEnvSchema = z
     ...baseEnvSchema.shape,
     ...databaseEnvSchema.shape,
     ...httpEnvSchema.shape,
-    /** Verifies auth-service's JWTs; must match its JWT_SECRET/ISSUER/AUDIENCE. */
-    JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
-    JWT_ISSUER: z.string().min(1).default('atlas'),
-    JWT_AUDIENCE: z.string().min(1).default('atlas-clients'),
+    ...supabaseAuthEnvSchema.shape,
     /**
      * `local` writes credentials to plain files under SECRET_STORE_LOCAL_ROOT —
      * fine for exercising this service in dev, never acceptable in production.

@@ -1,5 +1,6 @@
 import { schema, type Database } from '@atlas/db';
 import type { EventEnvelope } from '@atlas/types';
+import { pgErrorCode } from '@atlas/utils';
 
 /** Postgres unique_violation. */
 const UNIQUE_VIOLATION = '23505';
@@ -27,7 +28,7 @@ export async function recordEvent(db: Database, consumer: string, envelope: Even
       });
     });
   } catch (cause) {
-    if ((cause as { code?: string }).code === UNIQUE_VIOLATION) return;
+    if (pgErrorCode(cause) === UNIQUE_VIOLATION) return;
     throw cause;
   }
 }
