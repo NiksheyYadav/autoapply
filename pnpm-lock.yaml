@@ -456,6 +456,9 @@ importers:
       '@atlas/observability':
         specifier: workspace:*
         version: link:../../packages/observability
+      '@atlas/storage':
+        specifier: workspace:*
+        version: link:../../packages/storage
       '@atlas/types':
         specifier: workspace:*
         version: link:../../packages/types

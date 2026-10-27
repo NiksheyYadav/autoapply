@@ -1,8 +1,11 @@
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import rateLimit from '@fastify/rate-limit';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createTokenVerifierConfig } from '@atlas/auth-kit';
 import { createDatabase, type DatabaseHandle } from '@atlas/db';
+import { createLocalDriver } from '@atlas/storage';
 import { registerRateLimitedRoutes } from '@atlas/observability';
 import { createSilentLogger } from '@atlas/utils';
 import { buildApp } from '../src/app.js';
@@ -31,6 +34,8 @@ async function build(envOverrides: Record<string, string> = {}): Promise<Fastify
     env,
     logger: createSilentLogger(),
     tokenVerifier: createTokenVerifierConfig(env),
+    // Never reached: every request here is turned away before it could delete anything.
+    storage: createLocalDriver({ root: join(tmpdir(), 'atlas-auth-ratelimit-test') }),
   });
   opened.push({ app, handle });
   await app.ready();

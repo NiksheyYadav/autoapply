@@ -12,6 +12,7 @@
     "@atlas/config": "workspace:*",
     "@atlas/db": "workspace:*",
     "@atlas/observability": "workspace:*",
+    "@atlas/storage": "workspace:*",
     "@atlas/types": "workspace:*",
     "@atlas/utils": "workspace:*",
     "@fastify/cors": "^11.3.0",
