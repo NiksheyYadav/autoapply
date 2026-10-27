@@ -4,6 +4,8 @@ import { useSession } from '@/lib/auth-context';
 import { listMessages } from '@/lib/services/outreach';
 import { statusLabel, statusVariant } from '@/lib/status-badge';
 import { useResource } from '@/lib/use-resource';
+import { ResourceError } from '@/components/dashboard/ResourceError';
+import { SkeletonGroup } from '@/components/dashboard/SkeletonGroup';
 import { Badge, Card, CardDescription, CardTitle, Skeleton, fadeUp, staggerContainer } from '@atlas/ui';
 import { motion } from 'framer-motion';
 
@@ -17,19 +19,17 @@ export default function MessagesPage() {
       <p className="mt-1 text-[var(--color-ink-soft)]">Drafted, scheduled, and sent outreach.</p>
 
       {messages.loading ? (
-        <div className="mt-6 flex flex-col gap-3">
+        <SkeletonGroup label="Loading messages…" className="mt-6 flex flex-col gap-3">
           {[0, 1, 2].map((i) => (
             <Skeleton key={i} className="h-20 w-full" />
           ))}
-        </div>
+        </SkeletonGroup>
       ) : messages.error ? (
-        <Card className="mt-6">
-          <CardDescription>Couldn&apos;t reach outreach-service: {messages.error}</CardDescription>
-        </Card>
+        <ResourceError what="your messages" onRetry={messages.reload} />
       ) : messages.data?.items.length === 0 ? (
         <Card className="mt-6">
           <CardTitle>No messages yet</CardTitle>
-          <CardDescription className="mt-1">Draft outreach to a referral contact to see it here.</CardDescription>
+          <CardDescription className="mt-1">Outreach you draft or send to referral contacts will appear here.</CardDescription>
         </Card>
       ) : (
         <motion.div initial="hidden" animate="visible" variants={staggerContainer} className="mt-6 flex flex-col gap-3">

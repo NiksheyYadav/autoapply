@@ -4,6 +4,8 @@ import { useSession } from '@/lib/auth-context';
 import { listApplications } from '@/lib/services/applications';
 import { statusLabel, statusVariant } from '@/lib/status-badge';
 import { useResource } from '@/lib/use-resource';
+import { ResourceError } from '@/components/dashboard/ResourceError';
+import { SkeletonGroup } from '@/components/dashboard/SkeletonGroup';
 import { Badge, Card, CardDescription, CardTitle, Skeleton, fadeUp, staggerContainer } from '@atlas/ui';
 import { motion } from 'framer-motion';
 
@@ -14,22 +16,22 @@ export default function ApplicationsPage() {
   return (
     <div>
       <h1 className="font-[var(--font-display)] text-2xl font-medium text-[var(--color-ink)]">Applications</h1>
-      <p className="mt-1 text-[var(--color-ink-soft)]">Every submission, tracked from draft to decision.</p>
+      <p className="mt-1 text-[var(--color-ink-soft)]">Your applications, tracked from draft to decision.</p>
 
       {applications.loading ? (
-        <div className="mt-6 flex flex-col gap-3">
+        <SkeletonGroup label="Loading applications…" className="mt-6 flex flex-col gap-3">
           {[0, 1, 2].map((i) => (
             <Skeleton key={i} className="h-16 w-full" />
           ))}
-        </div>
+        </SkeletonGroup>
       ) : applications.error ? (
-        <Card className="mt-6">
-          <CardDescription>Couldn&apos;t reach applications-service: {applications.error}</CardDescription>
-        </Card>
+        <ResourceError what="your applications" onRetry={applications.reload} />
       ) : applications.data?.items.length === 0 ? (
         <Card className="mt-6">
           <CardTitle>No applications yet</CardTitle>
-          <CardDescription className="mt-1">Apply to a matched job to start tracking it here.</CardDescription>
+          <CardDescription className="mt-1">
+            Applications tracked through Atlas will appear here, with their status from draft to decision.
+          </CardDescription>
         </Card>
       ) : (
         <motion.div initial="hidden" animate="visible" variants={staggerContainer} className="mt-6 flex flex-col gap-3">

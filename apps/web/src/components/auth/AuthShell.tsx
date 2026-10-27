@@ -20,9 +20,9 @@ export function AuthShell({ title, subtitle, children }: { title: string; subtit
       </div>
       <div className="hidden items-center justify-center border-l border-[var(--color-line)] bg-[var(--color-canvas-raised)] p-16 md:flex">
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2, duration: 0.6 }} className="max-w-md">
-          <RoutePath waypoints={['Resume parsed', 'Matched & scored', 'Applied', 'Referral found']} />
+          <RoutePath waypoints={['Resume parsed', 'Matched & scored', 'Tracked', 'Referral leads']} />
           <p className="mt-6 text-center text-sm text-[var(--color-ink-faint)]">
-            One route, four steps, zero manual spreadsheet tracking.
+            One route, four steps, and your whole search in one place.
           </p>
         </motion.div>
       </div>

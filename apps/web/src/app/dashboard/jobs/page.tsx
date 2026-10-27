@@ -3,6 +3,8 @@
 import { useSession } from '@/lib/auth-context';
 import { getRecommendations } from '@/lib/services/jobs';
 import { useResource } from '@/lib/use-resource';
+import { ResourceError } from '@/components/dashboard/ResourceError';
+import { SkeletonGroup } from '@/components/dashboard/SkeletonGroup';
 import { Badge, Card, CardDescription, CardTitle, ProgressRing, Skeleton, fadeUp, staggerContainer } from '@atlas/ui';
 import { motion } from 'framer-motion';
 
@@ -13,23 +15,21 @@ export default function JobsPage() {
   return (
     <div>
       <h1 className="font-[var(--font-display)] text-2xl font-medium text-[var(--color-ink)]">Job matches</h1>
-      <p className="mt-1 text-[var(--color-ink-soft)]">Scored by matching-service against your most recent resume.</p>
+      <p className="mt-1 text-[var(--color-ink-soft)]">Scored against your most recent resume.</p>
 
       {jobs.loading ? (
-        <div className="mt-6 grid gap-4 sm:grid-cols-2">
+        <SkeletonGroup label="Loading job matches…" className="mt-6 grid gap-4 sm:grid-cols-2">
           {[0, 1, 2, 3].map((i) => (
             <Skeleton key={i} className="h-40 w-full" />
           ))}
-        </div>
+        </SkeletonGroup>
       ) : jobs.error ? (
-        <Card className="mt-6">
-          <CardDescription>Couldn&apos;t reach jobs-service: {jobs.error}</CardDescription>
-        </Card>
+        <ResourceError what="your job matches" onRetry={jobs.reload} />
       ) : jobs.data?.items.length === 0 ? (
         <Card className="mt-6">
           <CardTitle>No matches yet</CardTitle>
           <CardDescription className="mt-1">
-            Scores appear once matching-service has processed your resume against active jobs.
+            Matches appear once you&apos;ve uploaded a resume and it has been scored against open roles. Check back shortly.
           </CardDescription>
         </Card>
       ) : (

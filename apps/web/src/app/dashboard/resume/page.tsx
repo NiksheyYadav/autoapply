@@ -2,9 +2,12 @@
 
 import { ApiError } from '@/lib/api';
 import { useSession } from '@/lib/auth-context';
+import { checkResumeFile } from '@/lib/resume-file';
 import { listResumes, uploadResume } from '@/lib/services/profile';
 import { statusLabel, statusVariant } from '@/lib/status-badge';
 import { useResource } from '@/lib/use-resource';
+import { ResourceError } from '@/components/dashboard/ResourceError';
+import { SkeletonGroup } from '@/components/dashboard/SkeletonGroup';
 import { Badge, Button, Card, CardDescription, CardTitle, ProgressRing, Skeleton, fadeUp, staggerContainer } from '@atlas/ui';
 import { motion } from 'framer-motion';
 import { Upload } from 'lucide-react';
@@ -18,15 +21,27 @@ export default function ResumePage() {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   async function handleFileSelected(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file || !accessToken) return;
-    setUploading(true);
+    const selected = event.target.files?.[0];
+    if (!selected || !accessToken) return;
     setUploadError(null);
+
+    const checked = checkResumeFile(selected);
+    if (!checked.ok) {
+      setUploadError(checked.message);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    setUploading(true);
     try {
-      await uploadResume(file, accessToken);
+      await uploadResume(checked.file, accessToken);
       resumes.reload();
     } catch (cause) {
-      setUploadError(cause instanceof ApiError ? cause.message : 'Upload failed.');
+      if (cause instanceof ApiError && cause.status === 413) {
+        setUploadError('That file is too large to upload. Resumes can be at most 4 MB — try a smaller or compressed copy.');
+      } else {
+        setUploadError(cause instanceof ApiError ? cause.message : 'Upload failed. Check your connection and try again.');
+      }
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -46,19 +61,31 @@ export default function ResumePage() {
           <Upload className="h-4 w-4" />
           {uploading ? 'Uploading…' : 'Upload resume'}
         </Button>
-        <input ref={fileInputRef} type="file" accept=".pdf,.docx,.txt" className="hidden" onChange={(e) => void handleFileSelected(e)} />
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".pdf,.docx,.txt"
+          aria-label="Resume file (PDF, DOCX, or TXT, up to 4 MB)"
+          className="hidden"
+          onChange={(e) => void handleFileSelected(e)}
+        />
       </div>
+      <p className="mt-2 text-xs text-[var(--color-ink-faint)]">PDF, DOCX, or TXT — up to 4 MB.</p>
 
-      {uploadError ? <p className="mt-3 text-sm text-[var(--color-serious)]">{uploadError}</p> : null}
+      {uploadError ? (
+        <p role="alert" className="mt-3 text-sm text-[var(--color-serious)]">
+          {uploadError}
+        </p>
+      ) : null}
 
       {resumes.loading ? (
         <Card className="mt-6">
-          <Skeleton className="h-24 w-full" />
+          <SkeletonGroup label="Loading your resume…">
+            <Skeleton className="h-24 w-full" />
+          </SkeletonGroup>
         </Card>
       ) : resumes.error ? (
-        <Card className="mt-6">
-          <CardDescription>Couldn&apos;t reach profile-service: {resumes.error}</CardDescription>
-        </Card>
+        <ResourceError what="your resume" onRetry={resumes.reload} />
       ) : !latest ? (
         <Card className="mt-6">
           <CardTitle>No resume yet</CardTitle>
