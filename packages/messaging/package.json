@@ -7,11 +7,16 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
+    "@atlas/db": "workspace:*",
     "@atlas/types": "workspace:*",
     "@atlas/utils": "workspace:*",
-    "amqplib": "^0.10.5"
+    "amqplib": "^0.10.5",
+    "drizzle-orm": "^0.45.2"
   },
   "devDependencies": {
-    "@types/amqplib": "^0.10.6"
+    "@atlas/auth-kit": "workspace:*",
+    "@atlas/storage": "workspace:*",
+    "@types/amqplib": "^0.10.6",
+    "jose": "^6.2.12"
   }
 }

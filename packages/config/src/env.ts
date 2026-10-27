@@ -26,7 +26,7 @@ export const redisEnvSchema = z.object({
 });
 
 export const messagingEnvSchema = z.object({
-  MESSAGING_DRIVER: z.enum(['memory', 'rabbitmq']).default('memory'),
+  MESSAGING_DRIVER: z.enum(['memory', 'rabbitmq', 'postgres']).default('memory'),
   RABBITMQ_URL: z.string().min(1).optional(),
   MESSAGING_EXCHANGE: z.string().min(1).default('atlas.events'),
   MESSAGING_MAX_RETRIES: z.coerce.number().int().min(0).max(20).default(5),
