@@ -11,6 +11,7 @@ import type { ErrorCode } from '@atlas/types';
 import { isAppError, newUuid, toAppError, type Logger } from '@atlas/utils';
 import { createMetricsRegistry, metricsRoute, registerHttpMetrics } from '@atlas/observability';
 import type { AnalyticsServiceEnv } from './env.js';
+import { drainRoute } from './http/routes/drain.js';
 import { getSummaryRoute } from './http/routes/get-summary.js';
 import { healthRoute } from './http/routes/health.js';
 
@@ -93,6 +94,7 @@ export function buildApp(deps: AppDeps): FastifyInstance {
 
   healthRoute(app, deps);
   metricsRoute(app, metrics);
+  drainRoute(app, deps);
   getSummaryRoute(app, deps);
 
   return app;
