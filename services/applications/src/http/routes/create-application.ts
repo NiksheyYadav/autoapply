@@ -19,6 +19,22 @@ const UNIQUE_VIOLATION = '23505';
 
 const idempotencyKeySchema = z.string().min(8).max(200);
 
+/**
+ * What `mode` actually does today:
+ *
+ * - `manual` / `review`: the application starts as an editable `draft`. Nothing
+ *   submits it for the user — they apply on the employer's site (the owner's
+ *   response carries `job.apply_url`) and then record the outcome with
+ *   POST /v1/applications/:id/events.
+ * - `auto`: the row is inserted as `queued`, but NOTHING consumes `queued`
+ *   applications — there is no submission worker, queue consumer or browser
+ *   automation. An auto application would sit in `queued` forever while the UI
+ *   implies it is being handled. So `auto` is refused with a 400 until a worker
+ *   exists and APPLICATIONS_AUTO_MODE_ENABLED=true is set for this service.
+ */
+const AUTO_MODE_UNAVAILABLE_MESSAGE =
+  'Mode "auto" cannot be used: automatic submission is not available yet. Use "manual" or "review" instead.';
+
 export function createApplicationRoute(app: FastifyInstance, deps: AppDeps): void {
   /** The owner's view of `row`, with the job it points at (null if the job or its company is gone). */
   async function ownerView(row: ApplicationRow, knownJob?: ApplicationJobSummary | null): Promise<ApplicationResponse> {
@@ -39,6 +55,12 @@ export function createApplicationRoute(app: FastifyInstance, deps: AppDeps): voi
     const idempotencyKey = idempotencyKeySchema.parse(rawKey);
 
     const body = createApplicationRequestSchema.parse(request.body);
+
+    if (body.mode === 'auto' && !deps.env.APPLICATIONS_AUTO_MODE_ENABLED) {
+      throw new AppError('VALIDATION_ERROR', AUTO_MODE_UNAVAILABLE_MESSAGE, {
+        details: [{ path: 'mode', message: AUTO_MODE_UNAVAILABLE_MESSAGE }],
+      });
+    }
 
     const existingByKey = await findByUserAndIdempotencyKey(deps.db, actor.user_id, idempotencyKey);
     if (existingByKey) {
@@ -76,7 +98,8 @@ export function createApplicationRoute(app: FastifyInstance, deps: AppDeps): voi
         organizationId: actor.organization_id,
         mode: body.mode,
         // `auto` has nothing manual left to do before it's eligible for
-        // submission; everything else starts as an editable draft.
+        // submission; everything else starts as an editable draft. Only
+        // reachable with APPLICATIONS_AUTO_MODE_ENABLED — see the note above.
         status: body.mode === 'auto' ? 'queued' : 'draft',
         idempotencyKey,
       });

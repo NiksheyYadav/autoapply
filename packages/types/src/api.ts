@@ -130,6 +130,12 @@ export type IngestJobsRequest = z.infer<typeof ingestJobsRequestSchema>;
 export const createApplicationRequestSchema = z.object({
   job_id: uuidSchema,
   resume_id: uuidSchema,
+  /**
+   * `manual` / `review` start as an editable draft; the owner applies on the
+   * employer's site and records the outcome. `auto` is rejected (400
+   * VALIDATION_ERROR) unless the service runs with
+   * APPLICATIONS_AUTO_MODE_ENABLED=true — no submission worker exists yet.
+   */
   mode: applicationModeSchema.default('manual'),
 });
 
