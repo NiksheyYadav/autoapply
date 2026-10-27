@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -53,6 +53,8 @@ describe.skipIf(!testDatabaseUrl)('analytics-service', () => {
   const userId = randomUUID();
   const adminUserId = randomUUID();
   const noOrgAdminUserId = randomUUID();
+  // Only this suite's own dedupe rows are removed: processed_events is shared with every other suite.
+  const publishedEventIds: string[] = [];
 
   beforeAll(async () => {
     await stubJwks();
@@ -93,7 +95,9 @@ describe.skipIf(!testDatabaseUrl)('analytics-service', () => {
   afterAll(async () => {
     await Promise.all(subscriptions.map((subscription) => subscription.stop()));
     await dbHandle.db.delete(schema.analyticsEvents).where(eq(schema.analyticsEvents.organizationId, organizationId));
-    await dbHandle.db.delete(schema.processedEvents);
+    if (publishedEventIds.length > 0) {
+      await dbHandle.db.delete(schema.processedEvents).where(inArray(schema.processedEvents.eventId, publishedEventIds));
+    }
     // Cascades to public.users via the auth.users FK.
     await dbHandle.sql`delete from auth.users where id in (${userId}, ${adminUserId}, ${noOrgAdminUserId})`;
     await dbHandle.db.delete(schema.organizations).where(eq(schema.organizations.organizationId, organizationId));
@@ -107,6 +111,7 @@ describe.skipIf(!testDatabaseUrl)('analytics-service', () => {
       { application_id: randomUUID(), user_id: userId, job_id: randomUUID(), mode: 'manual' },
       newTraceContext({ organization_id: organizationId, user_id: userId }),
     );
+    publishedEventIds.push(envelope.event_id);
     await broker.publish(envelope);
     await broker.publish(envelope); // exact same event_id — must not double-count
 

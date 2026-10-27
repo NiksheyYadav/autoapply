@@ -3,6 +3,7 @@ import { schema, type Database } from '@atlas/db';
 import { parseEvent, type EventEnvelope } from '@atlas/types';
 import { backoffDelayMs, type Logger } from '@atlas/utils';
 import type {
+  BatchPublisher,
   ConsumeContext,
   DeadLetter,
   DrainableBroker,
@@ -62,6 +63,8 @@ const DEFAULT_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 const DEFAULT_DRAIN_LIMIT = 100;
 const DEFAULT_DRAIN_BUDGET_MS = 20_000;
 const FAN_OUT_BATCH = 500;
+/** Rows per INSERT in `publishMany` (8 bound values each, far below Postgres' 65535 limit). */
+const PUBLISH_BATCH = 500;
 const DEFAULT_PURGE_LIMIT = 500;
 const MAX_ERROR_LENGTH = 300;
 /** Matches `varchar(160)` on `event_deliveries.consumer`. */
@@ -88,6 +91,19 @@ interface ClaimedRow extends Record<string, unknown> {
 }
 
 type Outcome = 'processed' | 'failed' | 'dead';
+
+function outboxRow(event: EventEnvelope): typeof schema.eventOutbox.$inferInsert {
+  return {
+    eventId: event.event_id,
+    eventType: event.event_type,
+    occurredAt: event.occurred_at,
+    traceId: event.trace.trace_id,
+    correlationId: event.trace.correlation_id,
+    organizationId: event.trace.organization_id,
+    userId: event.trace.user_id,
+    payload: event.payload as Record<string, unknown>,
+  };
+}
 
 function inList(values: readonly string[]): SQL {
   return sql.join(
@@ -145,7 +161,7 @@ export function sanitizeError(error: unknown): string {
  * - Delivery is at-least-once: a handler can run again after a crash or an
  *   expired lease, so handlers must be idempotent (docs/06).
  */
-export class PostgresBroker implements DrainableBroker {
+export class PostgresBroker implements DrainableBroker, BatchPublisher {
   private readonly db: Database;
   private readonly logger: Logger;
   private readonly defaultMaxRetries: number;
@@ -175,17 +191,28 @@ export class PostgresBroker implements DrainableBroker {
 
     await this.db
       .insert(schema.eventOutbox)
-      .values({
-        eventId: event.event_id,
-        eventType: event.event_type,
-        occurredAt: event.occurred_at,
-        traceId: event.trace.trace_id,
-        correlationId: event.trace.correlation_id,
-        organizationId: event.trace.organization_id,
-        userId: event.trace.user_id,
-        payload: event.payload as Record<string, unknown>,
-      })
+      .values(outboxRow(event))
       .onConflictDoNothing({ target: schema.eventOutbox.eventId });
+  }
+
+  /**
+   * `publish` for many envelopes at once: one multi-row INSERT per
+   * `PUBLISH_BATCH` (idempotent on `event_id`, also against duplicates inside
+   * the batch). A fan-out handler that emits hundreds of events needs this, or
+   * it spends its function budget on round trips. All envelopes are validated
+   * before the first write; the writes themselves are not one transaction, so a
+   * failure part-way leaves earlier batches published (see `BatchPublisher`).
+   */
+  async publishMany(envelopes: EventEnvelope[]): Promise<void> {
+    this.assertOpen();
+    const events = envelopes.map((envelope) => parseEvent(envelope));
+
+    for (let start = 0; start < events.length; start += PUBLISH_BATCH) {
+      await this.db
+        .insert(schema.eventOutbox)
+        .values(events.slice(start, start + PUBLISH_BATCH).map(outboxRow))
+        .onConflictDoNothing({ target: schema.eventOutbox.eventId });
+    }
   }
 
   async subscribe(options: SubscribeOptions): Promise<Subscription> {

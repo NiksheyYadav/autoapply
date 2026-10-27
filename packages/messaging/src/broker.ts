@@ -74,6 +74,66 @@ export function isDrainableBroker(broker: EventBroker): broker is DrainableBroke
   return typeof (broker as Partial<DrainableBroker>).drain === 'function';
 }
 
+/**
+ * A broker that can commit many events in one round trip (the `postgres`
+ * outbox: one multi-row INSERT). Like `DrainableBroker`, a narrow interface
+ * beside `EventBroker` so the other drivers are untouched; call `publishAll`,
+ * which narrows at runtime and falls back to `publish` for them.
+ */
+export interface BatchPublisher extends EventBroker {
+  /**
+   * Same contract as `publish` for each envelope (an already-published
+   * `event_id` is skipped). Every envelope is validated before any is written,
+   * but the batch as a whole is not atomic: a failure part-way through can
+   * leave the earlier chunks published, which is safe because republishing the
+   * same envelopes is a no-op.
+   */
+  publishMany(envelopes: EventEnvelope[]): Promise<void>;
+}
+
+export function isBatchPublisher(broker: EventBroker): broker is BatchPublisher {
+  return typeof (broker as Partial<BatchPublisher>).publishMany === 'function';
+}
+
+/** Parallel `publish` calls when the driver has no batch path. */
+const FALLBACK_PUBLISH_CONCURRENCY = 8;
+
+/**
+ * Publishes `envelopes` with the cheapest path the driver offers: one batch
+ * statement where there is one, otherwise `publish` with bounded concurrency.
+ * Rejects with the first failure and starts no further publishes after it.
+ * Meant for fan-out handlers (one event in, hundreds out).
+ */
+export async function publishAll(
+  broker: EventBroker,
+  envelopes: readonly EventEnvelope[],
+): Promise<void> {
+  if (envelopes.length === 0) return;
+  if (isBatchPublisher(broker)) {
+    await broker.publishMany([...envelopes]);
+    return;
+  }
+
+  let cursor = 0;
+  let failed = false;
+  const run = async (): Promise<void> => {
+    while (!failed) {
+      const envelope = envelopes[cursor];
+      if (envelope === undefined) return;
+      cursor += 1;
+      try {
+        await broker.publish(envelope);
+      } catch (error) {
+        failed = true;
+        throw error;
+      }
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(FALLBACK_PUBLISH_CONCURRENCY, envelopes.length) }, run),
+  );
+}
+
 /** A message that exhausted its retries. Surfaced for DLQ inspection. */
 export interface DeadLetter {
   envelope: EventEnvelope;
