@@ -245,6 +245,8 @@ describe.skipIf(!adminUrl)('rls.sql (Data API lockdown of schema public)', () =>
       'connector_accounts',
       'users',
       'organization_members',
+      // Added after rls.sql was written: covered by its blanket "every table in public" rule.
+      'job_sources',
     ]) {
       expect(publicTables).toContain(required);
     }
