@@ -7,6 +7,11 @@ export const learningServiceEnvSchema = z.object({
   ...httpEnvSchema.shape,
   ...messagingEnvSchema.shape,
   ...supabaseAuthEnvSchema.shape,
+  /**
+   * Comma-separated `auth.users` ids allowed to read cross-tenant aggregates
+   * (see `requirePlatformAdmin` in @atlas/auth-kit). Empty/unset means nobody.
+   */
+  PLATFORM_ADMIN_USER_IDS: z.string().default(''),
 });
 
 export type LearningServiceEnv = z.infer<typeof learningServiceEnvSchema>;

@@ -7,6 +7,12 @@ export const jobsServiceEnvSchema = z.object({
   ...httpEnvSchema.shape,
   ...messagingEnvSchema.shape,
   ...supabaseAuthEnvSchema.shape,
+  /**
+   * Comma-separated `auth.users` ids allowed to act on GLOBAL data such as the
+   * shared jobs catalog (see `requirePlatformAdmin` in @atlas/auth-kit).
+   * Empty/unset means nobody.
+   */
+  PLATFORM_ADMIN_USER_IDS: z.string().default(''),
 });
 
 export type JobsServiceEnv = z.infer<typeof jobsServiceEnvSchema>;
