@@ -67,7 +67,7 @@ The catalog fills from the public job-board endpoints that employers publish for
 The boards to read are rows of `job_sources` (`provider`, `board_token`, `company_name`, `enabled`, plus `last_fetched_at`, `last_status`, `last_error`, `last_job_count`). A request URL is always the provider's fixed host plus the stored token, and a token may only contain letters, digits, `-` and `_` (enforced by the API, by a database CHECK constraint, and again just before the request), so a source cannot be pointed at another host. Redirects are refused.
 
 #### GET|POST /internal/jobs/ingest-sources
-Reads the enabled sources, least recently read first, and stores their postings. Called hourly by `.github/workflows/ingest-jobs.yml` (or by hand with `workflow_dispatch`).
+Reads the enabled sources, least recently read first, and stores their postings. Called hourly by `.github/workflows/ingest-jobs.yml`, which does nothing until its `ATLAS_API_BASE_URL` (or `ATLAS_JOBS_URL`) variable and `CRON_SECRET` secret exist; it can also be run by hand (`workflow_dispatch`) or with a plain `curl`.
 
 - `Authorization: Bearer $CRON_SECRET` (constant-time compare). `503 UPSTREAM_UNAVAILABLE` if `CRON_SECRET` is not set on the jobs service, `401` for a missing or wrong secret. Not rate limited, like the drain routes.
 - Query: `limit` (boards per call, 1-200, default 50), `budget_ms` (100-25000, default 20000; functions are capped at 30s), `source_id` (read only this enabled source, e.g. straight after adding it).
@@ -96,7 +96,7 @@ How postings are stored:
 - A posting the board edited (same external id, new title, location or workplace type) is rewritten in place and announced again so it is re-scored. An edit that leaves those three unchanged (for example, only the description) is not picked up for a job already stored.
 - Salary is stored only where the source says it is annual (Lever `per-year-salary`). Greenhouse's list carries no salary, employment type or workplace type (the last two are read from custom fields when a board exposes them, and "Remote" from the location text). Ashby compensation is not requested. Ashby postings with `isListed: false` are skipped.
 
-Postings a source no longer lists are marked inactive (`is_active = false`), never deleted, and come back if the source lists them again. Only jobs that source's provider created for that source's company are considered, judged by `last_seen_at` against the database clock. Nothing is deactivated when:
+Postings a source no longer lists are marked inactive (`is_active = false`), never deleted, and come back if the source lists them again. Inactive jobs drop out of `GET /v1/jobs` (which lists active jobs unless asked otherwise), out of `GET /v1/jobs/recommendations`, out of matching, and cannot be applied to. Only jobs that source's provider created for that source's company are considered, judged by `last_seen_at` against the database clock. Nothing is deactivated when:
 - the fetch failed, or the board returned an empty list (`deactivation_skipped: "empty_result"`; a company that really closed every opening therefore keeps its stale postings until they are removed another way);
 - the run did not process every posting (`incomplete_run`) or some could not be stored (`rejected_postings`);
 - the board lists under 20% of what it listed last time, from a board that listed at least 10 (`sharp_drop`). The new count is recorded, so if the next run sees the same thing the deactivation goes ahead one run late.

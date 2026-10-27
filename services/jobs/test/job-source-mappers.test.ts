@@ -48,16 +48,19 @@ describe('html-text', () => {
     expect(stripTags('x<script>never closed')).toBe('x<script>never closed'.replace('<script>', ''));
   });
 
+  // Sized so that a stripper which rescans the rest of the input at every "<" (quadratic) needs
+  // many seconds, while a single pass needs milliseconds; the bound is generous either way.
   it.each([
-    ['a long run of "<"', '<'.repeat(400_000)],
-    ['many unclosed script tags', '<script>'.repeat(60_000)],
-    ['many unclosed list items', '<li '.repeat(100_000)],
-    ['many unclosed tags with attributes', '<a href="x" '.repeat(40_000)],
-    ['many entities', '&amp;'.repeat(100_000)],
+    ['a long run of "<"', '<'.repeat(1_500_000)],
+    ['many unclosed script tags', '<script>'.repeat(250_000)],
+    ['many unclosed style tags', '<style>'.repeat(250_000)],
+    ['many unclosed list items', '<li '.repeat(400_000)],
+    ['many unclosed tags with attributes', '<a href="x" '.repeat(150_000)],
+    ['many entities', '&amp;'.repeat(300_000)],
   ])('runs in linear time on %s', (_label, hostile) => {
     const started = performance.now();
     htmlToText(hostile);
-    expect(performance.now() - started).toBeLessThan(1_000);
+    expect(performance.now() - started).toBeLessThan(1_500);
   });
 });
 

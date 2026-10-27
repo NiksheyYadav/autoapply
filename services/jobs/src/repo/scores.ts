@@ -29,7 +29,9 @@ export async function listForUser(
   const cursorScore = typeof cursorValue?.score === 'number' ? cursorValue.score : null;
   const cursorId = typeof cursorValue?.id === 'string' ? cursorValue.id : null;
 
-  const conditions = [eq(schema.jobScores.userId, userId)];
+  // Scores outlive the posting they were computed for: a job its source has stopped listing is
+  // marked inactive (scheduled ingestion), and must stop being recommended along with it.
+  const conditions = [eq(schema.jobScores.userId, userId), eq(schema.jobs.isActive, true)];
   if (filters.remoteType) conditions.push(eq(schema.jobs.remoteType, filters.remoteType));
   if (filters.location) conditions.push(ilike(schema.jobs.location, `%${filters.location}%`));
   if (cursorScore !== null && cursorId) {
