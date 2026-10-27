@@ -1,4 +1,6 @@
+import { sql } from 'drizzle-orm';
 import {
+  check,
   index,
   integer,
   jsonb,
@@ -91,6 +93,108 @@ export const processedEvents = pgTable(
     // The (event, consumer) pair *is* the row identity — a PK, not an index.
     primaryKey({ columns: [table.eventId, table.consumer] }),
     index('processed_events_processed_at_idx').on(table.processedAt),
+  ],
+);
+
+/**
+ * Durable event log behind the `postgres` messaging driver
+ * (packages/messaging/src/postgres-broker.ts). `publish()` is one INSERT into
+ * this table, so a publish that returned is committed; consumers are fanned
+ * out to later, at drain time, from `event_consumers.materialized_through`.
+ * That is what lets an event published before a consumer's service has ever
+ * run still reach it. Rows are removed by the broker's `purge()`.
+ *
+ * `event_id` is the envelope's idempotency key, so republishing the same
+ * envelope is a no-op. `created_at` is the database clock (never a service
+ * clock): the drain cursor is defined over it.
+ */
+export const eventOutbox = pgTable(
+  'event_outbox',
+  {
+    eventId: uuid('event_id').primaryKey(),
+    eventType: varchar('event_type', { length: 120 }).notNull(),
+    occurredAt: timestamp('occurred_at', { withTimezone: true, mode: 'string' }).notNull(),
+    // The envelope's trace context, flattened so "what happened to trace X" is
+    // a plain indexed query. No FKs: the outbox must never block a user or
+    // organization deletion.
+    traceId: varchar('trace_id', { length: 100 }).notNull(),
+    correlationId: varchar('correlation_id', { length: 100 }).notNull(),
+    organizationId: uuid('organization_id'),
+    userId: uuid('user_id'),
+    payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    // Drain cursor order (created_at, event_id), also the purge scan.
+    index('event_outbox_created_idx').on(table.createdAt, table.eventId),
+    // Fan-out for consumers that subscribe to a few of the event types.
+    index('event_outbox_type_created_idx').on(table.eventType, table.createdAt, table.eventId),
+    index('event_outbox_trace_idx').on(table.traceId),
+  ],
+);
+
+/**
+ * One row per registered consumer name: which event types it listens to and
+ * how far fan-out has progressed for it. A consumer registers itself on its
+ * first drain, starting from the epoch, so it sees every event still in the
+ * outbox regardless of when it was published. The invariant is "every outbox
+ * row of a subscribed type with created_at < materialized_through has a
+ * delivery row for this consumer"; the broker keeps it a safety overlap
+ * behind the database clock so a late-committing publish cannot be skipped.
+ * `purge()` never deletes a row at or after this mark for a subscribed type.
+ */
+export const eventConsumers = pgTable('event_consumers', {
+  consumer: varchar('consumer', { length: 160 }).primaryKey(),
+  eventTypes: text('event_types').array().notNull(),
+  materializedThrough: timestamp('materialized_through', { withTimezone: true, mode: 'string' })
+    .notNull()
+    .default(sql`'1970-01-01T00:00:00Z'`),
+  lastDrainedAt: timestamp('last_drained_at', { withTimezone: true, mode: 'string' }),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+});
+
+/**
+ * Per-consumer delivery state for one outbox event. `pending` rows are due at
+ * `next_attempt_at` (retry backoff lives here) and are leased by setting
+ * `locked_until`; `attempts` increments on every claim, which makes it both
+ * the retry counter and the fencing token for the claimer's later write.
+ * `dead` rows exhausted their retries and are kept for inspection/replay.
+ */
+export const eventDeliveries = pgTable(
+  'event_deliveries',
+  {
+    eventId: uuid('event_id')
+      .notNull()
+      .references(() => eventOutbox.eventId, { onDelete: 'cascade' }),
+    consumer: varchar('consumer', { length: 160 }).notNull(),
+    status: varchar('status', { length: 16 }).notNull().default('pending'),
+    attempts: integer('attempts').notNull().default(0),
+    /** Sanitized and truncated by the broker — never a raw driver message. */
+    lastError: text('last_error'),
+    nextAttemptAt: timestamp('next_attempt_at', { withTimezone: true, mode: 'string' })
+      .notNull()
+      .defaultNow(),
+    lockedUntil: timestamp('locked_until', { withTimezone: true, mode: 'string' }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.eventId, table.consumer] }),
+    // The claim query: due pending work for a consumer, oldest first. Partial,
+    // so the (large, append-only) done history never bloats the hot path.
+    index('event_deliveries_claim_idx')
+      .on(table.consumer, table.nextAttemptAt)
+      .where(sql`${table.status} = 'pending'`),
+    index('event_deliveries_dead_idx')
+      .on(table.consumer, table.updatedAt)
+      .where(sql`${table.status} = 'dead'`),
+    check('event_deliveries_status_check', sql`${table.status} IN ('pending', 'done', 'dead')`),
   ],
 );
 

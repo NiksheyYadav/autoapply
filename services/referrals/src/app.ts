@@ -12,6 +12,7 @@ import { isAppError, newUuid, toAppError, type Logger } from '@atlas/utils';
 import { createMetricsRegistry, metricsRoute, registerHttpMetrics } from '@atlas/observability';
 import type { ReferralsServiceEnv } from './env.js';
 import { createContactRoute } from './http/routes/create-contact.js';
+import { drainRoute } from './http/routes/drain.js';
 import { healthRoute } from './http/routes/health.js';
 import { listCompanyContactsRoute } from './http/routes/list-company-contacts.js';
 import { listReferralsRoute } from './http/routes/list-referrals.js';
@@ -95,6 +96,7 @@ export function buildApp(deps: AppDeps): FastifyInstance {
 
   healthRoute(app, deps);
   metricsRoute(app, metrics);
+  drainRoute(app, deps);
   createContactRoute(app, deps);
   listCompanyContactsRoute(app, deps);
   listReferralsRoute(app, deps);

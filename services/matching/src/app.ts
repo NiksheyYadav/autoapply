@@ -10,6 +10,7 @@ import type { ErrorCode } from '@atlas/types';
 import { isAppError, newUuid, toAppError, type Logger } from '@atlas/utils';
 import { createMetricsRegistry, metricsRoute, registerHttpMetrics } from '@atlas/observability';
 import type { MatchingServiceEnv } from './env.js';
+import { drainRoute } from './http/routes/drain.js';
 import { healthRoute } from './http/routes/health.js';
 
 export interface AppDeps {
@@ -90,6 +91,7 @@ export function buildApp(deps: AppDeps): FastifyInstance {
 
   healthRoute(app, deps);
   metricsRoute(app, metrics);
+  drainRoute(app, deps);
 
   return app;
 }

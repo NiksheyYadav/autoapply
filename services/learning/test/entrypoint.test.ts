@@ -134,6 +134,34 @@ describe('learning-service Vercel entrypoint', () => {
     for (const consumer of tracked.consumers) expect(consumer).toMatch(/^learning-service\./);
   });
 
+  it('wires the postgres driver to a drain route that is closed to callers without the cron secret', async () => {
+    const secret = 'entrypoint-cron-secret-0123456789';
+    const { app } = await loadEntrypoint({ MESSAGING_DRIVER: 'postgres', CRON_SECRET: secret });
+
+    const anonymous = await app.inject({ method: 'POST', url: '/internal/drain' });
+    expect(anonymous.statusCode).toBe(401);
+
+    // An authorized call reaches the postgres broker, which then finds no database to drain: a
+    // plain 500 (so Vercel Cron records a failure) rather than a hang or a silent 200.
+    const failed = await app.inject({
+      method: 'POST',
+      url: '/internal/drain',
+      headers: { authorization: `Bearer ${secret}` },
+    });
+    expect(failed.statusCode).toBe(500);
+  });
+
+  it('keeps /internal/drain disabled on Vercel until CRON_SECRET is configured', async () => {
+    const { app } = await loadEntrypoint({ MESSAGING_DRIVER: 'postgres' });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/internal/drain',
+      headers: { authorization: 'Bearer anything-at-all-0123456789' },
+    });
+    expect(response.statusCode).toBe(503);
+  });
+
   it('serves /health through the default handler without any live infrastructure', async () => {
     const { default: handler } = await loadEntrypoint();
 

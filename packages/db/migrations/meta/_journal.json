@@ -22,6 +22,13 @@
       "when": 1789937839121,
       "tag": "0002_add_github_auth_provider",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793103905172,
+      "tag": "0003_add_event_outbox",
+      "breakpoints": true
     }
   ]
 }
