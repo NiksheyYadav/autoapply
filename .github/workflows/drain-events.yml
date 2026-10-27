@@ -9,7 +9,12 @@ name: Drain events
 #
 # Inert until configured. Set, in GitHub -> Settings -> Secrets and variables:
 #   variable ATLAS_API_BASE_URL   e.g. https://atlas-backend.example.vercel.app (no trailing slash)
-#   secret   CRON_SECRET          the same value set as CRON_SECRET on the Vercel project
+#                                 -- when every service is behind ONE Vercel project (root vercel.json)
+#   variable ATLAS_<SERVICE>_URL  ATLAS_MATCHING_URL, ATLAS_REFERRALS_URL, ATLAS_LEARNING_URL,
+#                                 ATLAS_ANALYTICS_URL -- when each service is its OWN Vercel project;
+#                                 overrides ATLAS_API_BASE_URL for that service
+#   secret   CRON_SECRET          the same value set as CRON_SECRET on the Vercel project(s)
+# Every service answers /internal/<service>/drain itself, so both layouts use the same path.
 #
 # Caveats: GitHub only runs `schedule` on the default branch, may delay runs under
 # load, and disables schedules after 60 days without repository activity. If the
@@ -35,16 +40,24 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [matching, referrals, learning, analytics]
+        include:
+          - service: matching
+            url: ${{ vars.ATLAS_MATCHING_URL }}
+          - service: referrals
+            url: ${{ vars.ATLAS_REFERRALS_URL }}
+          - service: learning
+            url: ${{ vars.ATLAS_LEARNING_URL }}
+          - service: analytics
+            url: ${{ vars.ATLAS_ANALYTICS_URL }}
     steps:
       - name: Call the drain endpoint
         env:
-          ATLAS_API_BASE_URL: ${{ vars.ATLAS_API_BASE_URL }}
+          ATLAS_API_BASE_URL: ${{ matrix.url != '' && matrix.url || vars.ATLAS_API_BASE_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
           SERVICE: ${{ matrix.service }}
         run: |
           if [ -z "${ATLAS_API_BASE_URL}" ] || [ -z "${CRON_SECRET}" ]; then
-            echo "::notice title=Drain skipped::Set the ATLAS_API_BASE_URL variable and CRON_SECRET secret to enable event draining."
+            echo "::notice title=Drain skipped::Set ATLAS_API_BASE_URL (or ATLAS_<SERVICE>_URL) and the CRON_SECRET secret to enable event draining."
             exit 0
           fi
           # --fail-with-body makes a 401/503/5xx fail the job (visible in Actions)
