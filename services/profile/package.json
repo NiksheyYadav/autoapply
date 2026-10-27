@@ -25,7 +25,7 @@
     "mammoth": "^1.12.3",
     "pdf-parse": "^2.4.5",
     "postgres": "^3.4.9",
-    "zod": "^4.4.3"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "jose": "^6.2.12",
