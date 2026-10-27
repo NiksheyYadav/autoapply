@@ -6,6 +6,7 @@ import { ZodError } from 'zod';
 import type { TokenVerifierConfig } from '@atlas/auth-kit';
 import { parseCorsOrigins } from '@atlas/config';
 import type { Database } from '@atlas/db';
+import type { StorageDriver } from '@atlas/storage';
 import type { ErrorCode } from '@atlas/types';
 import { isAppError, newUuid, toAppError, type Logger } from '@atlas/utils';
 import {
@@ -15,8 +16,11 @@ import {
   registerRateLimitedRoutes,
 } from '@atlas/observability';
 import type { AuthServiceEnv } from './env.js';
+import { deleteAccountRoute } from './http/routes/delete-account.js';
+import { exportAccountRoute } from './http/routes/export-account.js';
 import { healthRoute } from './http/routes/health.js';
 import { meRoute } from './http/routes/me.js';
+import type { ExportLimits } from './lib/export-budget.js';
 
 export interface AppDeps {
   db: Database;
@@ -24,6 +28,10 @@ export interface AppDeps {
   env: AuthServiceEnv;
   logger: Logger;
   tokenVerifier: TokenVerifierConfig;
+  /** Where resume files live; account deletion removes the caller's. */
+  storage: StorageDriver;
+  /** Size bounds for the account export. Tests shrink them; production uses the defaults. */
+  exportLimits?: ExportLimits;
 }
 
 const STATUS_TO_CODE: Partial<Record<number, ErrorCode>> = {
@@ -46,7 +54,12 @@ export function buildApp(deps: AppDeps): FastifyInstance {
     genReqId: () => newUuid(),
   });
 
-  void app.register(cors, { origin: parseCorsOrigins(deps.env.CORS_ORIGINS) });
+  void app.register(cors, {
+    origin: parseCorsOrigins(deps.env.CORS_ORIGINS),
+    // The plugin's default is GET, HEAD and POST: without DELETE here a browser's preflight for
+    // DELETE /v1/auth/me is refused whenever the web app and this API are on different origins.
+    methods: ['GET', 'HEAD', 'POST', 'DELETE'],
+  });
 
   const metrics = createMetricsRegistry('auth-service');
   registerHttpMetrics(app, metrics);
@@ -105,9 +118,22 @@ export function buildApp(deps: AppDeps): FastifyInstance {
     {
       plugin: rateLimit,
       settings: { max: deps.env.RATE_LIMIT_MAX, timeWindow: deps.env.RATE_LIMIT_WINDOW },
+      // The two account-privacy routes get their own, smaller budgets (the delete one the smallest).
+      routeLimits: {
+        'GET /v1/auth/me/export': {
+          max: deps.env.PRIVACY_EXPORT_RATE_LIMIT_MAX,
+          timeWindow: deps.env.PRIVACY_RATE_LIMIT_WINDOW,
+        },
+        'DELETE /v1/auth/me': {
+          max: deps.env.PRIVACY_DELETE_RATE_LIMIT_MAX,
+          timeWindow: deps.env.PRIVACY_RATE_LIMIT_WINDOW,
+        },
+      },
     },
     (api) => {
       meRoute(api, deps);
+      exportAccountRoute(api, deps);
+      deleteAccountRoute(api, deps);
     },
   );
 
