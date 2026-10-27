@@ -12,18 +12,26 @@
  * It reaches into services/* because this is the one place that can see both
  * sides of an event; production code never imports across services.
  *
- * The test uses the real tables and the real consumer names, so it must not
- * run while another process drains the same database's outbox. DB-backed
- * tests self-skip when ATLAS_TEST_DATABASE_URL is unset (see .env.example).
+ * The test uses the real tables and the real consumer names, so nothing else
+ * may drain the outbox it publishes to. Other suites in the same run do (the
+ * services' drain-route tests register the same consumers), and sharing one
+ * database with them made this suite fail intermittently in CI. It therefore
+ * creates, migrates and finally drops a scratch database of its own, using
+ * ATLAS_TEST_DATABASE_URL (which must be a superuser connection, as for
+ * packages/db/test/rls.test.ts) only to reach the server. DB-backed tests
+ * self-skip when it is unset (see .env.example).
  */
 import { randomUUID } from 'node:crypto';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createTokenVerifierConfig } from '@atlas/auth-kit';
 import { createDatabase, type DatabaseHandle } from '@atlas/db';
+import { runMigrations } from '../../db/src/migrate.js';
 import { createStorage } from '@atlas/storage';
 import { createSilentLogger } from '@atlas/utils';
 import { buildApp as buildAnalyticsApp } from '../../../services/analytics/src/app.js';
@@ -108,6 +116,52 @@ function multipartResume(boundary: string, filename: string, text: string): Buff
 
 const logger = createSilentLogger();
 
+const readRepoFile = (relative: string): string =>
+  readFileSync(fileURLToPath(new URL(relative, import.meta.url)), 'utf8');
+
+interface ScratchDatabase {
+  url: string;
+  drop(): Promise<void>;
+}
+
+/**
+ * A throwaway database on the test server, prepared with the repo's recipe
+ * (scripts/ci/setup-test-db.sh): Supabase stand-ins, migrations, auth hooks.
+ */
+async function createScratchDatabase(serverUrl: string): Promise<ScratchDatabase> {
+  const name = `atlas_xsvc_${randomUUID().replace(/-/g, '').slice(0, 12)}`;
+  const server = createDatabase({ url: serverUrl, singleConnection: true });
+  await server.sql.unsafe(`CREATE DATABASE ${name}`);
+  const scratch = new URL(serverUrl);
+  scratch.pathname = `/${name}`;
+  const url = scratch.toString();
+  try {
+    // One connection: the stub script issues its own BEGIN/COMMIT, which postgres.js only allows then.
+    const setup = createDatabase({ url, singleConnection: true });
+    try {
+      await setup.sql.unsafe(readRepoFile('../../../infra/ci/supabase-stub.sql'));
+      await runMigrations(url);
+      await setup.sql.unsafe(readRepoFile('../../db/supabase/auth-hooks.sql'));
+    } finally {
+      await setup.close();
+    }
+  } catch (cause) {
+    await server.sql.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`).catch(() => undefined);
+    await server.close();
+    throw cause;
+  }
+  return {
+    url,
+    drop: async () => {
+      try {
+        await server.sql.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
+      } finally {
+        await server.close();
+      }
+    },
+  };
+}
+
 describe.skipIf(!testDatabaseUrl)('cross-service events over the postgres driver', () => {
   const handles: DatabaseHandle[] = [];
   const brokers: EventBroker[] = [];
@@ -137,8 +191,12 @@ describe.skipIf(!testDatabaseUrl)('cross-service events over the postgres driver
     return { handle, broker };
   }
 
+  let scratch: ScratchDatabase | undefined;
   const common = {
-    DATABASE_URL: testDatabaseUrl as string,
+    // Read when the services are built in beforeAll, after the scratch database exists.
+    get DATABASE_URL(): string {
+      return (scratch as ScratchDatabase).url;
+    },
     MESSAGING_DRIVER: 'postgres',
     SUPABASE_URL,
     CRON_SECRET,
@@ -195,7 +253,8 @@ describe.skipIf(!testDatabaseUrl)('cross-service events over the postgres driver
 
   beforeAll(async () => {
     await stubJwks();
-    admin = createDatabase({ url: testDatabaseUrl as string, maxConnections: 3 });
+    scratch = await createScratchDatabase(testDatabaseUrl as string);
+    admin = createDatabase({ url: scratch.url, maxConnections: 3 });
     handles.push(admin);
     await resetConsumerRegistry();
 
@@ -352,6 +411,7 @@ describe.skipIf(!testDatabaseUrl)('cross-service events over the postgres driver
     await Promise.all(apps.map((app) => app.close()));
     await Promise.all(brokers.map((broker) => broker.close()));
     await Promise.all(handles.map((handle) => handle.close()));
+    await scratch?.drop();
     if (storageRoot) await rm(storageRoot, { recursive: true, force: true });
     vi.unstubAllGlobals();
   });

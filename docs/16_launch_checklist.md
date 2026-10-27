@@ -66,6 +66,16 @@ Pick one and delete the other. Mixed deployments double the preview builds and m
 URLs ambiguous. The Vercel connector in this working session cannot see those projects
 (it is authorized for a different scope), so I could not confirm which is live.
 
+**Why this is urgent:** on the free plan Vercel allows 100 deployments per day for the whole
+team, and every push builds every connected project. With one project per service a single
+push is roughly ten to twelve deployments. During this work the PR already hit the limit:
+the bot reported `Deployment rate limited ... api-deployments-free-per-day (more than 100)`
+on `atlas-applications`, with "retry in 24 hours". The single-project layout builds the
+backend once per push (plus web and admin), and a paid plan raises the cap. Do this before
+launch week, when you will be deploying often, and check Vercel's current terms for the
+Hobby plan, which is meant for personal, non-commercial use, against a launch with a
+university customer.
+
 Environment variables (set per project; never commit values):
 
 | Variable | Where | Notes |
@@ -173,6 +183,8 @@ Then walk the product once by hand:
 
 ## 7. Known risks to carry into launch week
 
+- **Deployment quota**: see section 2. A burst of pushes can leave production undeployable
+  for up to 24 hours on the free plan.
 - **Rate limits are per function instance** (in-memory), so the effective ceiling scales with
   warm instances; there is no shared store yet.
 - **Drain latency**: events are delivered at most every five minutes, so matches appear
