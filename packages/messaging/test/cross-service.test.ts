@@ -223,7 +223,8 @@ describe.skipIf(!testDatabaseUrl)('cross-service events over the postgres driver
       tokenVerifier: createTokenVerifierConfig(profileEnv),
     });
 
-    const jobsEnv = loadJobsServiceEnv({ ...common, PORT: '4003' });
+    // Ingest writes the shared catalog, so it is limited to the platform-admin allowlist.
+    const jobsEnv = loadJobsServiceEnv({ ...common, PORT: '4003', PLATFORM_ADMIN_USER_IDS: userId });
     const jobsFn = openFunction(jobsEnv);
     jobs = buildJobsApp({
       db: jobsFn.handle.db,

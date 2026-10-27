@@ -193,12 +193,18 @@ describe.skipIf(!adminUrl)('rls.sql (Data API lockdown of schema public)', () =>
     await sql.unsafe(readRepoFile('../supabase/auth-hooks.sql'));
     await sql.unsafe(AUTH_ADMIN_GRANTS);
 
-    // One real user + organization + owner membership, created through the same trigger production uses.
+    // One real user created through the signup trigger production uses, plus an organization and owner
+    // membership added the way an operator does. The trigger never creates either from signup metadata.
     seededUserId = randomUUID();
     await sql`
       INSERT INTO auth.users (id, email, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
       VALUES (${seededUserId}, ${`rls-seed-${seededUserId}@example.com`}, now(),
-              '{"provider":"email"}'::jsonb, '{"organization_name":"RLS Probe Org"}'::jsonb, now(), now())`;
+              '{"provider":"email"}'::jsonb, '{}'::jsonb, now(), now())`;
+    const [seededOrg] = await sql<{ organization_id: string }[]>`
+      INSERT INTO public.organizations (name) VALUES ('RLS Probe Org') RETURNING organization_id`;
+    await sql`
+      INSERT INTO public.organization_members (organization_id, user_id, role)
+      VALUES (${seededOrg?.organization_id as string}, ${seededUserId}, 'owner')`;
 
     // Before hardening, the baseline must really leak, or the later assertions prove nothing.
     const exposed = async (role: string): Promise<boolean> => {
@@ -368,9 +374,12 @@ describe.skipIf(!adminUrl)('rls.sql (Data API lockdown of schema public)', () =>
       const members = await tx.unsafe(
         `SELECT role FROM public.organization_members WHERE user_id = '${newUserId}'`,
       );
-      return { users: users.length, memberRoles: members.map((row) => row['role']) };
+      const orgs = await tx.unsafe(`SELECT 1 FROM public.organizations WHERE name = 'Signup Org'`);
+      return { users: users.length, memberRoles: members.map((row) => row['role']), orgs: orgs.length };
     });
-    expect(created).toEqual({ users: 1, memberRoles: ['owner'] });
+    // The signup row is created, but client-controlled `organization_name` metadata must not
+    // mint an organization or an owner membership (privilege escalation).
+    expect(created).toEqual({ users: 1, memberRoles: [], orgs: 0 });
   });
 
   it('keeps what Supabase Auth needs: schema usage, the hook, and reading organization_members', async () => {
