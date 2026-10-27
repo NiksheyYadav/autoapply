@@ -15,10 +15,46 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Nothing here writes to the repo or to PRs; checkout is the only token use.
+permissions:
+  contents: read
+
 jobs:
   backend:
     name: Backend (typecheck, lint, test)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      # Setting this is what turns the DB-backed integration suites on: they
+      # self-skip (and still report green) when it is unset. The credentials
+      # are for the throwaway service container below, which only exists for
+      # the duration of this job and is not reachable from outside it, so
+      # they are not secrets.
+      ATLAS_TEST_DATABASE_URL: postgres://atlas:atlas@localhost:5432/atlas_test
+
+    services:
+      # Same image as docker-compose.yml (pgvector bundled; pg_trgm and
+      # pgcrypto ship with Postgres contrib). The user is the container's
+      # superuser, which migrate.ts needs for CREATE EXTENSION.
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: atlas
+          POSTGRES_PASSWORD: atlas
+          POSTGRES_DB: atlas_test
+        ports:
+          - 5432:5432
+        # -h 127.0.0.1 forces a TCP check. During first start the image runs a
+        # temporary server that listens only on a unix socket; a socket check
+        # would report healthy too early and the next step would get
+        # "connection refused" while the real server restarts.
+        options: >-
+          --health-cmd "pg_isready -h 127.0.0.1 -U atlas -d atlas_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
     steps:
       - uses: actions/checkout@v4
 
@@ -41,10 +77,16 @@ jobs:
       - name: Lint (whole repo)
         run: pnpm lint
 
-      # DB-backed integration suites self-skip without ATLAS_TEST_DATABASE_URL
-      # (see .env.example) — no Postgres service is wired up in this job yet,
-      # so those suites report as skipped here, not passing.
-      - name: Test (backend, DB-backed suites skipped)
+      # Supabase is not available here, so this applies a minimal stand-in
+      # (roles + auth.users; infra/ci/supabase-stub.sql), then the real
+      # migrations, then packages/db/supabase/auth-hooks.sql. The same script
+      # works locally: see its header.
+      - name: Prepare test database (Supabase stand-in, migrations, auth hooks)
+        env:
+          DATABASE_URL: ${{ env.ATLAS_TEST_DATABASE_URL }}
+        run: bash scripts/ci/setup-test-db.sh
+
+      - name: Test (backend, including DB-backed integration suites)
         run: pnpm test
 
   frontend:
