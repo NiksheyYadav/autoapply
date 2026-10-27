@@ -66,12 +66,18 @@ Pick one and delete the other. Mixed deployments double the preview builds and m
 URLs ambiguous. The Vercel connector in this working session cannot see those projects
 (it is authorized for a different scope), so I could not confirm which is live.
 
+**Both layouts are connected at the same time.** The PR's deployment statuses list twelve
+Vercel projects: `atlas-backend` (the single-project layout), `atlas-web` and `atlas-admin`,
+and nine per-service projects (`atlas-auth`, `-profile`, `-jobs`, `-matching`,
+`-applications`, `-referrals`, `-outreach`, `-learning`, `-analytics`). Every one of them
+builds on every push, so the backend is built ten times over. Keep `atlas-backend`, `atlas-web`
+and `atlas-admin`; disconnect the nine per-service projects.
+
 **Why this is urgent:** on the free plan Vercel allows 100 deployments per day for the whole
-team, and every push builds every connected project. With one project per service a single
-push is roughly ten to twelve deployments. During this work the PR already hit the limit:
+team, and every push builds every connected project. Twelve projects means a single push is
+twelve deployments, so about eight pushes use the day's allowance. During this work the PR already hit the limit:
 the bot reported `Deployment rate limited ... api-deployments-free-per-day (more than 100)`
-on `atlas-applications`, with "retry in 24 hours". The single-project layout builds the
-backend once per push (plus web and admin), and a paid plan raises the cap. Do this before
+on `atlas-applications`, with "retry in 24 hours". Keeping only the three projects makes a push three deployments, and a paid plan raises the cap. Do this before
 launch week, when you will be deploying often, and check Vercel's current terms for the
 Hobby plan, which is meant for personal, non-commercial use, against a launch with a
 university customer.
