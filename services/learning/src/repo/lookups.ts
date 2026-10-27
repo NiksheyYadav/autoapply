@@ -1,6 +1,6 @@
-import { desc } from 'drizzle-orm';
+import { desc, sql } from 'drizzle-orm';
 import { schema, type Database } from '@atlas/db';
-import type { ScoredJobRow } from '../lib/metrics.js';
+import type { ModelGroup, ScoredJobRow } from '../lib/metrics.js';
 
 /**
  * Read-only cross-service queries against the one shared Postgres instance —
@@ -43,4 +43,54 @@ export async function listApplicationPairs(db: Database, limit = SAMPLE_LIMIT): 
     .orderBy(desc(schema.applications.createdAt))
     .limit(limit);
   return new Set(rows.map((row) => `${row.userId}:${row.jobId}`));
+}
+
+/**
+ * The same sample and the same split as `listRecentScores` + `listApplicationPairs`
+ * fed to `computeLearningMetrics`, as one aggregate query: the database
+ * returns one small row per model version instead of two 5000-row lists to
+ * fold in memory. This is what the `application.created` handler runs on
+ * every application, so its cost must not grow with the sample.
+ *
+ * "Applied" is an EXISTS against all applications rather than against the
+ * latest 5000 of them, so a score is never misclassified as not-applied just
+ * because its application fell outside a window.
+ */
+export async function aggregateModelGroups(db: Database, limit = SAMPLE_LIMIT): Promise<ModelGroup[]> {
+  const rows = await db.execute<{
+    model_version: string;
+    applied_count: number;
+    applied_sum: number;
+    not_applied_count: number;
+    not_applied_sum: number;
+  }>(sql`
+    WITH recent AS (
+      SELECT s.model_version,
+             s.score,
+             EXISTS (
+               SELECT 1 FROM applications a WHERE a.user_id = s.user_id AND a.job_id = s.job_id
+             ) AS applied
+      FROM (
+        SELECT model_version, score, user_id, job_id
+        FROM job_scores
+        ORDER BY scored_at DESC
+        LIMIT ${limit}
+      ) s
+    )
+    SELECT model_version,
+           (count(*) FILTER (WHERE applied))::int AS applied_count,
+           (coalesce(sum(score) FILTER (WHERE applied), 0))::float8 AS applied_sum,
+           (count(*) FILTER (WHERE NOT applied))::int AS not_applied_count,
+           (coalesce(sum(score) FILTER (WHERE NOT applied), 0))::float8 AS not_applied_sum
+    FROM recent
+    GROUP BY model_version
+    ORDER BY model_version
+  `);
+  return rows.map((row) => ({
+    modelVersion: row.model_version,
+    appliedCount: row.applied_count,
+    appliedSum: row.applied_sum,
+    notAppliedCount: row.not_applied_count,
+    notAppliedSum: row.not_applied_sum,
+  }));
 }
