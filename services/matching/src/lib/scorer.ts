@@ -34,7 +34,7 @@ function expectedMonthsForTitle(title: string): number {
  *  - skill overlap (70%): how much of what the job asks for the candidate has.
  *  - experience fit (30%): whether total experience meets what the title implies.
  */
-export function scoreMatch(job: Job, profile: ParsedProfile): MatchResult {
+export function scoreMatch(job: Pick<Job, 'title' | 'skills'>, profile: ParsedProfile): MatchResult {
   const candidateSkills = new Set(profile.skills.map((skill) => skill.name));
   const jobSkills = job.skills;
 
