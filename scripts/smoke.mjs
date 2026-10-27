@@ -150,7 +150,12 @@ async function run(env) {
       // Never authenticated: a successful call would start fetching third-party job boards.
       const anonymous = await request(`${origin}${route.path}`, { method: 'POST' });
       const verdict = classifyDrainProbe({ status: anonymous.status, authenticated: false });
-      add(check, verdict.result, verdict.note);
+      // classifyDrainProbe words its 503 for event drains; this route ingests job boards.
+      const note =
+        verdict.result === 'warn'
+          ? '503: CRON_SECRET is not set on this service, so scheduled job-board ingestion never runs'
+          : verdict.note;
+      add(check, verdict.result, note);
     } catch (cause) {
       add(check, 'fail', `request failed: ${cause instanceof Error ? cause.message : String(cause)}`);
     }

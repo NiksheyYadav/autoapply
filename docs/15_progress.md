@@ -15,7 +15,9 @@ Launch target: 2026-11-17 (individuals plus one university pilot). What only the
 - `apps/web` and `apps/admin` build with dummy `NEXT_PUBLIC_*` values.
 - To run the DB-backed tests locally: `DATABASE_URL=<scratch db> scripts/ci/setup-test-db.sh` (stand-in roles and `auth.users` from `infra/ci/supabase-stub.sql`, then `pnpm db:migrate`, then `packages/db/supabase/auth-hooks.sql` and `rls.sql`), then `ATLAS_TEST_DATABASE_URL=<same url> pnpm test`.
 
-**Not verified:** nothing has run against a real Supabase project or a live Vercel deployment. The Supabase project `atlas` was paused when last checked, and the Vercel account the working session can reach does not contain these projects. `scripts/smoke.mjs` exists to close that gap after the first deploy.
+- **First live check (Vercel preview of the integration PR, commit `02e25b9`):** `scripts/smoke.mjs` against the single-project `atlas-backend` preview and the `atlas-web` preview: **15 passed, 5 warnings, 0 failed**. All nine `/v1` services answer `401` from the service itself (so the committed bundles boot with valid configuration and the rewrites route correctly), the web pages render, and CORS allows the web origin. The five warnings are the drain and job-ingest routes answering `503` because `CRON_SECRET` is not set on that preview. `atlas-admin` and `atlas-web` also built and serve pages.
+
+**Not verified:** anything that touches Supabase. A `401` is returned before any database or auth call, so these checks do not prove the database connection, sign-in, uploads, matching or deletion work. The Supabase project `atlas` was paused when last checked. One superseded per-service Vercel project (`atlas-jobs`) failed to deploy on `02e25b9`; its build log is not reachable from the build session (`npx vercel inspect dpl_95uCaJRPMJ5m7CJjnxxuVpBXFjpQ --logs` shows it), and the same jobs code deploys and answers in `atlas-backend`.
 
 ## By priority (`CLAUDE.md`)
 
