@@ -43,20 +43,33 @@ async function stubJwks(): Promise<void> {
 
 describe.skipIf(!testDatabaseUrl)('learning-service', () => {
   let app: FastifyInstance;
+  // Same service, but booted with no PLATFORM_ADMIN_USER_IDS at all.
+  let appWithoutAllowlist: FastifyInstance;
   let dbHandle: DatabaseHandle;
   let broker: MemoryBroker;
   let subscriptions: Subscription[];
   let adminToken: string;
   let memberToken: string;
+  let orgOwnerToken: string;
+  let orgAdminToken: string;
   const userId = randomUUID();
   const adminUserId = randomUUID();
+  const orgOwnerUserId = randomUUID();
+  const orgAdminUserId = randomUUID();
+  const orgId = randomUUID();
   const companyName = `Learning Test Co ${randomUUID().slice(0, 8)}`;
   let companyId: string;
   const modelVersion = `test-model-${randomUUID().slice(0, 8)}`;
 
   beforeAll(async () => {
     await stubJwks();
-    const env = loadLearningServiceEnv({ DATABASE_URL: testDatabaseUrl, PORT: '4009', SUPABASE_URL });
+    // Platform admin is a server-side allowlist of user ids, not an org role.
+    const env = loadLearningServiceEnv({
+      DATABASE_URL: testDatabaseUrl,
+      PORT: '4009',
+      SUPABASE_URL,
+      PLATFORM_ADMIN_USER_IDS: `${randomUUID()},${adminUserId}`,
+    });
     dbHandle = createDatabase({ url: env.DATABASE_URL });
     broker = createBroker({ driver: 'memory', logger: createSilentLogger() }) as MemoryBroker;
     app = buildApp({
@@ -68,6 +81,18 @@ describe.skipIf(!testDatabaseUrl)('learning-service', () => {
       tokenVerifier: createTokenVerifierConfig(env),
     });
     await app.ready();
+
+    const envWithoutAllowlist = loadLearningServiceEnv({ DATABASE_URL: testDatabaseUrl, PORT: '4009', SUPABASE_URL });
+    expect(envWithoutAllowlist.PLATFORM_ADMIN_USER_IDS).toBe('');
+    appWithoutAllowlist = buildApp({
+      db: dbHandle.db,
+      sql: dbHandle.sql,
+      env: envWithoutAllowlist,
+      logger: createSilentLogger(),
+      broker,
+      tokenVerifier: createTokenVerifierConfig(envWithoutAllowlist),
+    });
+    await appWithoutAllowlist.ready();
     subscriptions = await registerConsumers({ db: dbHandle.db, broker, logger: createSilentLogger() });
 
     // public.users.user_id FKs to auth.users.id (see packages/db/supabase/auth-hooks.sql);
@@ -105,8 +130,11 @@ describe.skipIf(!testDatabaseUrl)('learning-service', () => {
       .insert(schema.applications)
       .values({ userId, jobId: appliedJob!.jobId, organizationId: null, mode: 'manual', status: 'draft', idempotencyKey: randomUUID() });
 
-    adminToken = await signTestToken({ sub: adminUserId, sid: randomUUID(), org: null, role: 'admin', email: 'admin@example.com' });
+    // The platform admin deliberately carries no org role: being on the allowlist is what counts.
+    adminToken = await signTestToken({ sub: adminUserId, sid: randomUUID(), org: null, role: null, email: 'admin@example.com' });
     memberToken = await signTestToken({ sub: userId, sid: randomUUID(), org: null, role: 'member', email: 'member@example.com' });
+    orgOwnerToken = await signTestToken({ sub: orgOwnerUserId, sid: randomUUID(), org: orgId, role: 'owner', email: 'owner@example.com' });
+    orgAdminToken = await signTestToken({ sub: orgAdminUserId, sid: randomUUID(), org: orgId, role: 'admin', email: 'orgadmin@example.com' });
   });
 
   afterAll(async () => {
@@ -118,6 +146,7 @@ describe.skipIf(!testDatabaseUrl)('learning-service', () => {
     // Cascades to public.users via the auth.users FK.
     await dbHandle.sql`delete from auth.users where id in (${userId}, ${adminUserId})`;
     await app.close();
+    await appWithoutAllowlist.close();
     await broker.close();
     await dbHandle.close();
   });
@@ -125,6 +154,26 @@ describe.skipIf(!testDatabaseUrl)('learning-service', () => {
   it('rejects a non-admin caller', async () => {
     const res = await app.inject({ method: 'GET', url: '/v1/learning/metrics', headers: { authorization: `Bearer ${memberToken}` } });
     expect(res.statusCode).toBe(403);
+  });
+
+  it('rejects an org owner who is not on the platform-admin allowlist', async () => {
+    const res = await app.inject({ method: 'GET', url: '/v1/learning/metrics', headers: { authorization: `Bearer ${orgOwnerToken}` } });
+    expect(res.statusCode).toBe(403);
+    expect(res.json().error.code).toBe('FORBIDDEN');
+    // No cross-tenant aggregate (this suite's model version) leaks through the error body.
+    expect(res.body).not.toContain(modelVersion);
+  });
+
+  it('rejects an org admin who is not on the platform-admin allowlist', async () => {
+    const res = await app.inject({ method: 'GET', url: '/v1/learning/metrics', headers: { authorization: `Bearer ${orgAdminToken}` } });
+    expect(res.statusCode).toBe(403);
+  });
+
+  it('fails closed: with no allowlist configured, nobody can read metrics (not even the former admin)', async () => {
+    for (const token of [adminToken, orgOwnerToken, orgAdminToken]) {
+      const res = await appWithoutAllowlist.inject({ method: 'GET', url: '/v1/learning/metrics', headers: { authorization: `Bearer ${token}` } });
+      expect(res.statusCode).toBe(403);
+    }
   });
 
   it('computes positive lift for a model whose higher scores got applied to', async () => {

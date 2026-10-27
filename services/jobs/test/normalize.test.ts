@@ -7,6 +7,7 @@ import {
   estimateSpamScore,
   normalizeApplyUrl,
   normalizeCompanyName,
+  normalizeWebsiteUrl,
 } from '../src/lib/normalize.js';
 
 describe('normalizeCompanyName', () => {
@@ -83,6 +84,10 @@ describe('estimateSpamScore', () => {
     expect(estimateSpamScore({ ...base, description: 'short' })).toBeGreaterThan(0);
   });
 
+  it('treats an apply_url that would not be stored (e.g. javascript:) as missing', () => {
+    expect(estimateSpamScore({ ...base, apply_url: 'javascript:alert(1)' })).toBe(estimateSpamScore({ ...base, apply_url: null }));
+  });
+
   it('never exceeds 1', () => {
     expect(estimateSpamScore({ ...base, apply_url: null, title: 'X', description: null })).toBeLessThanOrEqual(1);
   });
@@ -100,5 +105,46 @@ describe('normalizeApplyUrl', () => {
   it('nulls out a missing value', () => {
     expect(normalizeApplyUrl(null)).toBeNull();
     expect(normalizeApplyUrl(undefined)).toBeNull();
+  });
+
+  it('accepts http as well as https', () => {
+    expect(normalizeApplyUrl('http://acme.example/apply')).toBe('http://acme.example/apply');
+  });
+
+  it.each([
+    'javascript:alert(1)',
+    'JaVaScRiPt:alert(document.cookie)',
+    '  javascript:alert(1)',
+    'data:text/html,<script>alert(1)</script>',
+    'vbscript:msgbox(1)',
+    'file:///etc/passwd',
+    'ftp://acme.example/apply',
+    'blob:https://acme.example/6f1c1a52-0a4e-4f56-9d0c-0d64a7a2a5a1',
+  ])('nulls out the non-web URL %s instead of storing it', (raw) => {
+    expect(normalizeApplyUrl(raw)).toBeNull();
+  });
+
+  it('nulls out a URL with embedded credentials', () => {
+    expect(normalizeApplyUrl('https://user:pass@acme.example/apply')).toBeNull();
+    expect(normalizeApplyUrl('https://acme.example@evil.example/apply')).toBeNull();
+  });
+
+  it('trims surrounding whitespace before validating', () => {
+    expect(normalizeApplyUrl('  https://acme.example/apply  ')).toBe('https://acme.example/apply');
+  });
+});
+
+describe('normalizeWebsiteUrl', () => {
+  it('passes through an http(s) URL', () => {
+    expect(normalizeWebsiteUrl('https://acme.example')).toBe('https://acme.example/');
+    expect(normalizeWebsiteUrl('http://acme.example/about')).toBe('http://acme.example/about');
+  });
+
+  it('nulls out non-web schemes, junk, and missing values', () => {
+    expect(normalizeWebsiteUrl('javascript:alert(1)')).toBeNull();
+    expect(normalizeWebsiteUrl('data:text/html;base64,PHNjcmlwdD4=')).toBeNull();
+    expect(normalizeWebsiteUrl('acme.example')).toBeNull();
+    expect(normalizeWebsiteUrl(null)).toBeNull();
+    expect(normalizeWebsiteUrl(undefined)).toBeNull();
   });
 });

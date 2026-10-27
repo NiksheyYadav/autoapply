@@ -1,9 +1,9 @@
 import type { FastifyInstance } from 'fastify';
-import { getActor, requireAuth } from '@atlas/auth-kit';
+import { getActor, requireAuth, requirePlatformAdmin } from '@atlas/auth-kit';
 import { extractSkillKeywords } from '@atlas/ai';
 import { createEvent } from '@atlas/messaging';
 import { ingestJobsRequestSchema, type IngestionReport } from '@atlas/types';
-import { AppError, newTraceContext, pgErrorCode } from '@atlas/utils';
+import { newTraceContext, pgErrorCode } from '@atlas/utils';
 import type { AppDeps } from '../../app.js';
 import {
   coerceEmploymentType,
@@ -11,6 +11,7 @@ import {
   computeJobHash,
   estimateSpamScore,
   normalizeApplyUrl,
+  normalizeWebsiteUrl,
 } from '../../lib/normalize.js';
 import { findOrCreateByName } from '../../repo/companies.js';
 import { findByHash, insert, touchSeen } from '../../repo/jobs.js';
@@ -27,10 +28,10 @@ function parsePostedAt(raw?: string | null): string | null {
 export function ingestRoute(app: FastifyInstance, deps: AppDeps): void {
   app.post('/v1/jobs/ingest', { preHandler: requireAuth(deps.tokenVerifier) }, async (request, reply) => {
     const actor = getActor(request);
-    // Straight off the JWT claim (set at login) — no DB round trip needed to check role.
-    if (actor.role !== 'admin' && actor.role !== 'owner') {
-      throw new AppError('FORBIDDEN', 'Only org admins/owners can ingest job postings');
-    }
+    // The jobs catalog is shared by every tenant, so writing to it is a
+    // platform-level action. An org admin/owner role is not enough: anyone
+    // can create an organization, so that role carries no platform trust.
+    requirePlatformAdmin(actor, deps.env.PLATFORM_ADMIN_USER_IDS, 'Only platform administrators can ingest job postings');
 
     const { postings } = ingestJobsRequestSchema.parse(request.body);
     const firstSource = postings[0]?.source ?? 'manual';
@@ -43,12 +44,16 @@ export function ingestRoute(app: FastifyInstance, deps: AppDeps): void {
       errors: [],
     };
 
-    for (const posting of postings) {
+    for (const [index, posting] of postings.entries()) {
       const remoteType = coerceRemoteType(posting.remote_type);
       const jobHash = computeJobHash(posting.company_name, posting.title, posting.location ?? null, remoteType);
 
       try {
-        const company = await findOrCreateByName(deps.db, posting.company_name, posting.company_website);
+        const company = await findOrCreateByName(
+          deps.db,
+          posting.company_name,
+          normalizeWebsiteUrl(posting.company_website),
+        );
 
         const existing = await findByHash(deps.db, jobHash);
         if (existing) {
@@ -96,7 +101,10 @@ export function ingestRoute(app: FastifyInstance, deps: AppDeps): void {
           }
         }
         report.rejected += 1;
-        report.errors.push(cause instanceof Error ? cause.message : String(cause));
+        // Driver/ORM errors embed SQL and bound values (the whole posting) —
+        // the detail stays in our logs, the caller only learns which item failed.
+        request.log.error({ err: cause, posting_index: index }, 'failed to ingest job posting');
+        report.errors.push(`postings[${index}]: could not be processed`);
       }
     }
 
