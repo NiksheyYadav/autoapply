@@ -7,6 +7,7 @@ import { ResourceError } from '@/components/dashboard/ResourceError';
 import { SkeletonGroup } from '@/components/dashboard/SkeletonGroup';
 import { Badge, Card, CardDescription, CardTitle, ProgressRing, Skeleton, fadeUp, staggerContainer } from '@atlas/ui';
 import { motion } from 'framer-motion';
+import Link from 'next/link';
 
 export default function JobsPage() {
   const { user, accessToken } = useSession();
@@ -41,17 +42,25 @@ export default function JobsPage() {
         >
           {jobs.data?.items.map(({ job, score, reasons }) => (
             <motion.div key={job.job_id} variants={fadeUp}>
-              <Card interactive className="flex h-full gap-4">
+              <Card interactive className="relative flex h-full gap-4 focus-within:border-[var(--color-accent)]/60">
                 <ProgressRing value={score * 100} size={64} strokeWidth={6} />
-                <div className="flex-1">
-                  <CardTitle>{job.title}</CardTitle>
+                <div className="min-w-0 flex-1">
+                  <CardTitle>
+                    {/* The overlay makes the whole card the link target while the title stays the accessible name. */}
+                    <Link
+                      href={`/dashboard/jobs/${job.job_id}`}
+                      className="after:absolute after:inset-0 after:rounded-[var(--radius-card)] focus-visible:outline-none"
+                    >
+                      {job.title}
+                    </Link>
+                  </CardTitle>
                   <CardDescription className="mt-1">
                     {job.location ?? 'Location unspecified'} · {job.remote_type}
                   </CardDescription>
                   {reasons.length > 0 ? (
                     <ul className="mt-2 space-y-1 text-xs text-[var(--color-ink-faint)]">
-                      {reasons.slice(0, 2).map((reason) => (
-                        <li key={reason}>{reason}</li>
+                      {reasons.slice(0, 2).map((reason, index) => (
+                        <li key={`${index}:${reason}`}>{reason}</li>
                       ))}
                     </ul>
                   ) : null}
@@ -64,6 +73,7 @@ export default function JobsPage() {
                       ))}
                     </div>
                   ) : null}
+                  <p className="mt-3 text-xs font-medium text-[var(--color-accent)]">View details</p>
                 </div>
               </Card>
             </motion.div>
