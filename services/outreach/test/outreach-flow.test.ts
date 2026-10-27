@@ -10,6 +10,7 @@ import { createSilentLogger } from '@atlas/utils';
 import { buildApp } from '../src/app.js';
 import { loadOutreachServiceEnv } from '../src/env.js';
 import { createTransport } from '../src/lib/transport.js';
+import { claimAsSentByOwner } from '../src/repo/messages.js';
 import { stubJwksAndCreateSigner, SUPABASE_URL } from './support.js';
 
 // DB-backed tests self-skip when ATLAS_TEST_DATABASE_URL is unset (see .env.example).
@@ -389,6 +390,17 @@ describe.skipIf(!testDatabaseUrl)('outreach-service HTTP flow', () => {
         expect(responses.map((res) => res.statusCode)).toEqual(Array(10).fill(200));
         expect(new Set(responses.map((res) => res.json().message.sent_at)).size).toBe(1);
         expect(sentEventsFor(offBroker, id)).toHaveLength(1);
+        expect((await row(id)).status).toBe('sent');
+      });
+
+      // The HTTP test above only races as hard as the requests happen to line up; this one calls the
+      // claim itself, all at once, so a read-then-write version cannot slip through by timing.
+      it('hands the claim itself to exactly one of many simultaneous callers', async () => {
+        const id = await newDraft();
+
+        const results = await Promise.all(Array.from({ length: 20 }, () => claimAsSentByOwner(dbHandle.db, id, userId)));
+
+        expect(results.filter((claimed) => claimed !== null)).toHaveLength(1);
         expect((await row(id)).status).toBe('sent');
       });
 
