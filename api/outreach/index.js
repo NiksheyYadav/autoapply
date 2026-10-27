@@ -19408,7 +19408,7 @@ var require_validation = __commonJS({
     "use strict";
     var {
       kSchemaHeaders: headersSchema,
-      kSchemaParams: paramsSchema4,
+      kSchemaParams: paramsSchema5,
       kSchemaQuerystring: querystringSchema,
       kSchemaBody: bodySchema,
       kSchemaResponse: responseSchema
@@ -19624,7 +19624,7 @@ var require_validation = __commonJS({
         FSTWRN001("querystring", method, url2);
       }
       if (schema.params !== void 0) {
-        context2[paramsSchema4] = compile2({ schema: schema.params, method, url: url2, httpPart: "params" });
+        context2[paramsSchema5] = compile2({ schema: schema.params, method, url: url2, httpPart: "params" });
       } else if (Object.hasOwn(schema, "params")) {
         FSTWRN001("params", method, url2);
       }
@@ -19664,11 +19664,11 @@ var require_validation = __commonJS({
     }
     function validate2(context2, request, execution) {
       const runExecution = execution === void 0;
-      if (runExecution && context2[paramsSchema4] === void 0 && context2[bodySchema] === void 0 && context2[querystringSchema] === void 0 && context2[headersSchema] === void 0) {
+      if (runExecution && context2[paramsSchema5] === void 0 && context2[bodySchema] === void 0 && context2[querystringSchema] === void 0 && context2[headersSchema] === void 0) {
         return false;
       }
       if (runExecution || !execution.skipParams) {
-        const params = validateParam(context2[paramsSchema4], request, "params");
+        const params = validateParam(context2[paramsSchema5], request, "params");
         if (params) {
           if (typeof params.then !== "function") {
             return wrapValidationError(params, "params", context2.schemaErrorFormatter);
@@ -19763,7 +19763,7 @@ var require_validation = __commonJS({
       return error62;
     }
     module.exports = {
-      symbols: { bodySchema, querystringSchema, responseSchema, paramsSchema: paramsSchema4, headersSchema },
+      symbols: { bodySchema, querystringSchema, responseSchema, paramsSchema: paramsSchema5, headersSchema },
       compileSchemasForValidation,
       compileSchemasForSerialization,
       validate: validate2
@@ -42776,7 +42776,7 @@ var require_safe_regex2 = __commonJS({
     "use strict";
     var parse4 = require_dist4();
     var { types: types2 } = require_dist4();
-    function walk(node2, opts, starHeight) {
+    function walk2(node2, opts, starHeight) {
       let i;
       let ok;
       let len;
@@ -42789,14 +42789,14 @@ var require_safe_regex2 = __commonJS({
       const options = node2.options || node2.value?.options;
       if (options) {
         for (i = 0, len = options.length; i < len; i++) {
-          ok = walk({ stack: options[i] }, opts, starHeight);
+          ok = walk2({ stack: options[i] }, opts, starHeight);
           if (!ok) return false;
         }
       }
       const stack = node2.stack || node2.value?.stack;
       if (!stack) return true;
       for (i = 0, len = stack.length; i < len; i++) {
-        ok = walk(stack[i], opts, starHeight);
+        ok = walk2(stack[i], opts, starHeight);
         if (!ok) return false;
       }
       return true;
@@ -42809,7 +42809,7 @@ var require_safe_regex2 = __commonJS({
       if (isRegExp(re2)) re2 = re2.source;
       else if (typeof re2 !== "string") re2 = String(re2);
       try {
-        return walk(parse4(re2), opts, 0);
+        return walk2(parse4(re2), opts, 0);
       } catch {
         return false;
       }
@@ -75007,6 +75007,10 @@ var applicationViewSchema = applicationWithJobSchema.partial({ job: true });
 var applicationResponseSchema = external_exports.object({
   application: applicationViewSchema
 });
+var listApplicationsQuerySchema = paginationQuerySchema.extend({
+  /** Only the caller's applications to this job (own list only; rejected for scope=organization). */
+  job_id: uuidSchema.optional()
+});
 var listApplicationsResponseSchema = external_exports.object({
   items: external_exports.array(applicationViewSchema),
   next_cursor: external_exports.string().nullable()
@@ -75046,6 +75050,9 @@ var createMessageRequestSchema = external_exports.object({
 });
 var scheduleMessageRequestSchema = external_exports.object({
   scheduled_for: external_exports.iso.datetime()
+});
+var markMessageSentRequestSchema = external_exports.object({
+  note: external_exports.string().trim().max(500).optional()
 });
 var messageResponseSchema = external_exports.object({ message: messageSchema });
 var listMessagesResponseSchema = external_exports.object({
@@ -85568,6 +85575,7 @@ var PostgresBroker = class {
 var import_amqplib = __toESM(require_channel_api(), 1);
 
 // packages/messaging/src/envelope.ts
+import { createHash as createHash2 } from "node:crypto";
 function createEvent(eventType, payload, trace2, occurredAt = (/* @__PURE__ */ new Date()).toISOString(), eventId = newUuid()) {
   eventPayloadSchema(eventType).parse(payload);
   return {
@@ -85579,6 +85587,19 @@ function createEvent(eventType, payload, trace2, occurredAt = (/* @__PURE__ */ n
   };
 }
 var DERIVED_EVENT_NAMESPACE = Buffer.from("6f1d0c3ae2b94d7f8a5c9e04b7d31a62", "hex");
+function derivedEventId(parentEventId, key) {
+  const hash2 = createHash2("sha1").update(DERIVED_EVENT_NAMESPACE).update(`${parentEventId}:${key}`, "utf8").digest();
+  hash2[6] = (hash2[6] ?? 0) & 15 | 80;
+  hash2[8] = (hash2[8] ?? 0) & 63 | 128;
+  const hex3 = hash2.subarray(0, 16).toString("hex");
+  return [
+    hex3.slice(0, 8),
+    hex3.slice(8, 12),
+    hex3.slice(12, 16),
+    hex3.slice(16, 20),
+    hex3.slice(20)
+  ].join("-");
+}
 function routingKeyFor(eventType) {
   return eventType;
 }
@@ -85910,6 +85931,62 @@ function registerRateLimitedRoutes(app2, options, declareRoutes) {
   });
 }
 
+// packages/observability/src/timestamps.ts
+var PG_TIMESTAMP = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})(?:\.(\d{1,9}))?(Z|[+-]\d{2}(?::?\d{2})?)$/;
+var TIMESTAMP_KEY = /_at$/;
+function toIsoTimestamp(value) {
+  const match = PG_TIMESTAMP.exec(value);
+  if (!match) return void 0;
+  const [, date6, time4, fraction = "", zone = "Z"] = match;
+  const millis = fraction.slice(0, 3).padEnd(3, "0");
+  let offset = zone;
+  if (zone !== "Z") {
+    const digits = zone.slice(1).replace(":", "");
+    offset = `${zone[0]}${digits.slice(0, 2)}:${digits.slice(2, 4).padEnd(2, "0")}`;
+  }
+  const parsed = /* @__PURE__ */ new Date(`${date6}T${time4}.${millis}${offset}`);
+  return Number.isNaN(parsed.getTime()) ? void 0 : parsed.toISOString();
+}
+function isPlainObject2(value) {
+  if (typeof value !== "object" || value === null) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+function normalizeTimestamps(value) {
+  return walk(value);
+}
+function walk(value) {
+  if (Array.isArray(value)) {
+    let changed = false;
+    const next = value.map((item) => {
+      const converted = walk(item);
+      if (converted !== item) changed = true;
+      return converted;
+    });
+    return changed ? next : value;
+  }
+  if (!isPlainObject2(value)) return value;
+  let copy;
+  for (const [key, child] of Object.entries(value)) {
+    let converted;
+    if (typeof child === "string" && TIMESTAMP_KEY.test(key)) {
+      converted = toIsoTimestamp(child) ?? child;
+    } else {
+      converted = walk(child);
+    }
+    if (converted !== child) {
+      copy ??= { ...value };
+      copy[key] = converted;
+    }
+  }
+  return copy ?? value;
+}
+function registerIsoTimestamps(app2) {
+  app2.addHook("preSerialization", (_request, _reply, payload, done) => {
+    done(null, normalizeTimestamps(payload));
+  });
+}
+
 // services/outreach/src/lib/drafter.ts
 function draftSubject(ctx) {
   if (ctx.jobTitle && ctx.companyName) return `Interested in the ${ctx.jobTitle} role at ${ctx.companyName}`;
@@ -85973,6 +86050,27 @@ var CLAIMABLE_STATUSES = ["draft", "scheduled", "failed"];
 async function claimForSending(db2, messageId) {
   const [row] = await db2.update(schema_exports.messages).set({ status: "sent", sentAt: (/* @__PURE__ */ new Date()).toISOString() }).where(and(eq(schema_exports.messages.messageId, messageId), inArray(schema_exports.messages.status, CLAIMABLE_STATUSES))).returning();
   return row ?? null;
+}
+var SELF_REPORTABLE_STATUSES = ["draft", "scheduled"];
+async function claimAsSentByOwner(db2, messageId, userId) {
+  const [row] = await db2.update(schema_exports.messages).set({ status: "sent", sentAt: (/* @__PURE__ */ new Date()).toISOString() }).where(
+    and(
+      eq(schema_exports.messages.messageId, messageId),
+      eq(schema_exports.messages.userId, userId),
+      inArray(schema_exports.messages.status, SELF_REPORTABLE_STATUSES)
+    )
+  ).returning();
+  return row ?? null;
+}
+async function revertSentClaim(db2, claimed) {
+  if (claimed.sentAt === null) return;
+  await db2.update(schema_exports.messages).set({ status: claimed.scheduledFor === null ? "draft" : "scheduled", sentAt: null }).where(
+    and(
+      eq(schema_exports.messages.messageId, claimed.messageId),
+      eq(schema_exports.messages.status, "sent"),
+      eq(schema_exports.messages.sentAt, claimed.sentAt)
+    )
+  );
 }
 async function setFailed(db2, messageId) {
   const [row] = await db2.update(schema_exports.messages).set({ status: "failed" }).where(eq(schema_exports.messages.messageId, messageId)).returning();
@@ -86156,12 +86254,71 @@ function listMessagesRoute(app2, deps) {
   });
 }
 
-// services/outreach/src/http/routes/schedule-message.ts
+// services/outreach/src/http/routes/mark-message-sent.ts
 var paramsSchema2 = external_exports.object({ id: uuidSchema });
-function scheduleMessageRoute(app2, deps) {
-  app2.post("/v1/messages/:id/schedule", { preHandler: requireAuth(deps.tokenVerifier) }, async (request, reply) => {
+function markMessageSentRoute(app2, deps) {
+  app2.post("/v1/messages/:id/mark-sent", { preHandler: requireAuth(deps.tokenVerifier) }, async (request, reply) => {
     const actor = getActor(request);
     const { id } = paramsSchema2.parse(request.params);
+    const body = markMessageSentRequestSchema.parse(request.body ?? {});
+    const claimed = await claimAsSentByOwner(deps.db, id, actor.user_id);
+    if (!claimed) {
+      const row = await findById(deps.db, id);
+      if (!row || row.userId !== actor.user_id) {
+        throw new AppError("NOT_FOUND", "Message not found");
+      }
+      if (row.status === "sent") {
+        const response2 = { message: toMessage(row) };
+        reply.status(200).send(response2);
+        return;
+      }
+      throw new AppError("CONFLICT", `Cannot mark a message that is "${row.status}" as sent`);
+    }
+    try {
+      await deps.broker.publish(
+        createEvent(
+          "outreach.sent",
+          { message_id: claimed.messageId, user_id: claimed.userId, contact_id: claimed.contactId, channel: claimed.channel },
+          newTraceContext({ user_id: claimed.userId }),
+          void 0,
+          // One event per message: if this publish landed but reported failure, the retry after the
+          // revert below publishes the same event_id and the outbox/consumers drop the duplicate.
+          derivedEventId(claimed.messageId, "outreach.sent")
+        )
+      );
+    } catch (cause) {
+      try {
+        await revertSentClaim(deps.db, claimed);
+      } catch (revertCause) {
+        request.log.error({ err: revertCause, messageId: claimed.messageId }, "could not revert mark-sent after a publish failure");
+      }
+      throw cause;
+    }
+    request.log.info({ messageId: claimed.messageId, noteProvided: body.note !== void 0 && body.note !== "" }, "message recorded as sent by its owner");
+    const response = { message: toMessage(claimed) };
+    reply.status(200).send(response);
+  });
+}
+
+// services/outreach/src/lib/delivery.ts
+var DELIVERY_DISABLED_REASON = "delivery_disabled";
+function requireDeliveryEnabled(env2) {
+  return async function requireDeliveryEnabledPreHandler(_request, _reply) {
+    if (env2.OUTREACH_DELIVERY_ENABLED) return;
+    throw new AppError(
+      "UPSTREAM_UNAVAILABLE",
+      "Atlas does not deliver messages yet. Copy the draft or open it in your own email app, then record it with POST /v1/messages/:id/mark-sent.",
+      { details: { reason: DELIVERY_DISABLED_REASON, alternative: "POST /v1/messages/:id/mark-sent" } }
+    );
+  };
+}
+
+// services/outreach/src/http/routes/schedule-message.ts
+var paramsSchema3 = external_exports.object({ id: uuidSchema });
+function scheduleMessageRoute(app2, deps) {
+  app2.post("/v1/messages/:id/schedule", { preHandler: [requireAuth(deps.tokenVerifier), requireDeliveryEnabled(deps.env)] }, async (request, reply) => {
+    const actor = getActor(request);
+    const { id } = paramsSchema3.parse(request.params);
     const body = scheduleMessageRequestSchema.parse(request.body);
     const row = await findById(deps.db, id);
     if (!row || row.userId !== actor.user_id) {
@@ -86180,11 +86337,11 @@ function scheduleMessageRoute(app2, deps) {
 }
 
 // services/outreach/src/http/routes/send-message.ts
-var paramsSchema3 = external_exports.object({ id: uuidSchema });
+var paramsSchema4 = external_exports.object({ id: uuidSchema });
 function sendMessageRoute(app2, deps) {
-  app2.post("/v1/messages/:id/send", { preHandler: requireAuth(deps.tokenVerifier) }, async (request, reply) => {
+  app2.post("/v1/messages/:id/send", { preHandler: [requireAuth(deps.tokenVerifier), requireDeliveryEnabled(deps.env)] }, async (request, reply) => {
     const actor = getActor(request);
-    const { id } = paramsSchema3.parse(request.params);
+    const { id } = paramsSchema4.parse(request.params);
     const row = await findById(deps.db, id);
     if (!row || row.userId !== actor.user_id) {
       throw new AppError("NOT_FOUND", "Message not found");
@@ -86234,6 +86391,7 @@ function buildApp(deps) {
   void app2.register(import_cors.default, { origin: parseCorsOrigins(deps.env.CORS_ORIGINS) });
   const metrics2 = createMetricsRegistry("outreach-service");
   registerHttpMetrics(app2, metrics2);
+  registerIsoTimestamps(app2);
   app2.setErrorHandler((error62, request, reply) => {
     if (error62 instanceof ZodError) {
       reply.status(400).send({
@@ -86285,6 +86443,7 @@ function buildApp(deps) {
       getMessageRoute(api, deps);
       scheduleMessageRoute(api, deps);
       sendMessageRoute(api, deps);
+      markMessageSentRoute(api, deps);
     }
   );
   return app2;
@@ -86298,11 +86457,36 @@ var outreachServiceEnvSchema = external_exports.object({
   ...messagingEnvSchema.shape,
   ...supabaseAuthEnvSchema.shape,
   /**
-   * `local` just logs the send (safe default, no external dependency). `smtp`
+   * Whether Atlas itself delivers messages. Off by default, and it must stay
+   * off until a real transport exists: with it off, `POST /v1/messages/:id/send`
+   * and `POST /v1/messages/:id/schedule` are rejected before anything is
+   * claimed or written, and the only way a message becomes `sent` is the
+   * user recording that they sent it themselves (`POST .../mark-sent`).
+   *
+   * `z.stringbool()` rejects anything it does not recognise, so a typo such
+   * as `OUTREACH_DELIVERY_ENABLED=ture` fails at boot instead of silently
+   * reading as "off" (or "on").
+   *
+   * Turning it on needs a transport that really delivers. Only `local` exists
+   * (it logs and delivers nothing) and `smtp` is not implemented, so the
+   * combination is refused in production below. Even with it on, nothing
+   * dispatches `scheduled` messages: there is no worker.
+   */
+  OUTREACH_DELIVERY_ENABLED: external_exports.stringbool().default(false),
+  /**
+   * `local` just logs the send (dev/test only, no external dependency). `smtp`
    * is not implemented yet — mirrors `@atlas/storage`'s `s3` driver, which
    * throws a clear error at factory time rather than pretending to work.
    */
   OUTREACH_TRANSPORT_DRIVER: external_exports.enum(["local", "smtp"]).default("local")
+}).superRefine((env2, ctx) => {
+  if (env2.NODE_ENV === "production" && env2.OUTREACH_DELIVERY_ENABLED && env2.OUTREACH_TRANSPORT_DRIVER === "local") {
+    ctx.addIssue({
+      code: "custom",
+      path: ["OUTREACH_DELIVERY_ENABLED"],
+      message: "cannot be true in production with OUTREACH_TRANSPORT_DRIVER=local: the local transport only logs, so users would be told mail was sent that never was. Leave it false until a real transport exists."
+    });
+  }
 });
 function loadOutreachServiceEnv(source = process.env) {
   const normalized = { ...source, PORT: source.PORT ?? source.OUTREACH_SERVICE_PORT };
@@ -86341,6 +86525,10 @@ var broker = createBroker({
 });
 var tokenVerifier = createTokenVerifierConfig(env);
 var transport = createTransport({ driver: env.OUTREACH_TRANSPORT_DRIVER, logger });
+logger.info(
+  { deliveryEnabled: env.OUTREACH_DELIVERY_ENABLED, transport: env.OUTREACH_TRANSPORT_DRIVER },
+  env.OUTREACH_DELIVERY_ENABLED ? "outreach delivery enabled" : "outreach delivery disabled: send and schedule are refused; users record sends with mark-sent"
+);
 var app = buildApp({ db, sql: sql2, env, logger, broker, tokenVerifier, transport });
 var index_default = createVercelHandler(app);
 if (!process.env.VERCEL) {

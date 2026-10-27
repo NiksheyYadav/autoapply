@@ -75006,6 +75006,10 @@ var applicationViewSchema = applicationWithJobSchema.partial({ job: true });
 var applicationResponseSchema = external_exports.object({
   application: applicationViewSchema
 });
+var listApplicationsQuerySchema = paginationQuerySchema.extend({
+  /** Only the caller's applications to this job (own list only; rejected for scope=organization). */
+  job_id: uuidSchema.optional()
+});
 var listApplicationsResponseSchema = external_exports.object({
   items: external_exports.array(applicationViewSchema),
   next_cursor: external_exports.string().nullable()
@@ -75045,6 +75049,9 @@ var createMessageRequestSchema = external_exports.object({
 });
 var scheduleMessageRequestSchema = external_exports.object({
   scheduled_for: external_exports.iso.datetime()
+});
+var markMessageSentRequestSchema = external_exports.object({
+  note: external_exports.string().trim().max(500).optional()
 });
 var messageResponseSchema = external_exports.object({ message: messageSchema });
 var listMessagesResponseSchema = external_exports.object({

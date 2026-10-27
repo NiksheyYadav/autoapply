@@ -75007,7 +75007,10 @@ var applicationViewSchema = applicationWithJobSchema.partial({ job: true });
 var applicationResponseSchema = external_exports.object({
   application: applicationViewSchema
 });
-var listApplicationsQuerySchema = paginationQuerySchema;
+var listApplicationsQuerySchema = paginationQuerySchema.extend({
+  /** Only the caller's applications to this job (own list only; rejected for scope=organization). */
+  job_id: uuidSchema.optional()
+});
 var listApplicationsResponseSchema = external_exports.object({
   items: external_exports.array(applicationViewSchema),
   next_cursor: external_exports.string().nullable()
@@ -75047,6 +75050,9 @@ var createMessageRequestSchema = external_exports.object({
 });
 var scheduleMessageRequestSchema = external_exports.object({
   scheduled_for: external_exports.iso.datetime()
+});
+var markMessageSentRequestSchema = external_exports.object({
+  note: external_exports.string().trim().max(500).optional()
 });
 var messageResponseSchema = external_exports.object({ message: messageSchema });
 var listMessagesResponseSchema = external_exports.object({
@@ -86085,8 +86091,9 @@ function toPage(rows, limit, applicationOf) {
     nextCursor: hasMore && lastApplication ? encodeCursor({ createdAt: lastApplication.createdAt, id: lastApplication.applicationId }) : null
   };
 }
-async function listForUser(db2, userId, pagination) {
-  const rows = await db2.select({ application: schema_exports.applications, job: jobSummaryColumns }).from(schema_exports.applications).leftJoin(schema_exports.jobs, eq(schema_exports.jobs.jobId, schema_exports.applications.jobId)).leftJoin(schema_exports.companies, eq(schema_exports.companies.companyId, schema_exports.jobs.companyId)).where(pageCondition(eq(schema_exports.applications.userId, userId), pagination)).orderBy(desc(schema_exports.applications.createdAt), desc(schema_exports.applications.applicationId)).limit(pagination.limit + 1);
+async function listForUser(db2, userId, pagination, filter = {}) {
+  const scopeCondition = filter.jobId === void 0 ? eq(schema_exports.applications.userId, userId) : and(eq(schema_exports.applications.userId, userId), eq(schema_exports.applications.jobId, filter.jobId));
+  const rows = await db2.select({ application: schema_exports.applications, job: jobSummaryColumns }).from(schema_exports.applications).leftJoin(schema_exports.jobs, eq(schema_exports.jobs.jobId, schema_exports.applications.jobId)).leftJoin(schema_exports.companies, eq(schema_exports.companies.companyId, schema_exports.jobs.companyId)).where(pageCondition(scopeCondition, pagination)).orderBy(desc(schema_exports.applications.createdAt), desc(schema_exports.applications.applicationId)).limit(pagination.limit + 1);
   const page = toPage(rows, pagination.limit, (item) => item.application);
   return {
     items: page.items.map((item) => ({ application: item.application, job: toJobSummary(item.job) })),
@@ -86310,6 +86317,9 @@ function listApplicationsRoute(app2, deps) {
     const scope = scopeSchema.parse(request.query.scope);
     let response;
     if (scope === "organization") {
+      if (query.job_id !== void 0) {
+        throw new AppError("VALIDATION_ERROR", "job_id cannot be combined with scope=organization");
+      }
       if (actor.role !== "admin" && actor.role !== "owner") {
         throw new AppError("FORBIDDEN", "Only org admins/owners can list organization-wide applications");
       }
@@ -86319,7 +86329,7 @@ function listApplicationsRoute(app2, deps) {
       const result = await listForOrganization(deps.db, actor.organization_id, query);
       response = { items: result.items.map(toApplication), next_cursor: result.nextCursor };
     } else {
-      const result = await listForUser(deps.db, actor.user_id, query);
+      const result = await listForUser(deps.db, actor.user_id, query, { jobId: query.job_id });
       response = {
         items: result.items.map(({ application, job }) => toApplicationWithJob(application, job)),
         next_cursor: result.nextCursor
