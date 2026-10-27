@@ -85123,9 +85123,22 @@ var DEFAULT_RETENTION_MS = 7 * 24 * 60 * 60 * 1e3;
 var DEFAULT_DRAIN_LIMIT = 100;
 var DEFAULT_DRAIN_BUDGET_MS = 2e4;
 var FAN_OUT_BATCH = 500;
+var PUBLISH_BATCH = 500;
 var DEFAULT_PURGE_LIMIT = 500;
 var MAX_ERROR_LENGTH = 300;
 var MAX_CONSUMER_LENGTH = 160;
+function outboxRow(event) {
+  return {
+    eventId: event.event_id,
+    eventType: event.event_type,
+    occurredAt: event.occurred_at,
+    traceId: event.trace.trace_id,
+    correlationId: event.trace.correlation_id,
+    organizationId: event.trace.organization_id,
+    userId: event.trace.user_id,
+    payload: event.payload
+  };
+}
 function inList(values2) {
   return sql.join(
     values2.map((value) => sql`${value}`),
@@ -85166,16 +85179,22 @@ var PostgresBroker = class {
   async publish(envelope) {
     this.assertOpen();
     const event = parseEvent(envelope);
-    await this.db.insert(schema_exports.eventOutbox).values({
-      eventId: event.event_id,
-      eventType: event.event_type,
-      occurredAt: event.occurred_at,
-      traceId: event.trace.trace_id,
-      correlationId: event.trace.correlation_id,
-      organizationId: event.trace.organization_id,
-      userId: event.trace.user_id,
-      payload: event.payload
-    }).onConflictDoNothing({ target: schema_exports.eventOutbox.eventId });
+    await this.db.insert(schema_exports.eventOutbox).values(outboxRow(event)).onConflictDoNothing({ target: schema_exports.eventOutbox.eventId });
+  }
+  /**
+   * `publish` for many envelopes at once: one multi-row INSERT per
+   * `PUBLISH_BATCH` (idempotent on `event_id`, also against duplicates inside
+   * the batch). A fan-out handler that emits hundreds of events needs this, or
+   * it spends its function budget on round trips. All envelopes are validated
+   * before the first write; the writes themselves are not one transaction, so a
+   * failure part-way leaves earlier batches published (see `BatchPublisher`).
+   */
+  async publishMany(envelopes) {
+    this.assertOpen();
+    const events = envelopes.map((envelope) => parseEvent(envelope));
+    for (let start = 0; start < events.length; start += PUBLISH_BATCH) {
+      await this.db.insert(schema_exports.eventOutbox).values(events.slice(start, start + PUBLISH_BATCH).map(outboxRow)).onConflictDoNothing({ target: schema_exports.eventOutbox.eventId });
+    }
   }
   async subscribe(options) {
     this.assertOpen();

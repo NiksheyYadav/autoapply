@@ -85102,9 +85102,22 @@ var DEFAULT_RETENTION_MS = 7 * 24 * 60 * 60 * 1e3;
 var DEFAULT_DRAIN_LIMIT = 100;
 var DEFAULT_DRAIN_BUDGET_MS = 2e4;
 var FAN_OUT_BATCH = 500;
+var PUBLISH_BATCH = 500;
 var DEFAULT_PURGE_LIMIT = 500;
 var MAX_ERROR_LENGTH = 300;
 var MAX_CONSUMER_LENGTH = 160;
+function outboxRow(event) {
+  return {
+    eventId: event.event_id,
+    eventType: event.event_type,
+    occurredAt: event.occurred_at,
+    traceId: event.trace.trace_id,
+    correlationId: event.trace.correlation_id,
+    organizationId: event.trace.organization_id,
+    userId: event.trace.user_id,
+    payload: event.payload
+  };
+}
 function inList(values2) {
   return sql.join(
     values2.map((value) => sql`${value}`),
@@ -85145,16 +85158,22 @@ var PostgresBroker = class {
   async publish(envelope) {
     this.assertOpen();
     const event = parseEvent(envelope);
-    await this.db.insert(schema_exports.eventOutbox).values({
-      eventId: event.event_id,
-      eventType: event.event_type,
-      occurredAt: event.occurred_at,
-      traceId: event.trace.trace_id,
-      correlationId: event.trace.correlation_id,
-      organizationId: event.trace.organization_id,
-      userId: event.trace.user_id,
-      payload: event.payload
-    }).onConflictDoNothing({ target: schema_exports.eventOutbox.eventId });
+    await this.db.insert(schema_exports.eventOutbox).values(outboxRow(event)).onConflictDoNothing({ target: schema_exports.eventOutbox.eventId });
+  }
+  /**
+   * `publish` for many envelopes at once: one multi-row INSERT per
+   * `PUBLISH_BATCH` (idempotent on `event_id`, also against duplicates inside
+   * the batch). A fan-out handler that emits hundreds of events needs this, or
+   * it spends its function budget on round trips. All envelopes are validated
+   * before the first write; the writes themselves are not one transaction, so a
+   * failure part-way leaves earlier batches published (see `BatchPublisher`).
+   */
+  async publishMany(envelopes) {
+    this.assertOpen();
+    const events = envelopes.map((envelope) => parseEvent(envelope));
+    for (let start = 0; start < events.length; start += PUBLISH_BATCH) {
+      await this.db.insert(schema_exports.eventOutbox).values(events.slice(start, start + PUBLISH_BATCH).map(outboxRow)).onConflictDoNothing({ target: schema_exports.eventOutbox.eventId });
+    }
   }
   async subscribe(options) {
     this.assertOpen();
@@ -85546,6 +85565,7 @@ var PostgresBroker = class {
 var import_amqplib = __toESM(require_channel_api(), 1);
 
 // packages/messaging/src/envelope.ts
+import { createHash as createHash2 } from "node:crypto";
 function createEvent(eventType, payload, trace2, occurredAt = (/* @__PURE__ */ new Date()).toISOString(), eventId = newUuid()) {
   eventPayloadSchema(eventType).parse(payload);
   return {
@@ -85557,6 +85577,19 @@ function createEvent(eventType, payload, trace2, occurredAt = (/* @__PURE__ */ n
   };
 }
 var DERIVED_EVENT_NAMESPACE = Buffer.from("6f1d0c3ae2b94d7f8a5c9e04b7d31a62", "hex");
+function derivedEventId(parentEventId, key) {
+  const hash2 = createHash2("sha1").update(DERIVED_EVENT_NAMESPACE).update(`${parentEventId}:${key}`, "utf8").digest();
+  hash2[6] = (hash2[6] ?? 0) & 15 | 80;
+  hash2[8] = (hash2[8] ?? 0) & 63 | 128;
+  const hex3 = hash2.subarray(0, 16).toString("hex");
+  return [
+    hex3.slice(0, 8),
+    hex3.slice(8, 12),
+    hex3.slice(12, 16),
+    hex3.slice(16, 20),
+    hex3.slice(20)
+  ].join("-");
+}
 function routingKeyFor(eventType) {
   return eventType;
 }
@@ -85705,11 +85738,40 @@ var RabbitMqBroker = class {
 function isDrainableBroker(broker2) {
   return typeof broker2.drain === "function";
 }
+function isBatchPublisher(broker2) {
+  return typeof broker2.publishMany === "function";
+}
+var FALLBACK_PUBLISH_CONCURRENCY = 8;
+async function publishAll(broker2, envelopes) {
+  if (envelopes.length === 0) return;
+  if (isBatchPublisher(broker2)) {
+    await broker2.publishMany([...envelopes]);
+    return;
+  }
+  let cursor = 0;
+  let failed = false;
+  const run = async () => {
+    while (!failed) {
+      const envelope = envelopes[cursor];
+      if (envelope === void 0) return;
+      cursor += 1;
+      try {
+        await broker2.publish(envelope);
+      } catch (error62) {
+        failed = true;
+        throw error62;
+      }
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(FALLBACK_PUBLISH_CONCURRENCY, envelopes.length) }, run)
+  );
+}
 
 // packages/messaging/src/drain-auth.ts
-import { createHash as createHash2, timingSafeEqual as timingSafeEqual2 } from "node:crypto";
+import { createHash as createHash3, timingSafeEqual as timingSafeEqual2 } from "node:crypto";
 function digest(value) {
-  return createHash2("sha256").update(value, "utf8").digest();
+  return createHash3("sha256").update(value, "utf8").digest();
 }
 function isAuthorizedDrainRequest(authorization, secret) {
   if (secret === "") return false;
@@ -85936,10 +85998,25 @@ function drainRoute(app2, deps) {
 }
 
 // services/learning/src/lib/metrics.ts
+function summarizeGroups(groups) {
+  return groups.map((group) => {
+    const appliedMeanScore = group.appliedCount > 0 ? group.appliedSum / group.appliedCount : null;
+    const notAppliedMeanScore = group.notAppliedCount > 0 ? group.notAppliedSum / group.notAppliedCount : null;
+    return {
+      modelVersion: group.modelVersion,
+      appliedMeanScore,
+      notAppliedMeanScore,
+      appliedSamples: group.appliedCount,
+      notAppliedSamples: group.notAppliedCount,
+      lift: appliedMeanScore !== null && notAppliedMeanScore !== null ? appliedMeanScore - notAppliedMeanScore : null
+    };
+  });
+}
 function computeLearningMetrics(scores, appliedPairs) {
   const groups = /* @__PURE__ */ new Map();
   for (const row of scores) {
     const group = groups.get(row.modelVersion) ?? {
+      modelVersion: row.modelVersion,
       appliedSum: 0,
       appliedCount: 0,
       notAppliedSum: 0,
@@ -85954,18 +86031,7 @@ function computeLearningMetrics(scores, appliedPairs) {
     }
     groups.set(row.modelVersion, group);
   }
-  return [...groups.entries()].map(([modelVersion, group]) => {
-    const appliedMeanScore = group.appliedCount > 0 ? group.appliedSum / group.appliedCount : null;
-    const notAppliedMeanScore = group.notAppliedCount > 0 ? group.notAppliedSum / group.notAppliedCount : null;
-    return {
-      modelVersion,
-      appliedMeanScore,
-      notAppliedMeanScore,
-      appliedSamples: group.appliedCount,
-      notAppliedSamples: group.notAppliedCount,
-      lift: appliedMeanScore !== null && notAppliedMeanScore !== null ? appliedMeanScore - notAppliedMeanScore : null
-    };
-  });
+  return summarizeGroups([...groups.values()]);
 }
 
 // services/learning/src/repo/lookups.ts
@@ -85982,6 +86048,38 @@ async function listRecentScores(db2, limit = SAMPLE_LIMIT) {
 async function listApplicationPairs(db2, limit = SAMPLE_LIMIT) {
   const rows = await db2.select({ userId: schema_exports.applications.userId, jobId: schema_exports.applications.jobId }).from(schema_exports.applications).orderBy(desc(schema_exports.applications.createdAt)).limit(limit);
   return new Set(rows.map((row) => `${row.userId}:${row.jobId}`));
+}
+async function aggregateModelGroups(db2, limit = SAMPLE_LIMIT) {
+  const rows = await db2.execute(sql`
+    WITH recent AS (
+      SELECT s.model_version,
+             s.score,
+             EXISTS (
+               SELECT 1 FROM applications a WHERE a.user_id = s.user_id AND a.job_id = s.job_id
+             ) AS applied
+      FROM (
+        SELECT model_version, score, user_id, job_id
+        FROM job_scores
+        ORDER BY scored_at DESC
+        LIMIT ${limit}
+      ) s
+    )
+    SELECT model_version,
+           (count(*) FILTER (WHERE applied))::int AS applied_count,
+           (coalesce(sum(score) FILTER (WHERE applied), 0))::float8 AS applied_sum,
+           (count(*) FILTER (WHERE NOT applied))::int AS not_applied_count,
+           (coalesce(sum(score) FILTER (WHERE NOT applied), 0))::float8 AS not_applied_sum
+    FROM recent
+    GROUP BY model_version
+    ORDER BY model_version
+  `);
+  return rows.map((row) => ({
+    modelVersion: row.model_version,
+    appliedCount: row.applied_count,
+    appliedSum: row.applied_sum,
+    notAppliedCount: row.not_applied_count,
+    notAppliedSum: row.not_applied_sum
+  }));
 }
 
 // services/learning/src/http/routes/get-metrics.ts
@@ -86117,24 +86215,29 @@ function loadLearningServiceEnv(source = process.env) {
 }
 
 // services/learning/src/worker.ts
+var LIFT_METRIC = "score_lift";
 async function handleApplicationCreated(deps, envelope) {
-  const [scores, appliedPairs] = await Promise.all([listRecentScores(deps.db), listApplicationPairs(deps.db)]);
-  const metrics2 = computeLearningMetrics(scores, appliedPairs);
-  for (const metric of metrics2) {
-    if (metric.lift === null) continue;
-    await deps.broker.publish(
-      createEvent(
-        "learning.updated",
-        {
-          model_version: metric.modelVersion,
-          samples: metric.appliedSamples + metric.notAppliedSamples,
-          metric: "score_lift",
-          value: metric.lift
-        },
-        childTrace(envelope.trace)
-      )
-    );
-  }
+  const metrics2 = summarizeGroups(await aggregateModelGroups(deps.db));
+  const occurredAt = (/* @__PURE__ */ new Date()).toISOString();
+  await publishAll(
+    deps.broker,
+    metrics2.flatMap(
+      (metric) => metric.lift === null ? [] : [
+        createEvent(
+          "learning.updated",
+          {
+            model_version: metric.modelVersion,
+            samples: metric.appliedSamples + metric.notAppliedSamples,
+            metric: LIFT_METRIC,
+            value: metric.lift
+          },
+          childTrace(envelope.trace),
+          occurredAt,
+          derivedEventId(envelope.event_id, `learning.updated:${metric.modelVersion}:${LIFT_METRIC}`)
+        )
+      ]
+    )
+  );
 }
 async function registerConsumers(deps) {
   const subscription = await deps.broker.subscribe({

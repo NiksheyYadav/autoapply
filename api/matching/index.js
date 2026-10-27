@@ -84269,9 +84269,22 @@ var DEFAULT_RETENTION_MS = 7 * 24 * 60 * 60 * 1e3;
 var DEFAULT_DRAIN_LIMIT = 100;
 var DEFAULT_DRAIN_BUDGET_MS = 2e4;
 var FAN_OUT_BATCH = 500;
+var PUBLISH_BATCH = 500;
 var DEFAULT_PURGE_LIMIT = 500;
 var MAX_ERROR_LENGTH = 300;
 var MAX_CONSUMER_LENGTH = 160;
+function outboxRow(event) {
+  return {
+    eventId: event.event_id,
+    eventType: event.event_type,
+    occurredAt: event.occurred_at,
+    traceId: event.trace.trace_id,
+    correlationId: event.trace.correlation_id,
+    organizationId: event.trace.organization_id,
+    userId: event.trace.user_id,
+    payload: event.payload
+  };
+}
 function inList(values2) {
   return sql.join(
     values2.map((value) => sql`${value}`),
@@ -84312,16 +84325,22 @@ var PostgresBroker = class {
   async publish(envelope) {
     this.assertOpen();
     const event = parseEvent2(envelope);
-    await this.db.insert(schema_exports.eventOutbox).values({
-      eventId: event.event_id,
-      eventType: event.event_type,
-      occurredAt: event.occurred_at,
-      traceId: event.trace.trace_id,
-      correlationId: event.trace.correlation_id,
-      organizationId: event.trace.organization_id,
-      userId: event.trace.user_id,
-      payload: event.payload
-    }).onConflictDoNothing({ target: schema_exports.eventOutbox.eventId });
+    await this.db.insert(schema_exports.eventOutbox).values(outboxRow(event)).onConflictDoNothing({ target: schema_exports.eventOutbox.eventId });
+  }
+  /**
+   * `publish` for many envelopes at once: one multi-row INSERT per
+   * `PUBLISH_BATCH` (idempotent on `event_id`, also against duplicates inside
+   * the batch). A fan-out handler that emits hundreds of events needs this, or
+   * it spends its function budget on round trips. All envelopes are validated
+   * before the first write; the writes themselves are not one transaction, so a
+   * failure part-way leaves earlier batches published (see `BatchPublisher`).
+   */
+  async publishMany(envelopes) {
+    this.assertOpen();
+    const events = envelopes.map((envelope) => parseEvent2(envelope));
+    for (let start = 0; start < events.length; start += PUBLISH_BATCH) {
+      await this.db.insert(schema_exports.eventOutbox).values(events.slice(start, start + PUBLISH_BATCH).map(outboxRow)).onConflictDoNothing({ target: schema_exports.eventOutbox.eventId });
+    }
   }
   async subscribe(options) {
     this.assertOpen();
@@ -84713,6 +84732,7 @@ var PostgresBroker = class {
 var import_amqplib = __toESM(require_channel_api(), 1);
 
 // packages/messaging/src/envelope.ts
+import { createHash as createHash2 } from "node:crypto";
 function createEvent(eventType, payload, trace2, occurredAt = (/* @__PURE__ */ new Date()).toISOString(), eventId = newUuid()) {
   eventPayloadSchema(eventType).parse(payload);
   return {
@@ -84724,6 +84744,19 @@ function createEvent(eventType, payload, trace2, occurredAt = (/* @__PURE__ */ n
   };
 }
 var DERIVED_EVENT_NAMESPACE = Buffer.from("6f1d0c3ae2b94d7f8a5c9e04b7d31a62", "hex");
+function derivedEventId(parentEventId, key) {
+  const hash2 = createHash2("sha1").update(DERIVED_EVENT_NAMESPACE).update(`${parentEventId}:${key}`, "utf8").digest();
+  hash2[6] = (hash2[6] ?? 0) & 15 | 80;
+  hash2[8] = (hash2[8] ?? 0) & 63 | 128;
+  const hex3 = hash2.subarray(0, 16).toString("hex");
+  return [
+    hex3.slice(0, 8),
+    hex3.slice(8, 12),
+    hex3.slice(12, 16),
+    hex3.slice(16, 20),
+    hex3.slice(20)
+  ].join("-");
+}
 function routingKeyFor(eventType) {
   return eventType;
 }
@@ -84872,11 +84905,40 @@ var RabbitMqBroker = class {
 function isDrainableBroker(broker2) {
   return typeof broker2.drain === "function";
 }
+function isBatchPublisher(broker2) {
+  return typeof broker2.publishMany === "function";
+}
+var FALLBACK_PUBLISH_CONCURRENCY = 8;
+async function publishAll(broker2, envelopes) {
+  if (envelopes.length === 0) return;
+  if (isBatchPublisher(broker2)) {
+    await broker2.publishMany([...envelopes]);
+    return;
+  }
+  let cursor = 0;
+  let failed = false;
+  const run = async () => {
+    while (!failed) {
+      const envelope = envelopes[cursor];
+      if (envelope === void 0) return;
+      cursor += 1;
+      try {
+        await broker2.publish(envelope);
+      } catch (error62) {
+        failed = true;
+        throw error62;
+      }
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(FALLBACK_PUBLISH_CONCURRENCY, envelopes.length) }, run)
+  );
+}
 
 // packages/messaging/src/drain-auth.ts
-import { createHash as createHash2, timingSafeEqual as timingSafeEqual2 } from "node:crypto";
+import { createHash as createHash3, timingSafeEqual as timingSafeEqual2 } from "node:crypto";
 function digest(value) {
-  return createHash2("sha256").update(value, "utf8").digest();
+  return createHash3("sha256").update(value, "utf8").digest();
 }
 function isAuthorizedDrainRequest(authorization, secret) {
   if (secret === "") return false;
@@ -85237,39 +85299,67 @@ async function findJobById(db2, jobId) {
 }
 var RESCORE_BATCH_LIMIT = 500;
 async function listActiveJobs(db2, limit = RESCORE_BATCH_LIMIT) {
-  const rows = await db2.select().from(schema_exports.jobs).where(eq(schema_exports.jobs.isActive, true)).orderBy(desc(schema_exports.jobs.createdAt)).limit(limit);
-  return rows.map(toJob);
+  const rows = await db2.select({ jobId: schema_exports.jobs.jobId, title: schema_exports.jobs.title, skills: schema_exports.jobs.skills }).from(schema_exports.jobs).where(eq(schema_exports.jobs.isActive, true)).orderBy(desc(schema_exports.jobs.createdAt), desc(schema_exports.jobs.jobId)).limit(limit);
+  return rows.map((row) => ({ job_id: row.jobId, title: row.title, skills: row.skills.slice(0, 200) }));
 }
 async function findLatestParsedProfile(db2, userId) {
-  const [row] = await db2.select({ parsedProfile: schema_exports.resumes.parsedProfile }).from(schema_exports.resumes).where(and(eq(schema_exports.resumes.userId, userId), eq(schema_exports.resumes.status, "parsed"))).orderBy(desc(schema_exports.resumes.parsedAt)).limit(1);
+  const [row] = await db2.select({ parsedProfile: schema_exports.resumes.parsedProfile }).from(schema_exports.resumes).where(and(eq(schema_exports.resumes.userId, userId), eq(schema_exports.resumes.status, "parsed"))).orderBy(desc(schema_exports.resumes.parsedAt), desc(schema_exports.resumes.resumeId)).limit(1);
   return row?.parsedProfile ?? null;
 }
 async function listCandidateUserIds(db2, limit = RESCORE_BATCH_LIMIT) {
-  const rows = await db2.select({ userId: schema_exports.resumes.userId }).from(schema_exports.resumes).where(eq(schema_exports.resumes.status, "parsed")).orderBy(desc(schema_exports.resumes.parsedAt)).limit(limit);
+  const rows = await db2.select({ userId: schema_exports.resumes.userId }).from(schema_exports.resumes).where(eq(schema_exports.resumes.status, "parsed")).orderBy(desc(schema_exports.resumes.parsedAt), desc(schema_exports.resumes.resumeId)).limit(limit);
   return [...new Set(rows.map((row) => row.userId))];
+}
+async function findLatestParsedProfiles(db2, userIds) {
+  const profiles = /* @__PURE__ */ new Map();
+  if (userIds.length === 0) return profiles;
+  const rows = await db2.selectDistinctOn([schema_exports.resumes.userId], {
+    userId: schema_exports.resumes.userId,
+    parsedProfile: schema_exports.resumes.parsedProfile
+  }).from(schema_exports.resumes).where(and(inArray(schema_exports.resumes.userId, userIds), eq(schema_exports.resumes.status, "parsed"))).orderBy(schema_exports.resumes.userId, desc(schema_exports.resumes.parsedAt), desc(schema_exports.resumes.resumeId));
+  for (const row of rows) {
+    if (row.parsedProfile) profiles.set(row.userId, row.parsedProfile);
+  }
+  return profiles;
 }
 
 // services/matching/src/repo/scores.ts
-async function upsertScore(db2, input2) {
+var UPSERT_CHUNK = 250;
+function compareIds(a, b2) {
+  return a < b2 ? -1 : a > b2 ? 1 : 0;
+}
+async function upsertScores(db2, inputs) {
+  if (inputs.length === 0) return;
+  const byPair = /* @__PURE__ */ new Map();
+  for (const input2 of inputs) byPair.set(`${input2.jobId}:${input2.userId}`, input2);
+  const ordered = [...byPair.values()].sort(
+    (a, b2) => compareIds(a.jobId, b2.jobId) || compareIds(a.userId, b2.userId)
+  );
+  const table = schema_exports.jobScores;
   const now = (/* @__PURE__ */ new Date()).toISOString();
-  await db2.insert(schema_exports.jobScores).values({
-    jobId: input2.jobId,
-    userId: input2.userId,
-    score: input2.score,
-    reasons: input2.reasons,
-    skillGaps: input2.skillGaps,
-    modelVersion: input2.modelVersion,
-    scoredAt: now
-  }).onConflictDoUpdate({
-    target: [schema_exports.jobScores.jobId, schema_exports.jobScores.userId],
-    set: {
-      score: input2.score,
-      reasons: input2.reasons,
-      skillGaps: input2.skillGaps,
-      modelVersion: input2.modelVersion,
-      scoredAt: now
-    }
-  });
+  for (let start = 0; start < ordered.length; start += UPSERT_CHUNK) {
+    await db2.insert(table).values(
+      ordered.slice(start, start + UPSERT_CHUNK).map((input2) => ({
+        jobId: input2.jobId,
+        userId: input2.userId,
+        score: input2.score,
+        reasons: input2.reasons,
+        skillGaps: input2.skillGaps,
+        modelVersion: input2.modelVersion,
+        scoredAt: now
+      }))
+    ).onConflictDoUpdate({
+      target: [table.jobId, table.userId],
+      set: {
+        score: sql`excluded.score`,
+        reasons: sql`excluded.reasons`,
+        skillGaps: sql`excluded.skill_gaps`,
+        modelVersion: sql`excluded.model_version`,
+        scoredAt: sql`excluded.scored_at`
+      },
+      setWhere: sql`(${table.score}, ${table.reasons}, ${table.skillGaps}, ${table.modelVersion}) is distinct from (excluded.score, excluded.reasons, excluded.skill_gaps, excluded.model_version)`
+    });
+  }
 }
 
 // services/matching/src/lib/scorer.ts
@@ -85313,41 +85403,71 @@ function scoreMatch(job, profile) {
 }
 
 // services/matching/src/worker.ts
-async function scoreAndPublish(deps, jobId, userId, trace2) {
-  const profile = await findLatestParsedProfile(deps.db, userId);
-  if (!profile) return;
-  const job = await findJobById(deps.db, jobId);
-  if (!job || !job.is_active) return;
-  const result = scoreMatch(job, profile);
-  await upsertScore(deps.db, {
-    jobId: job.job_id,
-    userId,
-    score: result.score,
-    reasons: result.reasons,
-    skillGaps: result.skillGaps,
-    modelVersion: MODEL_VERSION
-  });
-  await deps.broker.publish(
-    createEvent(
-      "job.scored",
-      { job_id: job.job_id, user_id: userId, score: result.score, model_version: MODEL_VERSION },
-      childTrace(trace2, { user_id: userId })
+async function scoreAndPublish(deps, envelope, scores) {
+  if (scores.length === 0) return;
+  await upsertScores(deps.db, scores);
+  const occurredAt = (/* @__PURE__ */ new Date()).toISOString();
+  await publishAll(
+    deps.broker,
+    scores.map(
+      (score) => createEvent(
+        "job.scored",
+        {
+          job_id: score.jobId,
+          user_id: score.userId,
+          score: score.score,
+          model_version: score.modelVersion
+        },
+        childTrace(envelope.trace, { user_id: score.userId }),
+        occurredAt,
+        derivedEventId(envelope.event_id, `job.scored:${score.jobId}:${score.userId}`)
+      )
     )
   );
+  deps.logger.info({ event_id: envelope.event_id, scored: scores.length }, "scored job matches");
 }
 async function handleResumeParsed(deps, envelope) {
   const { user_id } = envelope.payload;
+  const profile = await findLatestParsedProfile(deps.db, user_id);
+  if (!profile) return;
   const jobs2 = await listActiveJobs(deps.db);
-  for (const job of jobs2) {
-    await scoreAndPublish(deps, job.job_id, user_id, envelope.trace);
-  }
+  await scoreAndPublish(
+    deps,
+    envelope,
+    jobs2.map((job) => {
+      const result = scoreMatch(job, profile);
+      return {
+        jobId: job.job_id,
+        userId: user_id,
+        score: result.score,
+        reasons: result.reasons,
+        skillGaps: result.skillGaps,
+        modelVersion: MODEL_VERSION
+      };
+    })
+  );
 }
 async function handleJobDiscovered(deps, envelope) {
   const { job_id } = envelope.payload;
+  const job = await findJobById(deps.db, job_id);
+  if (!job || !job.is_active) return;
   const userIds = await listCandidateUserIds(deps.db);
+  const profiles = await findLatestParsedProfiles(deps.db, userIds);
+  const scores = [];
   for (const userId of userIds) {
-    await scoreAndPublish(deps, job_id, userId, envelope.trace);
+    const profile = profiles.get(userId);
+    if (!profile) continue;
+    const result = scoreMatch(job, profile);
+    scores.push({
+      jobId: job.job_id,
+      userId,
+      score: result.score,
+      reasons: result.reasons,
+      skillGaps: result.skillGaps,
+      modelVersion: MODEL_VERSION
+    });
   }
+  await scoreAndPublish(deps, envelope, scores);
 }
 async function registerConsumers(deps) {
   const resumeSub = await deps.broker.subscribe({

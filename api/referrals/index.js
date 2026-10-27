@@ -85104,9 +85104,22 @@ var DEFAULT_RETENTION_MS = 7 * 24 * 60 * 60 * 1e3;
 var DEFAULT_DRAIN_LIMIT = 100;
 var DEFAULT_DRAIN_BUDGET_MS = 2e4;
 var FAN_OUT_BATCH = 500;
+var PUBLISH_BATCH = 500;
 var DEFAULT_PURGE_LIMIT = 500;
 var MAX_ERROR_LENGTH = 300;
 var MAX_CONSUMER_LENGTH = 160;
+function outboxRow(event) {
+  return {
+    eventId: event.event_id,
+    eventType: event.event_type,
+    occurredAt: event.occurred_at,
+    traceId: event.trace.trace_id,
+    correlationId: event.trace.correlation_id,
+    organizationId: event.trace.organization_id,
+    userId: event.trace.user_id,
+    payload: event.payload
+  };
+}
 function inList(values2) {
   return sql.join(
     values2.map((value) => sql`${value}`),
@@ -85147,16 +85160,22 @@ var PostgresBroker = class {
   async publish(envelope) {
     this.assertOpen();
     const event = parseEvent(envelope);
-    await this.db.insert(schema_exports.eventOutbox).values({
-      eventId: event.event_id,
-      eventType: event.event_type,
-      occurredAt: event.occurred_at,
-      traceId: event.trace.trace_id,
-      correlationId: event.trace.correlation_id,
-      organizationId: event.trace.organization_id,
-      userId: event.trace.user_id,
-      payload: event.payload
-    }).onConflictDoNothing({ target: schema_exports.eventOutbox.eventId });
+    await this.db.insert(schema_exports.eventOutbox).values(outboxRow(event)).onConflictDoNothing({ target: schema_exports.eventOutbox.eventId });
+  }
+  /**
+   * `publish` for many envelopes at once: one multi-row INSERT per
+   * `PUBLISH_BATCH` (idempotent on `event_id`, also against duplicates inside
+   * the batch). A fan-out handler that emits hundreds of events needs this, or
+   * it spends its function budget on round trips. All envelopes are validated
+   * before the first write; the writes themselves are not one transaction, so a
+   * failure part-way leaves earlier batches published (see `BatchPublisher`).
+   */
+  async publishMany(envelopes) {
+    this.assertOpen();
+    const events = envelopes.map((envelope) => parseEvent(envelope));
+    for (let start = 0; start < events.length; start += PUBLISH_BATCH) {
+      await this.db.insert(schema_exports.eventOutbox).values(events.slice(start, start + PUBLISH_BATCH).map(outboxRow)).onConflictDoNothing({ target: schema_exports.eventOutbox.eventId });
+    }
   }
   async subscribe(options) {
     this.assertOpen();
@@ -85548,6 +85567,7 @@ var PostgresBroker = class {
 var import_amqplib = __toESM(require_channel_api(), 1);
 
 // packages/messaging/src/envelope.ts
+import { createHash as createHash2 } from "node:crypto";
 function createEvent(eventType, payload, trace2, occurredAt = (/* @__PURE__ */ new Date()).toISOString(), eventId = newUuid()) {
   eventPayloadSchema(eventType).parse(payload);
   return {
@@ -85559,6 +85579,19 @@ function createEvent(eventType, payload, trace2, occurredAt = (/* @__PURE__ */ n
   };
 }
 var DERIVED_EVENT_NAMESPACE = Buffer.from("6f1d0c3ae2b94d7f8a5c9e04b7d31a62", "hex");
+function derivedEventId(parentEventId, key) {
+  const hash2 = createHash2("sha1").update(DERIVED_EVENT_NAMESPACE).update(`${parentEventId}:${key}`, "utf8").digest();
+  hash2[6] = (hash2[6] ?? 0) & 15 | 80;
+  hash2[8] = (hash2[8] ?? 0) & 63 | 128;
+  const hex3 = hash2.subarray(0, 16).toString("hex");
+  return [
+    hex3.slice(0, 8),
+    hex3.slice(8, 12),
+    hex3.slice(12, 16),
+    hex3.slice(16, 20),
+    hex3.slice(20)
+  ].join("-");
+}
 function routingKeyFor(eventType) {
   return eventType;
 }
@@ -85707,11 +85740,40 @@ var RabbitMqBroker = class {
 function isDrainableBroker(broker2) {
   return typeof broker2.drain === "function";
 }
+function isBatchPublisher(broker2) {
+  return typeof broker2.publishMany === "function";
+}
+var FALLBACK_PUBLISH_CONCURRENCY = 8;
+async function publishAll(broker2, envelopes) {
+  if (envelopes.length === 0) return;
+  if (isBatchPublisher(broker2)) {
+    await broker2.publishMany([...envelopes]);
+    return;
+  }
+  let cursor = 0;
+  let failed = false;
+  const run = async () => {
+    while (!failed) {
+      const envelope = envelopes[cursor];
+      if (envelope === void 0) return;
+      cursor += 1;
+      try {
+        await broker2.publish(envelope);
+      } catch (error62) {
+        failed = true;
+        throw error62;
+      }
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(FALLBACK_PUBLISH_CONCURRENCY, envelopes.length) }, run)
+  );
+}
 
 // packages/messaging/src/drain-auth.ts
-import { createHash as createHash2, timingSafeEqual as timingSafeEqual2 } from "node:crypto";
+import { createHash as createHash3, timingSafeEqual as timingSafeEqual2 } from "node:crypto";
 function digest(value) {
-  return createHash2("sha256").update(value, "utf8").digest();
+  return createHash3("sha256").update(value, "utf8").digest();
 }
 function isAuthorizedDrainRequest(authorization, secret) {
   if (secret === "") return false;
@@ -86295,13 +86357,15 @@ function loadReferralsServiceEnv(source = process.env) {
 // services/referrals/src/worker.ts
 var TOP_CONTACTS_PER_COMPANY = 5;
 async function handleApplicationCreated(deps, envelope) {
-  const { job_id, user_id } = envelope.payload;
+  const { application_id, job_id, user_id } = envelope.payload;
   const job = await findJobById(deps.db, job_id);
   if (!job) return;
   const contacts2 = await topContactsForCompany(deps.db, job.company_id, TOP_CONTACTS_PER_COMPANY);
-  for (const contact of contacts2) {
-    await deps.broker.publish(
-      createEvent(
+  const occurredAt = (/* @__PURE__ */ new Date()).toISOString();
+  await publishAll(
+    deps.broker,
+    contacts2.map(
+      (contact) => createEvent(
         "referral.detected",
         {
           contact_id: contact.contactId,
@@ -86309,10 +86373,12 @@ async function handleApplicationCreated(deps, envelope) {
           user_id,
           relevance_score: contact.relevanceScore ?? 0
         },
-        childTrace(envelope.trace, { user_id })
+        childTrace(envelope.trace, { user_id }),
+        occurredAt,
+        derivedEventId(envelope.event_id, `referral.detected:${contact.contactId}:${application_id}`)
       )
-    );
-  }
+    )
+  );
 }
 async function registerConsumers(deps) {
   const subscription = await deps.broker.subscribe({
