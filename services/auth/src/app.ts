@@ -13,6 +13,7 @@ import {
   createMetricsRegistry,
   metricsRoute,
   registerHttpMetrics,
+  registerIsoTimestamps,
   registerRateLimitedRoutes,
 } from '@atlas/observability';
 import type { AuthServiceEnv } from './env.js';
@@ -63,6 +64,7 @@ export function buildApp(deps: AppDeps): FastifyInstance {
 
   const metrics = createMetricsRegistry('auth-service');
   registerHttpMetrics(app, metrics);
+  registerIsoTimestamps(app);
 
   app.setErrorHandler((error: FastifyError | ZodError, request, reply) => {
     if (error instanceof ZodError) {
