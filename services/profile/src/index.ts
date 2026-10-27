@@ -14,6 +14,7 @@ const broker = createBroker({
   url: env.RABBITMQ_URL,
   exchange: env.MESSAGING_EXCHANGE,
   maxRetries: env.MESSAGING_MAX_RETRIES,
+  db,
   logger,
 });
 const storage = createStorage({ driver: env.STORAGE_DRIVER, localRoot: env.STORAGE_LOCAL_ROOT });
