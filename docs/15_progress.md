@@ -2,6 +2,7 @@
 
 Status of Project Atlas against `CLAUDE.md` priorities and `docs/11`–`12`.
 Verified 2026-10-27 by running the checks below, not by reading commit messages.
+An earlier snapshot taken at `0a755b4` is kept in `15_progress_report.md`; this file supersedes it.
 Launch target: 2026-11-17 (individuals plus one university pilot). What only the owner can do is in
 `docs/16_launch_checklist.md`.
 

@@ -1,13 +1,31 @@
 'use client';
 
 import type { PublicUser } from '@atlas/types';
-import type { Session } from '@supabase/supabase-js';
+import type { AuthError, Session } from '@supabase/supabase-js';
 import * as React from 'react';
 import { ApiError } from './api';
 import * as authApi from './services/auth';
 import { createClient } from './supabase/client';
 
 export type OAuthProvider = 'google' | 'azure' | 'github';
+
+/**
+ * Supabase deliberately returns the same "invalid credentials" error for a wrong
+ * password and for an account that has no password at all (signed up with
+ * Google/GitHub), so it can't be told apart — point at both possibilities.
+ */
+function friendlyAuthError(error: AuthError): string {
+  switch (error.code) {
+    case 'invalid_credentials':
+      return 'Incorrect email or password. If you signed up with Google or GitHub, use that button above instead.';
+    case 'email_not_confirmed':
+      return 'Please confirm your email first — check your inbox for the link we sent.';
+    case 'user_already_exists':
+      return 'An account with this email already exists. Sign in instead.';
+    default:
+      return error.message;
+  }
+}
 
 interface SessionState {
   /**
@@ -116,12 +134,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const login = React.useCallback(
     async (email: string, password: string) => {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
-        if (error.code === 'email_not_confirmed') {
-          throw new Error('Please confirm your email address first — check your inbox for the confirmation link.');
-        }
-        throw new Error(error.message);
-      }
+      if (error) throw new Error(friendlyAuthError(error));
     },
     [supabase],
   );
@@ -137,7 +150,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
           emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       });
-      if (error) throw new Error(error.message);
+      if (error) throw new Error(friendlyAuthError(error));
       return { needsEmailConfirmation: data.session === null };
     },
     [supabase],
