@@ -77119,11 +77119,19 @@ var messagingEnvSchema = external_exports.object({
   MESSAGING_MAX_RETRIES: external_exports.coerce.number().int().min(0).max(20).default(5)
 });
 var storageEnvSchema = external_exports.object({
-  STORAGE_DRIVER: external_exports.enum(["local", "s3"]).default("local"),
+  STORAGE_DRIVER: external_exports.enum(["local", "s3", "supabase"]).default("local"),
   STORAGE_LOCAL_ROOT: external_exports.string().min(1).default("./.atlas-storage"),
   S3_BUCKET: external_exports.string().optional(),
   S3_REGION: external_exports.string().default("us-east-1"),
-  S3_ENDPOINT: external_exports.string().optional()
+  S3_ENDPOINT: external_exports.string().optional(),
+  /**
+   * STORAGE_DRIVER=supabase: the PRIVATE bucket to keep files in, and the
+   * server-side secret key (`sb_secret_…` or legacy `service_role`) used to
+   * reach it. The key bypasses RLS — set it only on the services that store
+   * files, as a Vercel environment variable, never in code or the repo.
+   */
+  SUPABASE_STORAGE_BUCKET: external_exports.string().min(1).default("resumes"),
+  SUPABASE_SECRET_KEY: external_exports.string().min(1).optional()
 });
 var supabaseAuthEnvSchema = external_exports.object({
   SUPABASE_URL: external_exports.string().url("SUPABASE_URL must be a valid URL")

@@ -33,11 +33,19 @@ export const messagingEnvSchema = z.object({
 });
 
 export const storageEnvSchema = z.object({
-  STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
+  STORAGE_DRIVER: z.enum(['local', 's3', 'supabase']).default('local'),
   STORAGE_LOCAL_ROOT: z.string().min(1).default('./.atlas-storage'),
   S3_BUCKET: z.string().optional(),
   S3_REGION: z.string().default('us-east-1'),
   S3_ENDPOINT: z.string().optional(),
+  /**
+   * STORAGE_DRIVER=supabase: the PRIVATE bucket to keep files in, and the
+   * server-side secret key (`sb_secret_…` or legacy `service_role`) used to
+   * reach it. The key bypasses RLS — set it only on the services that store
+   * files, as a Vercel environment variable, never in code or the repo.
+   */
+  SUPABASE_STORAGE_BUCKET: z.string().min(1).default('resumes'),
+  SUPABASE_SECRET_KEY: z.string().min(1).optional(),
 });
 
 /**

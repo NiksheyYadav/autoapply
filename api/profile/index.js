@@ -2028,7 +2028,7 @@ var require_thread_stream = __commonJS({
     var { version: version4 } = require_package();
     var { EventEmitter } = __require("events");
     var { Worker: Worker2 } = __require("worker_threads");
-    var { join } = __require("path");
+    var { join: join2 } = __require("path");
     var { pathToFileURL } = __require("url");
     var { wait } = require_wait();
     var {
@@ -2079,7 +2079,7 @@ var require_thread_stream = __commonJS({
     function createWorker(stream, opts) {
       const { filename, workerData } = opts;
       const bundlerOverrides = "__bundlerPathsOverrides" in globalThis ? globalThis.__bundlerPathsOverrides : {};
-      const toExecute = bundlerOverrides["thread-stream-worker"] || join(__dirname, "lib", "worker.js");
+      const toExecute = bundlerOverrides["thread-stream-worker"] || join2(__dirname, "lib", "worker.js");
       const worker = new Worker2(toExecute, {
         ...opts.workerOpts,
         name: opts.workerOpts?.name || "thread-stream",
@@ -2547,7 +2547,7 @@ var require_transport = __commonJS({
     var { createRequire } = __require("module");
     var { existsSync } = __require("node:fs");
     var getCallers = require_caller();
-    var { join, isAbsolute, sep: sep2 } = __require("node:path");
+    var { join: join2, isAbsolute, sep: sep2 } = __require("node:path");
     var { fileURLToPath } = __require("node:url");
     var sleep = require_atomic_sleep();
     var onExit = require_on_exit_leak_free();
@@ -2700,7 +2700,7 @@ var require_transport = __commonJS({
         throw new Error("only one of target or targets can be specified");
       }
       if (targets) {
-        target = bundlerOverrides["pino-worker"] || join(__dirname, "worker.js");
+        target = bundlerOverrides["pino-worker"] || join2(__dirname, "worker.js");
         options.targets = targets.filter((dest) => dest.target).map((dest) => {
           return {
             ...dest,
@@ -2718,7 +2718,7 @@ var require_transport = __commonJS({
           });
         });
       } else if (pipeline) {
-        target = bundlerOverrides["pino-worker"] || join(__dirname, "worker.js");
+        target = bundlerOverrides["pino-worker"] || join2(__dirname, "worker.js");
         options.pipelines = [pipeline.map((dest) => {
           return {
             ...dest,
@@ -2741,7 +2741,7 @@ var require_transport = __commonJS({
           return origin;
         }
         if (origin === "pino/file") {
-          return join(__dirname, "..", "file.js");
+          return join2(__dirname, "..", "file.js");
         }
         let fixTarget2;
         for (const filePath of callers) {
@@ -3721,7 +3721,7 @@ var require_safe_stable_stringify = __commonJS({
               return circularValue;
             }
             let res = "";
-            let join = ",";
+            let join2 = ",";
             const originalIndentation = indentation;
             if (Array.isArray(value)) {
               if (value.length === 0) {
@@ -3735,7 +3735,7 @@ var require_safe_stable_stringify = __commonJS({
                 indentation += spacer;
                 res += `
 ${indentation}`;
-                join = `,
+                join2 = `,
 ${indentation}`;
               }
               const maximumValuesToStringify = Math.min(value.length, maximumBreadth);
@@ -3743,13 +3743,13 @@ ${indentation}`;
               for (; i < maximumValuesToStringify - 1; i++) {
                 const tmp2 = stringifyFnReplacer(String(i), value, stack, replacer, spacer, indentation);
                 res += tmp2 !== void 0 ? tmp2 : "null";
-                res += join;
+                res += join2;
               }
               const tmp = stringifyFnReplacer(String(i), value, stack, replacer, spacer, indentation);
               res += tmp !== void 0 ? tmp : "null";
               if (value.length - 1 > maximumBreadth) {
                 const removedKeys = value.length - maximumBreadth - 1;
-                res += `${join}"... ${getItemCount(removedKeys)} not stringified"`;
+                res += `${join2}"... ${getItemCount(removedKeys)} not stringified"`;
               }
               if (spacer !== "") {
                 res += `
@@ -3770,7 +3770,7 @@ ${originalIndentation}`;
             let separator = "";
             if (spacer !== "") {
               indentation += spacer;
-              join = `,
+              join2 = `,
 ${indentation}`;
               whitespace = " ";
             }
@@ -3784,13 +3784,13 @@ ${indentation}`;
               const tmp = stringifyFnReplacer(key2, value, stack, replacer, spacer, indentation);
               if (tmp !== void 0) {
                 res += `${separator}${strEscape(key2)}:${whitespace}${tmp}`;
-                separator = join;
+                separator = join2;
               }
             }
             if (keyLength > maximumBreadth) {
               const removedKeys = keyLength - maximumBreadth;
               res += `${separator}"...":${whitespace}"${getItemCount(removedKeys)} not stringified"`;
-              separator = join;
+              separator = join2;
             }
             if (spacer !== "" && separator.length > 1) {
               res = `
@@ -3831,7 +3831,7 @@ ${originalIndentation}`;
             }
             const originalIndentation = indentation;
             let res = "";
-            let join = ",";
+            let join2 = ",";
             if (Array.isArray(value)) {
               if (value.length === 0) {
                 return "[]";
@@ -3844,7 +3844,7 @@ ${originalIndentation}`;
                 indentation += spacer;
                 res += `
 ${indentation}`;
-                join = `,
+                join2 = `,
 ${indentation}`;
               }
               const maximumValuesToStringify = Math.min(value.length, maximumBreadth);
@@ -3852,13 +3852,13 @@ ${indentation}`;
               for (; i < maximumValuesToStringify - 1; i++) {
                 const tmp2 = stringifyArrayReplacer(String(i), value[i], stack, replacer, spacer, indentation);
                 res += tmp2 !== void 0 ? tmp2 : "null";
-                res += join;
+                res += join2;
               }
               const tmp = stringifyArrayReplacer(String(i), value[i], stack, replacer, spacer, indentation);
               res += tmp !== void 0 ? tmp : "null";
               if (value.length - 1 > maximumBreadth) {
                 const removedKeys = value.length - maximumBreadth - 1;
-                res += `${join}"... ${getItemCount(removedKeys)} not stringified"`;
+                res += `${join2}"... ${getItemCount(removedKeys)} not stringified"`;
               }
               if (spacer !== "") {
                 res += `
@@ -3871,7 +3871,7 @@ ${originalIndentation}`;
             let whitespace = "";
             if (spacer !== "") {
               indentation += spacer;
-              join = `,
+              join2 = `,
 ${indentation}`;
               whitespace = " ";
             }
@@ -3880,7 +3880,7 @@ ${indentation}`;
               const tmp = stringifyArrayReplacer(key2, value[key2], stack, replacer, spacer, indentation);
               if (tmp !== void 0) {
                 res += `${separator}${strEscape(key2)}:${whitespace}${tmp}`;
-                separator = join;
+                separator = join2;
               }
             }
             if (spacer !== "" && separator.length > 1) {
@@ -3938,20 +3938,20 @@ ${originalIndentation}`;
               indentation += spacer;
               let res2 = `
 ${indentation}`;
-              const join2 = `,
+              const join3 = `,
 ${indentation}`;
               const maximumValuesToStringify = Math.min(value.length, maximumBreadth);
               let i = 0;
               for (; i < maximumValuesToStringify - 1; i++) {
                 const tmp2 = stringifyIndent(String(i), value[i], stack, spacer, indentation);
                 res2 += tmp2 !== void 0 ? tmp2 : "null";
-                res2 += join2;
+                res2 += join3;
               }
               const tmp = stringifyIndent(String(i), value[i], stack, spacer, indentation);
               res2 += tmp !== void 0 ? tmp : "null";
               if (value.length - 1 > maximumBreadth) {
                 const removedKeys = value.length - maximumBreadth - 1;
-                res2 += `${join2}"... ${getItemCount(removedKeys)} not stringified"`;
+                res2 += `${join3}"... ${getItemCount(removedKeys)} not stringified"`;
               }
               res2 += `
 ${originalIndentation}`;
@@ -3967,16 +3967,16 @@ ${originalIndentation}`;
               return '"[Object]"';
             }
             indentation += spacer;
-            const join = `,
+            const join2 = `,
 ${indentation}`;
             let res = "";
             let separator = "";
             let maximumPropertiesToStringify = Math.min(keyLength, maximumBreadth);
             if (isTypedArrayWithEntries(value)) {
-              res += stringifyTypedArray(value, join, maximumBreadth);
+              res += stringifyTypedArray(value, join2, maximumBreadth);
               keys2 = keys2.slice(value.length);
               maximumPropertiesToStringify -= value.length;
-              separator = join;
+              separator = join2;
             }
             if (deterministic) {
               keys2 = sort(keys2, comparator);
@@ -3987,13 +3987,13 @@ ${indentation}`;
               const tmp = stringifyIndent(key2, value[key2], stack, spacer, indentation);
               if (tmp !== void 0) {
                 res += `${separator}${strEscape(key2)}: ${tmp}`;
-                separator = join;
+                separator = join2;
               }
             }
             if (keyLength > maximumBreadth) {
               const removedKeys = keyLength - maximumBreadth;
               res += `${separator}"...": "${getItemCount(removedKeys)} not stringified"`;
-              separator = join;
+              separator = join2;
             }
             if (separator !== "") {
               res = `
@@ -16617,7 +16617,7 @@ var require_multipart2 = __commonJS({
           parts = this.parts(options2);
         }
         this.savedRequestFiles = [];
-        const tmpdir = options2?.tmpdir || os2.tmpdir();
+        const tmpdir2 = options2?.tmpdir || os2.tmpdir();
         this.tmpUploads = [];
         let i = 0;
         let target;
@@ -16627,7 +16627,7 @@ var require_multipart2 = __commonJS({
             if (!part.file) {
               continue;
             }
-            const filepath = path.join(tmpdir, generateId() + path.extname(part.filename || "file" + i++));
+            const filepath = path.join(tmpdir2, generateId() + path.extname(part.filename || "file" + i++));
             target = createWriteStream(filepath);
             this.tmpUploads.push(filepath);
             await pump(part.file, target);
@@ -65707,7 +65707,7 @@ var require_BufferList = __commonJS({
         this.head = this.tail = null;
         this.length = 0;
       };
-      BufferList.prototype.join = function join(s) {
+      BufferList.prototype.join = function join2(s) {
         if (this.length === 0) return "";
         var p = this.head;
         var ret2 = "" + p.data;
@@ -87654,10 +87654,10 @@ var require_style_reader = __commonJS({
       if (parseResult.isSuccess()) {
         return results.success(parseResult.value());
       } else {
-        return new results.Result(null, [results.warning(describeFailure(string4, parseResult))]);
+        return new results.Result(null, [results.warning(describeFailure2(string4, parseResult))]);
       }
     }
-    function describeFailure(input2, parseResult) {
+    function describeFailure2(input2, parseResult) {
       return "Did not understand this style mapping, so ignored it: " + input2 + "\n" + parseResult.errors().map(describeError).join("\n");
     }
     function describeError(error62) {
@@ -112553,7 +112553,7 @@ function sql(strings, ...params) {
     return new SQL([new StringChunk(str)]);
   }
   sql22.raw = raw;
-  function join(chunks, separator) {
+  function join2(chunks, separator) {
     const result2 = [];
     for (const [i, chunk2] of chunks.entries()) {
       if (i > 0 && separator !== void 0) {
@@ -112563,7 +112563,7 @@ function sql(strings, ...params) {
     }
     return new SQL(result2);
   }
-  sql22.join = join;
+  sql22.join = join2;
   function identifier(value) {
     return new Name(value);
   }
@@ -116246,7 +116246,7 @@ var PgSelectQueryBuilderBase = class extends TypedQueryBuilder {
       const baseTableName = this.tableName;
       const tableName = getTableLikeName(table2);
       for (const item of extractUsedTable(table2)) this.usedTables.add(item);
-      if (typeof tableName === "string" && this.config.joins?.some((join) => join.alias === tableName)) {
+      if (typeof tableName === "string" && this.config.joins?.some((join2) => join2.alias === tableName)) {
         throw new Error(`Alias "${tableName}" is already used in this query`);
       }
       if (!this.isPartialSelect) {
@@ -117467,7 +117467,7 @@ var PgUpdateBase = class extends QueryPromise {
   createJoin(joinType) {
     return (table2, on) => {
       const tableName = getTableLikeName(table2);
-      if (typeof tableName === "string" && this.config.joins.some((join) => join.alias === tableName)) {
+      if (typeof tableName === "string" && this.config.joins.some((join2) => join2.alias === tableName)) {
         throw new Error(`Alias "${tableName}" is already used in this query`);
       }
       if (typeof on === "function") {
@@ -117563,10 +117563,10 @@ var PgUpdateBase = class extends QueryPromise {
           const fromFields = this.getTableLikeFields(this.config.from);
           fields[tableName] = fromFields;
         }
-        for (const join of this.config.joins) {
-          const tableName2 = getTableLikeName(join.table);
-          if (typeof tableName2 === "string" && !is(join.table, SQL)) {
-            const fromFields = this.getTableLikeFields(join.table);
+        for (const join2 of this.config.joins) {
+          const tableName2 = getTableLikeName(join2.table);
+          if (typeof tableName2 === "string" && !is(join2.table, SQL)) {
+            const fromFields = this.getTableLikeFields(join2.table);
             fields[tableName2] = fromFields;
           }
         }
@@ -119821,6 +119821,10 @@ function createBroker(options) {
   });
 }
 
+// packages/storage/src/index.ts
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 // packages/storage/src/local-driver.ts
 import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, resolve, sep } from "node:path";
@@ -119872,12 +119876,148 @@ function createLocalDriver(options) {
   };
 }
 
+// packages/storage/src/supabase-driver.ts
+var DEFAULT_TIMEOUT_MS = 2e4;
+var MAX_ERROR_BODY_CHARS = 300;
+function toObjectPath(key) {
+  if (!key || key.includes("\0") || key.includes("\\") || key.startsWith("/") || key.endsWith("/")) {
+    throw new AppError("VALIDATION_ERROR", `Invalid storage key: "${key}"`);
+  }
+  const segments = key.split("/");
+  if (segments.some((segment) => segment === "" || segment === "." || segment === "..")) {
+    throw new AppError("VALIDATION_ERROR", `Invalid storage key: "${key}"`);
+  }
+  return segments.map(encodeURIComponent).join("/");
+}
+async function describeFailure(response) {
+  let body = "";
+  try {
+    body = (await response.text()).slice(0, MAX_ERROR_BODY_CHARS);
+  } catch {
+  }
+  return body ? `${response.status} ${body}` : String(response.status);
+}
+function createSupabaseDriver(options) {
+  const base = `${options.url.replace(/\/+$/, "")}/storage/v1/object`;
+  const bucket = encodeURIComponent(options.bucket);
+  const doFetch = options.fetch ?? fetch;
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const authHeaders = { authorization: `Bearer ${options.secretKey}`, apikey: options.secretKey };
+  async function request(url2, init) {
+    try {
+      return await doFetch(url2, { ...init, signal: AbortSignal.timeout(timeoutMs) });
+    } catch (cause) {
+      throw new AppError("UPSTREAM_UNAVAILABLE", "File storage is temporarily unavailable", { cause });
+    }
+  }
+  async function isMissing(response) {
+    if (response.status === 404) return true;
+    if (response.status !== 400) return false;
+    const body = await response.clone().text().catch(() => "");
+    return /not[_ ]found/i.test(body);
+  }
+  return {
+    async put(key, data, putOptions) {
+      const path = toObjectPath(key);
+      const response = await request(`${base}/${bucket}/${path}`, {
+        method: "POST",
+        headers: {
+          ...authHeaders,
+          "content-type": putOptions?.contentType ?? "application/octet-stream",
+          "x-upsert": "true"
+        },
+        body: new Uint8Array(data)
+      });
+      if (!response.ok) {
+        throw new AppError("UPSTREAM_UNAVAILABLE", "File storage rejected the upload", {
+          cause: new Error(`Supabase Storage upload failed: ${await describeFailure(response)}`)
+        });
+      }
+      return { key, byteSize: data.length };
+    },
+    async get(key) {
+      const path = toObjectPath(key);
+      const response = await request(`${base}/${bucket}/${path}`, { method: "GET", headers: authHeaders });
+      if (await isMissing(response)) {
+        throw new AppError("NOT_FOUND", `No stored object for key "${key}"`);
+      }
+      if (!response.ok) {
+        throw new AppError("UPSTREAM_UNAVAILABLE", "File storage could not read the file", {
+          cause: new Error(`Supabase Storage GET failed: ${await describeFailure(response)}`)
+        });
+      }
+      return Buffer.from(await response.arrayBuffer());
+    },
+    async delete(key) {
+      toObjectPath(key);
+      const response = await request(`${base}/${bucket}`, {
+        method: "DELETE",
+        headers: { ...authHeaders, "content-type": "application/json" },
+        body: JSON.stringify({ prefixes: [key] })
+      });
+      if (!response.ok && !await isMissing(response)) {
+        throw new AppError("UPSTREAM_UNAVAILABLE", "File storage could not delete the file", {
+          cause: new Error(`Supabase Storage DELETE failed: ${await describeFailure(response)}`)
+        });
+      }
+    },
+    async exists(key) {
+      const path = toObjectPath(key);
+      const response = await request(`${base}/${bucket}/${path}`, { method: "HEAD", headers: authHeaders });
+      if (response.ok) return true;
+      if (response.status === 404 || response.status === 400) return false;
+      throw new AppError("UPSTREAM_UNAVAILABLE", "File storage could not check the file", {
+        cause: new Error(`Supabase Storage HEAD failed: ${response.status}`)
+      });
+    }
+  };
+}
+
 // packages/storage/src/index.ts
 function createStorage(options) {
   if (options.driver === "local") {
     return createLocalDriver({ root: options.localRoot ?? "./.atlas-storage" });
   }
-  throw new Error("Storage driver 's3' is not implemented yet \u2014 set STORAGE_DRIVER=local.");
+  if (options.driver === "supabase") {
+    if (!options.supabaseUrl || !options.supabaseSecretKey || !options.supabaseBucket) {
+      throw new Error(
+        "Storage driver 'supabase' needs SUPABASE_URL, SUPABASE_SECRET_KEY and SUPABASE_STORAGE_BUCKET."
+      );
+    }
+    return createSupabaseDriver({
+      url: options.supabaseUrl,
+      secretKey: options.supabaseSecretKey,
+      bucket: options.supabaseBucket
+    });
+  }
+  throw new Error("Storage driver 's3' is not implemented yet \u2014 set STORAGE_DRIVER=supabase (or local for development).");
+}
+function storageOptionsFromEnv(env3, runtime = {}) {
+  if (env3.STORAGE_DRIVER === "supabase") {
+    return {
+      options: {
+        driver: "supabase",
+        supabaseUrl: env3.SUPABASE_URL,
+        supabaseSecretKey: env3.SUPABASE_SECRET_KEY,
+        supabaseBucket: env3.SUPABASE_STORAGE_BUCKET
+      }
+    };
+  }
+  if (env3.STORAGE_DRIVER === "local" && runtime.serverless) {
+    return {
+      options: { driver: "local", localRoot: join(tmpdir(), "atlas-storage") },
+      warning: "STORAGE_DRIVER=local on a serverless runtime: uploaded files are kept in ephemeral temp storage and will be lost. Set STORAGE_DRIVER=supabase for durable storage."
+    };
+  }
+  return {
+    options: {
+      driver: env3.STORAGE_DRIVER,
+      localRoot: env3.STORAGE_LOCAL_ROOT,
+      s3Bucket: env3.S3_BUCKET,
+      s3Region: env3.S3_REGION,
+      s3Endpoint: env3.S3_ENDPOINT
+    }
+  };
 }
 
 // services/profile/src/app.ts
@@ -119907,11 +120047,19 @@ var messagingEnvSchema = external_exports.object({
   MESSAGING_MAX_RETRIES: external_exports.coerce.number().int().min(0).max(20).default(5)
 });
 var storageEnvSchema = external_exports.object({
-  STORAGE_DRIVER: external_exports.enum(["local", "s3"]).default("local"),
+  STORAGE_DRIVER: external_exports.enum(["local", "s3", "supabase"]).default("local"),
   STORAGE_LOCAL_ROOT: external_exports.string().min(1).default("./.atlas-storage"),
   S3_BUCKET: external_exports.string().optional(),
   S3_REGION: external_exports.string().default("us-east-1"),
-  S3_ENDPOINT: external_exports.string().optional()
+  S3_ENDPOINT: external_exports.string().optional(),
+  /**
+   * STORAGE_DRIVER=supabase: the PRIVATE bucket to keep files in, and the
+   * server-side secret key (`sb_secret_…` or legacy `service_role`) used to
+   * reach it. The key bypasses RLS — set it only on the services that store
+   * files, as a Vercel environment variable, never in code or the repo.
+   */
+  SUPABASE_STORAGE_BUCKET: external_exports.string().min(1).default("resumes"),
+  SUPABASE_SECRET_KEY: external_exports.string().min(1).optional()
 });
 var supabaseAuthEnvSchema = external_exports.object({
   SUPABASE_URL: external_exports.string().url("SUPABASE_URL must be a valid URL")
@@ -120775,7 +120923,7 @@ var __webpack_modules__ = {
       var defineProperty = Object.defineProperty;
       var stringSlice = uncurryThis("".slice);
       var replace = uncurryThis("".replace);
-      var join = uncurryThis([].join);
+      var join2 = uncurryThis([].join);
       var CONFIGURABLE_LENGTH = DESCRIPTORS && !fails(function() {
         return defineProperty(function() {
         }, "length", { value: 8 }).length !== 8;
@@ -120802,7 +120950,7 @@ var __webpack_modules__ = {
         }
         var state = enforceInternalState(value);
         if (!hasOwn(state, "source")) {
-          state.source = join(TEMPLATE, typeof name == "string" ? name : "");
+          state.source = join2(TEMPLATE, typeof name == "string" ? name : "");
         }
         return value;
       };
@@ -153009,7 +153157,11 @@ var broker = createBroker({
   db,
   logger
 });
-var storage = createStorage({ driver: env2.STORAGE_DRIVER, localRoot: env2.STORAGE_LOCAL_ROOT });
+var { options: storageOptions, warning: storageWarning } = storageOptionsFromEnv(env2, {
+  serverless: Boolean(process.env.VERCEL)
+});
+if (storageWarning) logger.warn(storageWarning);
+var storage = createStorage(storageOptions);
 var tokenVerifier = createTokenVerifierConfig(env2);
 var app = buildApp({ db, sql: sql2, env: env2, logger, broker, storage, tokenVerifier });
 var index_default = createVercelHandler(app);

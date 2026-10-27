@@ -1,7 +1,7 @@
 import { createTokenVerifierConfig } from '@atlas/auth-kit';
 import { createDatabase } from '@atlas/db';
 import { createBroker } from '@atlas/messaging';
-import { createStorage } from '@atlas/storage';
+import { createStorage, storageOptionsFromEnv } from '@atlas/storage';
 import { createLogger, createVercelHandler, withServerlessEnvDefaults } from '@atlas/utils';
 import { buildApp } from './app.js';
 import { loadProfileServiceEnv } from './env.js';
@@ -17,7 +17,11 @@ const broker = createBroker({
   db,
   logger,
 });
-const storage = createStorage({ driver: env.STORAGE_DRIVER, localRoot: env.STORAGE_LOCAL_ROOT });
+const { options: storageOptions, warning: storageWarning } = storageOptionsFromEnv(env, {
+  serverless: Boolean(process.env.VERCEL),
+});
+if (storageWarning) logger.warn(storageWarning);
+const storage = createStorage(storageOptions);
 const tokenVerifier = createTokenVerifierConfig(env);
 
 export const app = buildApp({ db, sql, env, logger, broker, storage, tokenVerifier });
