@@ -13,7 +13,8 @@
     "api/referrals/index.js": { "maxDuration": 30 },
     "api/outreach/index.js": { "maxDuration": 30 },
     "api/learning/index.js": { "maxDuration": 30 },
-    "api/analytics/index.js": { "maxDuration": 30 }
+    "api/analytics/index.js": { "maxDuration": 30 },
+    "api/admin/index.js": { "maxDuration": 30 }
   },
   "rewrites": [
     { "source": "/v1/auth/:path*", "destination": "/api/auth" },
@@ -24,6 +25,7 @@
     { "source": "/v1/contacts/:path*", "destination": "/api/referrals" },
     { "source": "/v1/messages/:path*", "destination": "/api/outreach" },
     { "source": "/v1/learning/:path*", "destination": "/api/learning" },
-    { "source": "/v1/analytics/:path*", "destination": "/api/analytics" }
+    { "source": "/v1/analytics/:path*", "destination": "/api/analytics" },
+    { "source": "/v1/admin/:path*", "destination": "/api/admin" }
   ]
 }

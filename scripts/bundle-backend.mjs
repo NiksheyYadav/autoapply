@@ -31,6 +31,7 @@ const services = [
   'outreach',
   'learning',
   'analytics',
+  'admin',
 ];
 
 for (const name of services) {

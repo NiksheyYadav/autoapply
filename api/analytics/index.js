@@ -69799,6 +69799,143 @@ var listMessagesResponseSchema = external_exports.object({
   next_cursor: external_exports.string().nullable()
 });
 
+// packages/types/src/admin.ts
+var ADMIN_MAX_IMPORT_ROWS = 5e3;
+var adminOrgParamsSchema = external_exports.object({ orgId: uuidSchema });
+var adminStudentParamsSchema = external_exports.object({ orgId: uuidSchema, studentId: uuidSchema });
+var applicationStatusCountsSchema = external_exports.record(
+  applicationStatusSchema,
+  external_exports.number().int().min(0)
+);
+var studentInsightsSchema = external_exports.object({
+  has_resume: external_exports.boolean(),
+  /** Latest parsed resume's ATS score (0–100), or null when none has been scored. */
+  latest_ats_score: external_exports.number().min(0).max(100).nullable(),
+  /** Only applications made in this organization's context (applications.organization_id). */
+  applications_total: external_exports.number().int().min(0),
+  applications_by_status: applicationStatusCountsSchema,
+  last_application_activity_at: isoTimestampSchema.nullable()
+});
+var rosterStudentSchema = external_exports.object({
+  student_id: uuidSchema,
+  email: external_exports.string().max(320),
+  /** The platform account's name; null until sharing is enabled. */
+  full_name: external_exports.string().nullable(),
+  /** Stored in `students.department`. */
+  program: external_exports.string().nullable(),
+  graduation_year: external_exports.number().int().nullable(),
+  /** `students.current_status` (default `active`). */
+  status: external_exports.string(),
+  created_at: isoTimestampSchema,
+  /** True when the student is also a member of the organization. */
+  sharing_enabled: external_exports.boolean(),
+  insights: studentInsightsSchema.nullable()
+});
+var rosterFilterSchema = external_exports.object({
+  search: external_exports.string().trim().max(200).optional().transform((value) => value === "" ? void 0 : value),
+  has_resume: external_exports.stringbool().optional(),
+  application_status: applicationStatusSchema.optional()
+});
+var listAdminStudentsQuerySchema = paginationQuerySchema.extend(rosterFilterSchema.shape);
+var listAdminStudentsResponseSchema = external_exports.object({
+  items: external_exports.array(rosterStudentSchema),
+  next_cursor: external_exports.string().nullable()
+});
+var adminStudentResponseSchema = external_exports.object({ student: rosterStudentSchema });
+function hasControlCharacters(value) {
+  for (let index2 = 0; index2 < value.length; index2 += 1) {
+    const code = value.charCodeAt(index2);
+    if (code <= 31 || code >= 127 && code <= 159) return true;
+  }
+  return false;
+}
+var singleLineText = (max) => external_exports.string().trim().min(1).max(max).refine((value) => !hasControlCharacters(value), "Control characters are not allowed");
+var graduationYearSchema = external_exports.union([
+  external_exports.number(),
+  external_exports.string().trim().regex(/^\d{4}$/)
+]).transform((value) => Number(value)).pipe(external_exports.number().int().min(1950).max(2100));
+var importStudentRowSchema = external_exports.strictObject({
+  email: external_exports.string().trim().toLowerCase().max(320).pipe(external_exports.email()),
+  /** Validated but not stored: the platform account's own name is authoritative. */
+  full_name: singleLineText(200),
+  /** Validated but not stored: `students` has no column for an institution id (see service notes). */
+  student_id: singleLineText(64).optional(),
+  graduation_year: graduationYearSchema.optional(),
+  /** Stored in `students.department`. */
+  program: singleLineText(200).optional()
+});
+var importStudentsRequestSchema = external_exports.object({
+  rows: external_exports.array(importStudentRowSchema).min(1).max(ADMIN_MAX_IMPORT_ROWS)
+});
+var IMPORT_ROW_ERROR_REASONS = [
+  "MALFORMED_ROW",
+  "UNKNOWN_FIELD",
+  "MISSING_EMAIL",
+  "INVALID_EMAIL",
+  "MISSING_FULL_NAME",
+  "INVALID_FULL_NAME",
+  "INVALID_STUDENT_ID",
+  "INVALID_GRADUATION_YEAR",
+  "INVALID_PROGRAM"
+];
+var importRowErrorReasonSchema = external_exports.enum(IMPORT_ROW_ERROR_REASONS);
+var importStudentsResponseSchema = external_exports.object({
+  total_rows: external_exports.number().int().min(0),
+  created: external_exports.number().int().min(0),
+  updated: external_exports.number().int().min(0),
+  skipped: external_exports.number().int().min(0),
+  skipped_breakdown: external_exports.object({
+    unchanged: external_exports.number().int().min(0),
+    duplicate_in_file: external_exports.number().int().min(0),
+    no_platform_account: external_exports.number().int().min(0)
+  }),
+  errors: external_exports.array(external_exports.object({ row: external_exports.number().int().min(1), reason: importRowErrorReasonSchema })),
+  /** Columns that were supplied in at least one valid row but are not persisted. */
+  ignored_fields: external_exports.array(external_exports.enum(["full_name", "student_id"]))
+});
+var adminFunnelQuerySchema = external_exports.object({
+  from: external_exports.iso.datetime({ offset: true }).optional(),
+  to: external_exports.iso.datetime({ offset: true }).optional()
+}).refine(
+  (range) => range.from === void 0 || range.to === void 0 || Date.parse(range.from) < Date.parse(range.to),
+  { message: "`from` must be earlier than `to`", path: ["from"] }
+);
+var adminFunnelResponseSchema = external_exports.object({
+  organization_id: uuidSchema,
+  range: external_exports.object({ from: isoTimestampSchema.nullable(), to: isoTimestampSchema.nullable() }),
+  generated_at: isoTimestampSchema,
+  roster: external_exports.object({
+    /** Every roster row, including students whose platform account was since deleted. */
+    size: external_exports.number().int().min(0),
+    /**
+     * Linked to a live platform account. Equal to `size` until invited-only
+     * entries can be stored (they need a migration) or an account is deleted.
+     */
+    signed_up: external_exports.number().int().min(0),
+    /** Signed up and also a member of the organization. Everything below counts only these students. */
+    sharing_enabled: external_exports.number().int().min(0)
+  }),
+  resumes: external_exports.object({
+    students_with_resume: external_exports.number().int().min(0),
+    students_with_ats_score: external_exports.number().int().min(0),
+    /** Mean of each student's latest scored resume, one decimal; null when nobody has one. */
+    avg_ats_score: external_exports.number().min(0).max(100).nullable()
+  }),
+  applications: external_exports.object({
+    total: external_exports.number().int().min(0),
+    students_applied: external_exports.number().int().min(0),
+    by_status: applicationStatusCountsSchema
+  }),
+  offers: external_exports.object({
+    applications: external_exports.number().int().min(0),
+    students: external_exports.number().int().min(0)
+  })
+});
+var exportStudentsQuerySchema = rosterFilterSchema.extend({
+  /** Prefix the file with a UTF-8 byte-order mark so Excel opens it as UTF-8. Default true. */
+  bom: external_exports.stringbool().default(true)
+});
+
 // packages/auth-kit/src/tokens.ts
 function createTokenVerifierConfig(env2) {
   const authBase = `${env2.SUPABASE_URL}/auth/v1`;
