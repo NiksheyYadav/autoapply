@@ -43,6 +43,28 @@ export function resumeAvailability(resumes: readonly Resume[]): ResumeAvailabili
   return 'failed';
 }
 
+/** What the panels know about the user's resumes: the availability, or that we are still loading / couldn't load them. */
+export type ResumeState = ResumeAvailability | 'loading' | 'unavailable';
+
+/** Why an action is unavailable, or null when it is available. `action` completes "...to <action>". */
+export function resumeStateHint(state: ResumeState, action: 'check' | 'apply'): string | null {
+  const task = action === 'check' ? 'run this check' : 'start an application';
+  switch (state) {
+    case 'ready':
+      return null;
+    case 'loading':
+      return 'Loading your resumes…';
+    case 'unavailable':
+      return `We couldn't load your resumes, so you can't ${task} right now.`;
+    case 'none':
+      return `Upload a resume to ${task}.`;
+    case 'processing':
+      return `You can ${task} once your resume has finished processing.`;
+    case 'failed':
+      return `You'll need a resume that processed successfully to ${task}.`;
+  }
+}
+
 // --- the report -------------------------------------------------------------
 
 export type KeywordBand = 'strong' | 'partial' | 'weak' | 'none';
@@ -133,8 +155,9 @@ export function toReportViewModel(report: ResumeOptimizationReport): ReportViewM
   const keywordScore = typeof report.keyword_match?.score === 'number' ? report.keyword_match.score : null;
   const band = keywordBand(keywordScore);
 
-  const bulletFindings = (report.bullet_findings ?? []).map((finding) => ({
-    key: `${finding.company}|${finding.title}|${finding.bullet_index}`,
+  const bulletFindings = (report.bullet_findings ?? []).map((finding, index) => ({
+    // The position keeps the key unique even when one employer/title appears twice.
+    key: `${index}:${finding.company}|${finding.title}|${finding.bullet_index}`,
     where: [finding.title, finding.company].filter((part) => part.length > 0).join(', '),
     bullet: finding.bullet,
     issues: finding.issues.map((issue) => ISSUE_LABELS[issue] ?? issue.replaceAll('_', ' ')),

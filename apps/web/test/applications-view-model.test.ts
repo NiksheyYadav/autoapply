@@ -6,6 +6,7 @@ import {
   deriveApplyStage,
   filterByStatus,
   findApplicationForJob,
+  mergeApplication,
   OPENED_APPLY_LINK_NOTE,
   resolveApplyUrl,
   toApplicationDisplay,
@@ -178,6 +179,32 @@ describe('findApplicationForJob', () => {
 
   it('is null when there is none', () => {
     expect(findApplicationForJob([], JOB_ID)).toBeNull();
+  });
+});
+
+describe('mergeApplication', () => {
+  it('takes the new status and timestamps from the response', () => {
+    const before = application({ status: 'draft' });
+    const after = application({ status: 'submitted', submitted_at: '2026-10-28 09:00:00+00' });
+    const merged = mergeApplication(before, after);
+    expect(merged.status).toBe('submitted');
+    expect(merged.submitted_at).toBe('2026-10-28 09:00:00+00');
+  });
+
+  it('keeps the job we had when a response arrives without one', () => {
+    const before = application();
+    const { job: _job, ...withoutJob } = application({ status: 'submitted' });
+    expect(mergeApplication(before, withoutJob).job).toEqual(JOB);
+  });
+
+  it('accepts an explicit null job from the response (the job was deleted)', () => {
+    expect(mergeApplication(application(), application({ job: null })).job).toBeNull();
+  });
+
+  it('replaces outright when it is a different application or there was none', () => {
+    const other = application({ application_id: '66666666-6666-4666-8666-666666666666', job: null });
+    expect(mergeApplication(application(), other)).toBe(other);
+    expect(mergeApplication(null, other)).toBe(other);
   });
 });
 

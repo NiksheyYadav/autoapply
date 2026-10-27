@@ -113,7 +113,7 @@ export function descriptionToParagraphs(description: string | null | undefined):
     .map((paragraph) =>
       paragraph
         .split('\n')
-        .map((line) => line.replace(/[ \t ]+/g, ' ').trim())
+        .map((line) => line.replace(/[ \t\u00a0]+/g, ' ').trim())
         .filter((line) => line.length > 0)
         .join('\n'),
     )

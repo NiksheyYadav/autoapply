@@ -112,6 +112,16 @@ export function toApplicationDisplay(item: ApplicationItem, options: DisplayOpti
 }
 
 /**
+ * Folds a response into the application we already hold. The owner's views
+ * always carry `job`, but if one ever arrived without it, keep the job we had
+ * rather than losing the apply link mid-flow.
+ */
+export function mergeApplication(previous: ApplicationItem | null, next: ApplicationItem): ApplicationItem {
+  if (!previous || previous.application_id !== next.application_id) return next;
+  return { ...previous, ...next, job: next.job === undefined ? previous.job : next.job };
+}
+
+/**
  * Where a job's assisted-apply flow stands:
  * - `none`: no application yet.
  * - `draft`: tracked in Atlas, not yet reported as submitted.

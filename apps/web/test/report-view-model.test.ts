@@ -7,6 +7,7 @@ import {
   pickParsedResumes,
   resumeAvailability,
   resumeOptionLabel,
+  resumeStateHint,
   toReportViewModel,
 } from '../src/components/resume-check/report-view-model';
 
@@ -71,6 +72,24 @@ describe('resumeAvailability', () => {
     expect(resumeAvailability([resume({ resume_id: 'p', status: 'processing' })])).toBe('processing');
     expect(resumeAvailability([resume({ resume_id: 'f', status: 'failed' })])).toBe('failed');
     expect(resumeAvailability([resume({ resume_id: 'f', status: 'failed' }), resume({ resume_id: 'ok' })])).toBe('ready');
+  });
+});
+
+describe('resumeStateHint', () => {
+  it('is null only when the action is available', () => {
+    expect(resumeStateHint('ready', 'check')).toBeNull();
+    expect(resumeStateHint('ready', 'apply')).toBeNull();
+    for (const state of ['loading', 'unavailable', 'none', 'processing', 'failed'] as const) {
+      expect(resumeStateHint(state, 'check')).toEqual(expect.any(String));
+      expect(resumeStateHint(state, 'apply')).toEqual(expect.any(String));
+    }
+  });
+
+  it('names the action that is blocked', () => {
+    expect(resumeStateHint('none', 'check')).toBe('Upload a resume to run this check.');
+    expect(resumeStateHint('none', 'apply')).toBe('Upload a resume to start an application.');
+    expect(resumeStateHint('processing', 'apply')).toMatch(/finished processing/);
+    expect(resumeStateHint('unavailable', 'check')).toMatch(/couldn't load/i);
   });
 });
 
@@ -156,7 +175,7 @@ describe('toReportViewModel', () => {
   it('labels bullet issues in plain language and says where each bullet lives', () => {
     const [finding] = toReportViewModel(report()).bulletFindings;
     expect(finding).toEqual({
-      key: 'Acme|Engineer|2',
+      key: '0:Acme|Engineer|2',
       where: 'Engineer, Acme',
       bullet: 'Responsible for the billing service',
       issues: ['Weak opening', 'No measurable result'],
