@@ -1291,7 +1291,7 @@ var require_sonic_boom = __commonJS({
       if (!(this instanceof SonicBoom)) {
         return new SonicBoom(opts);
       }
-      let { fd, dest, minLength, maxLength, maxWrite, periodicFlush, sync, append = true, mkdir, retryEAGAIN, fsync, contentMode, mode } = opts || {};
+      let { fd, dest, minLength, maxLength, maxWrite, periodicFlush, sync, append = true, mkdir: mkdir2, retryEAGAIN, fsync, contentMode, mode } = opts || {};
       fd = fd || dest;
       this._len = 0;
       this.fd = -1;
@@ -1316,7 +1316,7 @@ var require_sonic_boom = __commonJS({
       this.append = append || false;
       this.mode = mode;
       this.retryEAGAIN = retryEAGAIN || (() => true);
-      this.mkdir = mkdir || false;
+      this.mkdir = mkdir2 || false;
       let fsWriteSync;
       let fsWrite;
       if (contentMode === kContentModeBuffer) {
@@ -2028,7 +2028,7 @@ var require_thread_stream = __commonJS({
     var { version: version3 } = require_package();
     var { EventEmitter } = __require("events");
     var { Worker } = __require("worker_threads");
-    var { join } = __require("path");
+    var { join: join2 } = __require("path");
     var { pathToFileURL } = __require("url");
     var { wait } = require_wait();
     var {
@@ -2079,7 +2079,7 @@ var require_thread_stream = __commonJS({
     function createWorker(stream, opts) {
       const { filename, workerData } = opts;
       const bundlerOverrides = "__bundlerPathsOverrides" in globalThis ? globalThis.__bundlerPathsOverrides : {};
-      const toExecute = bundlerOverrides["thread-stream-worker"] || join(__dirname, "lib", "worker.js");
+      const toExecute = bundlerOverrides["thread-stream-worker"] || join2(__dirname, "lib", "worker.js");
       const worker = new Worker(toExecute, {
         ...opts.workerOpts,
         name: opts.workerOpts?.name || "thread-stream",
@@ -2547,7 +2547,7 @@ var require_transport = __commonJS({
     var { createRequire } = __require("module");
     var { existsSync } = __require("node:fs");
     var getCallers = require_caller();
-    var { join, isAbsolute, sep } = __require("node:path");
+    var { join: join2, isAbsolute, sep: sep2 } = __require("node:path");
     var { fileURLToPath } = __require("node:url");
     var sleep = require_atomic_sleep();
     var onExit = require_on_exit_leak_free();
@@ -2700,7 +2700,7 @@ var require_transport = __commonJS({
         throw new Error("only one of target or targets can be specified");
       }
       if (targets) {
-        target = bundlerOverrides["pino-worker"] || join(__dirname, "worker.js");
+        target = bundlerOverrides["pino-worker"] || join2(__dirname, "worker.js");
         options.targets = targets.filter((dest) => dest.target).map((dest) => {
           return {
             ...dest,
@@ -2718,7 +2718,7 @@ var require_transport = __commonJS({
           });
         });
       } else if (pipeline) {
-        target = bundlerOverrides["pino-worker"] || join(__dirname, "worker.js");
+        target = bundlerOverrides["pino-worker"] || join2(__dirname, "worker.js");
         options.pipelines = [pipeline.map((dest) => {
           return {
             ...dest,
@@ -2741,12 +2741,12 @@ var require_transport = __commonJS({
           return origin;
         }
         if (origin === "pino/file") {
-          return join(__dirname, "..", "file.js");
+          return join2(__dirname, "..", "file.js");
         }
         let fixTarget2;
         for (const filePath of callers) {
           try {
-            const context2 = filePath === "node:repl" ? process.cwd() + sep : filePath;
+            const context2 = filePath === "node:repl" ? process.cwd() + sep2 : filePath;
             fixTarget2 = createRequire(context2).resolve(origin);
             break;
           } catch (err) {
@@ -3721,7 +3721,7 @@ var require_safe_stable_stringify = __commonJS({
               return circularValue;
             }
             let res = "";
-            let join = ",";
+            let join2 = ",";
             const originalIndentation = indentation;
             if (Array.isArray(value)) {
               if (value.length === 0) {
@@ -3735,7 +3735,7 @@ var require_safe_stable_stringify = __commonJS({
                 indentation += spacer;
                 res += `
 ${indentation}`;
-                join = `,
+                join2 = `,
 ${indentation}`;
               }
               const maximumValuesToStringify = Math.min(value.length, maximumBreadth);
@@ -3743,13 +3743,13 @@ ${indentation}`;
               for (; i < maximumValuesToStringify - 1; i++) {
                 const tmp2 = stringifyFnReplacer(String(i), value, stack, replacer, spacer, indentation);
                 res += tmp2 !== void 0 ? tmp2 : "null";
-                res += join;
+                res += join2;
               }
               const tmp = stringifyFnReplacer(String(i), value, stack, replacer, spacer, indentation);
               res += tmp !== void 0 ? tmp : "null";
               if (value.length - 1 > maximumBreadth) {
                 const removedKeys = value.length - maximumBreadth - 1;
-                res += `${join}"... ${getItemCount(removedKeys)} not stringified"`;
+                res += `${join2}"... ${getItemCount(removedKeys)} not stringified"`;
               }
               if (spacer !== "") {
                 res += `
@@ -3770,7 +3770,7 @@ ${originalIndentation}`;
             let separator = "";
             if (spacer !== "") {
               indentation += spacer;
-              join = `,
+              join2 = `,
 ${indentation}`;
               whitespace = " ";
             }
@@ -3784,13 +3784,13 @@ ${indentation}`;
               const tmp = stringifyFnReplacer(key2, value, stack, replacer, spacer, indentation);
               if (tmp !== void 0) {
                 res += `${separator}${strEscape(key2)}:${whitespace}${tmp}`;
-                separator = join;
+                separator = join2;
               }
             }
             if (keyLength > maximumBreadth) {
               const removedKeys = keyLength - maximumBreadth;
               res += `${separator}"...":${whitespace}"${getItemCount(removedKeys)} not stringified"`;
-              separator = join;
+              separator = join2;
             }
             if (spacer !== "" && separator.length > 1) {
               res = `
@@ -3831,7 +3831,7 @@ ${originalIndentation}`;
             }
             const originalIndentation = indentation;
             let res = "";
-            let join = ",";
+            let join2 = ",";
             if (Array.isArray(value)) {
               if (value.length === 0) {
                 return "[]";
@@ -3844,7 +3844,7 @@ ${originalIndentation}`;
                 indentation += spacer;
                 res += `
 ${indentation}`;
-                join = `,
+                join2 = `,
 ${indentation}`;
               }
               const maximumValuesToStringify = Math.min(value.length, maximumBreadth);
@@ -3852,13 +3852,13 @@ ${indentation}`;
               for (; i < maximumValuesToStringify - 1; i++) {
                 const tmp2 = stringifyArrayReplacer(String(i), value[i], stack, replacer, spacer, indentation);
                 res += tmp2 !== void 0 ? tmp2 : "null";
-                res += join;
+                res += join2;
               }
               const tmp = stringifyArrayReplacer(String(i), value[i], stack, replacer, spacer, indentation);
               res += tmp !== void 0 ? tmp : "null";
               if (value.length - 1 > maximumBreadth) {
                 const removedKeys = value.length - maximumBreadth - 1;
-                res += `${join}"... ${getItemCount(removedKeys)} not stringified"`;
+                res += `${join2}"... ${getItemCount(removedKeys)} not stringified"`;
               }
               if (spacer !== "") {
                 res += `
@@ -3871,7 +3871,7 @@ ${originalIndentation}`;
             let whitespace = "";
             if (spacer !== "") {
               indentation += spacer;
-              join = `,
+              join2 = `,
 ${indentation}`;
               whitespace = " ";
             }
@@ -3880,7 +3880,7 @@ ${indentation}`;
               const tmp = stringifyArrayReplacer(key2, value[key2], stack, replacer, spacer, indentation);
               if (tmp !== void 0) {
                 res += `${separator}${strEscape(key2)}:${whitespace}${tmp}`;
-                separator = join;
+                separator = join2;
               }
             }
             if (spacer !== "" && separator.length > 1) {
@@ -3938,20 +3938,20 @@ ${originalIndentation}`;
               indentation += spacer;
               let res2 = `
 ${indentation}`;
-              const join2 = `,
+              const join3 = `,
 ${indentation}`;
               const maximumValuesToStringify = Math.min(value.length, maximumBreadth);
               let i = 0;
               for (; i < maximumValuesToStringify - 1; i++) {
                 const tmp2 = stringifyIndent(String(i), value[i], stack, spacer, indentation);
                 res2 += tmp2 !== void 0 ? tmp2 : "null";
-                res2 += join2;
+                res2 += join3;
               }
               const tmp = stringifyIndent(String(i), value[i], stack, spacer, indentation);
               res2 += tmp !== void 0 ? tmp : "null";
               if (value.length - 1 > maximumBreadth) {
                 const removedKeys = value.length - maximumBreadth - 1;
-                res2 += `${join2}"... ${getItemCount(removedKeys)} not stringified"`;
+                res2 += `${join3}"... ${getItemCount(removedKeys)} not stringified"`;
               }
               res2 += `
 ${originalIndentation}`;
@@ -3967,16 +3967,16 @@ ${originalIndentation}`;
               return '"[Object]"';
             }
             indentation += spacer;
-            const join = `,
+            const join2 = `,
 ${indentation}`;
             let res = "";
             let separator = "";
             let maximumPropertiesToStringify = Math.min(keyLength, maximumBreadth);
             if (isTypedArrayWithEntries(value)) {
-              res += stringifyTypedArray(value, join, maximumBreadth);
+              res += stringifyTypedArray(value, join2, maximumBreadth);
               keys = keys.slice(value.length);
               maximumPropertiesToStringify -= value.length;
-              separator = join;
+              separator = join2;
             }
             if (deterministic) {
               keys = sort(keys, comparator);
@@ -3987,13 +3987,13 @@ ${indentation}`;
               const tmp = stringifyIndent(key2, value[key2], stack, spacer, indentation);
               if (tmp !== void 0) {
                 res += `${separator}${strEscape(key2)}: ${tmp}`;
-                separator = join;
+                separator = join2;
               }
             }
             if (keyLength > maximumBreadth) {
               const removedKeys = keyLength - maximumBreadth;
               res += `${separator}"...": "${getItemCount(removedKeys)} not stringified"`;
-              separator = join;
+              separator = join2;
             }
             if (separator !== "") {
               res = `
@@ -8341,9 +8341,9 @@ var require_rate_limit = __commonJS({
         throw new Error("The configured rate-limit store does not implement a `read` method, which is required to use `{ increment: false }`");
       }
       try {
-        const res = await new Promise((resolve, reject) => {
+        const res = await new Promise((resolve2, reject) => {
           store[storeMethod](key, (err, res2) => {
-            err ? reject(err) : resolve(res2);
+            err ? reject(err) : resolve2(res2);
           }, timeWindow, max);
         });
         current = res.current;
@@ -8705,41 +8705,41 @@ var require_queue = __commonJS({
       queue.drained = drained;
       return queue;
       function push(value) {
-        var p = new Promise(function(resolve, reject) {
+        var p = new Promise(function(resolve2, reject) {
           pushCb(value, function(err, result) {
             if (err) {
               reject(err);
               return;
             }
-            resolve(result);
+            resolve2(result);
           });
         });
         p.catch(noop3);
         return p;
       }
       function unshift(value) {
-        var p = new Promise(function(resolve, reject) {
+        var p = new Promise(function(resolve2, reject) {
           unshiftCb(value, function(err, result) {
             if (err) {
               reject(err);
               return;
             }
-            resolve(result);
+            resolve2(result);
           });
         });
         p.catch(noop3);
         return p;
       }
       function drained() {
-        var p = new Promise(function(resolve) {
+        var p = new Promise(function(resolve2) {
           process.nextTick(function() {
             if (queue.idle()) {
-              resolve();
+              resolve2();
             } else {
               var previousDrain = queue.drain;
               queue.drain = function() {
                 if (typeof previousDrain === "function") previousDrain();
-                resolve();
+                resolve2();
                 queue.drain = previousDrain;
               };
             }
@@ -9082,8 +9082,8 @@ var require_create_promise = __commonJS({
         reject: null,
         promise: null
       };
-      obj.promise = new Promise((resolve, reject) => {
-        obj.resolve = resolve;
+      obj.promise = new Promise((resolve2, reject) => {
+        obj.resolve = resolve2;
         obj.reject = reject;
       });
       return obj;
@@ -9352,11 +9352,11 @@ var require_thenify = __commonJS({
         return;
       }
       debug("thenify");
-      return (resolve, reject) => {
+      return (resolve2, reject) => {
         const p = this._loadRegistered();
         return p.then(() => {
           this[kThenifyDoNotWrap] = true;
-          return resolve(this._server);
+          return resolve2(this._server);
         }, reject);
       };
     }
@@ -9493,12 +9493,12 @@ var require_avvio = __commonJS({
     inherits(Boot, EE);
     if ("asyncDispose" in Symbol) {
       Boot.prototype[Symbol.asyncDispose] = function() {
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve2, reject) => {
           this.close((err) => {
             if (err) {
               return reject(err);
             }
-            resolve();
+            resolve2();
           });
         });
       };
@@ -9645,12 +9645,12 @@ var require_avvio = __commonJS({
           throw new AVV_ERR_CALLBACK_NOT_FN("close", typeof func);
         }
       } else {
-        promise2 = new Promise(function(resolve, reject) {
+        promise2 = new Promise(function(resolve2, reject) {
           func = function(err) {
             if (err) {
               return reject(err);
             }
-            resolve();
+            resolve2();
           };
         });
       }
@@ -9670,7 +9670,7 @@ var require_avvio = __commonJS({
         queueMicrotask(this.start.bind(this));
         return;
       }
-      return new Promise((resolve, reject) => {
+      return new Promise((resolve2, reject) => {
         this._readyQ.push(readyPromiseCB);
         this.start();
         const relativeContext = this._current[0].server;
@@ -9678,7 +9678,7 @@ var require_avvio = __commonJS({
           if (err) {
             reject(err);
           } else {
-            resolve(relativeContext);
+            resolve2(relativeContext);
           }
           process.nextTick(done);
         }
@@ -11065,8 +11065,8 @@ var require_promise = __commonJS({
     var { kTestInternals } = require_symbols3();
     function withResolvers() {
       let res, rej;
-      const promise2 = new Promise((resolve, reject) => {
-        res = resolve;
+      const promise2 = new Promise((resolve2, reject) => {
+        res = resolve2;
         rej = reject;
       });
       return { promise: promise2, resolve: res, reject: rej };
@@ -11165,15 +11165,15 @@ var require_server = __commonJS({
         if (cb === void 0) {
           const listening = listenPromise.call(this, server, listenOptions);
           return listening.then((address) => {
-            const { promise: promise2, resolve } = PonyPromise.withResolvers();
+            const { promise: promise2, resolve: resolve2 } = PonyPromise.withResolvers();
             if (host === "localhost") {
               multipleBindings.call(this, server, httpHandler, options, listenOptions, () => {
                 this[kState].listening = true;
-                resolve(address);
+                resolve2(address);
                 onListenHookRunner(this);
               });
             } else {
-              resolve(address);
+              resolve2(address);
               onListenHookRunner(this);
             }
             return promise2;
@@ -11300,7 +11300,7 @@ var require_server = __commonJS({
       }
       return this.ready().then(() => {
         if (this[kState].aborted) return;
-        const { promise: promise2, resolve, reject } = PonyPromise.withResolvers();
+        const { promise: promise2, resolve: resolve2, reject } = PonyPromise.withResolvers();
         const errEventHandler = (err) => {
           cleanup();
           this[kState].listening = false;
@@ -11309,7 +11309,7 @@ var require_server = __commonJS({
         const listeningEventHandler = () => {
           cleanup();
           this[kState].listening = true;
-          resolve(logServerAddress.call(
+          resolve2(logServerAddress.call(
             this,
             server,
             listenOptions.listenTextResolver || defaultResolveServerListeningText
@@ -20296,7 +20296,7 @@ var require_compile = __commonJS({
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve.call(this, root, ref);
+      let _sch = resolve2.call(this, root, ref);
       if (_sch === void 0) {
         const schema = (_a3 = root.localRefs) === null || _a3 === void 0 ? void 0 : _a3[ref];
         const { schemaId } = this.opts;
@@ -20323,7 +20323,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve(root, ref) {
+    function resolve2(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -21153,7 +21153,7 @@ var require_fast_uri = __commonJS({
       }
       return uri;
     }
-    function resolve(baseURI, relativeURI, options) {
+    function resolve2(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
       const {
         parsed: baseParsed,
@@ -21522,7 +21522,7 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize,
-      resolve,
+      resolve: resolve2,
       resolveComponent,
       equal,
       serialize,
@@ -26918,7 +26918,7 @@ var require_fast_uri2 = __commonJS({
       }
       return uri;
     }
-    function resolve(baseURI, relativeURI, options) {
+    function resolve2(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
       const {
         parsed: baseParsed,
@@ -27302,7 +27302,7 @@ var require_fast_uri2 = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize,
-      resolve,
+      resolve: resolve2,
       resolveComponent,
       equal,
       serialize,
@@ -34864,7 +34864,7 @@ var require_safe_regex2 = __commonJS({
     "use strict";
     var parse4 = require_dist4();
     var { types: types2 } = require_dist4();
-    function walk(node2, opts, starHeight) {
+    function walk2(node2, opts, starHeight) {
       let i;
       let ok;
       let len;
@@ -34877,14 +34877,14 @@ var require_safe_regex2 = __commonJS({
       const options = node2.options || node2.value?.options;
       if (options) {
         for (i = 0, len = options.length; i < len; i++) {
-          ok = walk({ stack: options[i] }, opts, starHeight);
+          ok = walk2({ stack: options[i] }, opts, starHeight);
           if (!ok) return false;
         }
       }
       const stack = node2.stack || node2.value?.stack;
       if (!stack) return true;
       for (i = 0, len = stack.length; i < len; i++) {
-        ok = walk(stack[i], opts, starHeight);
+        ok = walk2(stack[i], opts, starHeight);
         if (!ok) return false;
       }
       return true;
@@ -34897,7 +34897,7 @@ var require_safe_regex2 = __commonJS({
       if (isRegExp(re2)) re2 = re2.source;
       else if (typeof re2 !== "string") re2 = String(re2);
       try {
-        return walk(parse4(re2), opts, 0);
+        return walk2(parse4(re2), opts, 0);
       } catch {
         return false;
       }
@@ -39278,9 +39278,9 @@ var require_light_my_request = __commonJS({
         const res = new Response(req, callback);
         return makeRequest(dispatchFunc, server, req, res);
       } else {
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve2, reject) => {
           const req = new RequestConstructor(options);
-          const res = new Response(req, resolve, reject);
+          const res = new Response(req, resolve2, reject);
           makeRequest(dispatchFunc, server, req, res);
         });
       }
@@ -40301,16 +40301,16 @@ var require_util3 = __commonJS({
       return Date.now() / 1e3;
     };
     exports.waitFor = async function waitFor(promise2, limit = 5e3) {
-      let resolve, reject;
+      let resolve2, reject;
       const resultPromise = new Promise((res, rej) => {
-        resolve = res;
+        resolve2 = res;
         reject = rej;
       });
       const timeout = setTimeout(() => {
         reject(new Error("Timeout"));
       }, limit);
       try {
-        promise2.then(resolve, reject);
+        promise2.then(resolve2, reject);
         return await resultPromise;
       } finally {
         clearTimeout(timeout);
@@ -42621,7 +42621,7 @@ var require_pushgateway = __commonJS({
       requestParams.pathname = `${gatewayUrlPath}/metrics${jobPath}`;
       const httpModule = requestParams.protocol === "https:" ? https : http;
       const options = { ...this.requestOptions, method };
-      return new Promise((resolve, reject) => {
+      return new Promise((resolve2, reject) => {
         if (method === "DELETE" && options.headers) {
           delete options.headers["Content-Encoding"];
         }
@@ -42637,7 +42637,7 @@ var require_pushgateway = __commonJS({
                 new Error(`push failed with status ${resp.statusCode}, ${body}`)
               );
             } else {
-              resolve({ resp, body });
+              resolve2({ resp, body });
             }
           });
         });
@@ -44396,8 +44396,8 @@ var require_osMemoryHeapLinux = __commonJS({
         // Use this one metric's `collect` to set all metrics' values.
         collect() {
           try {
-            const stat = fs2.readFileSync("/proc/self/status", "utf8");
-            const structuredOutput = structureOutput(stat);
+            const stat2 = fs2.readFileSync("/proc/self/status", "utf8");
+            const structuredOutput = structureOutput(stat2);
             residentMemGauge.set(labels, structuredOutput.VmRSS);
             virtualMemGauge.set(labels, structuredOutput.VmSize);
             heapSizeMemGauge.set(labels, structuredOutput.VmData);
@@ -45439,9 +45439,9 @@ var require_cluster = __commonJS({
         if (request === void 0) {
           debug("unexpected goodbye message for", process.pid);
         } else {
-          const resolve = request.responseHandlers.get("ack").resolve;
+          const resolve2 = request.responseHandlers.get("ack").resolve;
           debug("received acknowledgement for goodbye message from parent");
-          resolve(message2);
+          resolve2(message2);
         }
       }
     }
@@ -45780,12 +45780,12 @@ var require_worker = __commonJS({
           if (request === void 0) {
             debug("unexpected ACK message for", threadId);
           } else {
-            const resolve = request.responseHandlers.get("ack").resolve;
+            const resolve2 = request.responseHandlers.get("ack").resolve;
             debug(
               "received acknowledgement for goodbye message from",
               message2.threadId
             );
-            resolve(message2);
+            resolve2(message2);
           }
         }
       });
@@ -51859,7 +51859,7 @@ var recursive = /* @__PURE__ */ new WeakMap();
 var NONE = 0;
 var ASSUMED = 1;
 var PROVEN = 2;
-function isRecursive(inst, stack, resolve) {
+function isRecursive(inst, stack, resolve2) {
   const cached2 = recursive.get(inst);
   if (cached2 !== void 0)
     return cached2 ? PROVEN : NONE;
@@ -51869,7 +51869,7 @@ function isRecursive(inst, stack, resolve) {
   let result = NONE;
   const check3 = (child) => {
     if (result !== PROVEN && child?._zod) {
-      const answer = isRecursive(child, stack, resolve);
+      const answer = isRecursive(child, stack, resolve2);
       if (answer > result)
         result = answer;
     }
@@ -51880,7 +51880,7 @@ function isRecursive(inst, stack, resolve) {
       const desc2 = Object.getOwnPropertyDescriptor(sh, key);
       if (spread && !desc2.enumerable)
         continue;
-      const child = desc2.get ? ASSUMED : desc2.value?._zod ? isRecursive(desc2.value, stack, resolve) : NONE;
+      const child = desc2.get ? ASSUMED : desc2.value?._zod ? isRecursive(desc2.value, stack, resolve2) : NONE;
       if (child > answer)
         answer = child;
     }
@@ -51944,7 +51944,7 @@ function isRecursive(inst, stack, resolve) {
       break;
     // `$ZodLazy` caches its inner on the def, so a resolved edge is followed exactly
     case "lazy": {
-      const inner = def._cachedInner ?? (resolve ? inst._zod.innerType : void 0);
+      const inner = def._cachedInner ?? (resolve2 ? inst._zod.innerType : void 0);
       merge2(inner ? isRecursive(inner, stack, false) : ASSUMED);
       break;
     }
@@ -67237,6 +67237,185 @@ var exportStudentsQuerySchema = rosterFilterSchema.extend({
   bom: external_exports.stringbool().default(true)
 });
 
+// packages/types/src/privacy.ts
+var ACCOUNT_EXPORT_VERSION = 1;
+var ACCOUNT_EXPORT_NOTES = [
+  "Password hashes, multi-factor secrets, access tokens and connector credentials are never exported.",
+  "Original uploaded resume files and machine-generated embedding vectors are not included; resume text and the parsed profile are.",
+  "Data about other people is not included. Outreach messages reference contacts by id only.",
+  "Referral suggestions are computed from your applications when you view them and are not stored. Outreach you created is under messages; referral events are under activity_events.",
+  "Internal operational records (request de-duplication keys, event queue entries, audit entries) are not included.",
+  "Sign-in records held by Supabase Auth (identities, sessions) are managed by that service and are not part of this file."
+];
+var EXPORT_TRUNCATABLE_SECTIONS = [
+  "organization_memberships",
+  "student_records",
+  "resumes",
+  "applications",
+  "application_events",
+  "messages",
+  "job_scores",
+  "activity_events",
+  "connected_accounts"
+];
+var exportTruncatableSectionSchema = external_exports.enum(EXPORT_TRUNCATABLE_SECTIONS);
+var exportTruncationSchema = external_exports.object({
+  section: exportTruncatableSectionSchema,
+  /** How many rows the file contains for this section. */
+  returned: external_exports.number().int().min(0),
+  reason: external_exports.enum(["row_limit", "size_limit"])
+});
+var exportUserSchema = external_exports.object({
+  user_id: uuidSchema,
+  email: external_exports.string(),
+  full_name: external_exports.string(),
+  auth_provider: authProviderSchema,
+  email_verified: external_exports.boolean(),
+  mfa_enabled: external_exports.boolean(),
+  /** The resume currently treated as the canonical profile. */
+  primary_resume_id: uuidSchema.nullable(),
+  last_login_at: isoTimestampSchema.nullable(),
+  created_at: isoTimestampSchema,
+  updated_at: isoTimestampSchema
+});
+var exportMembershipSchema = external_exports.object({
+  organization: external_exports.object({
+    organization_id: uuidSchema,
+    name: external_exports.string(),
+    type: organizationTypeSchema,
+    plan: organizationPlanSchema
+  }),
+  role: memberRoleSchema,
+  permissions: permissionsSchema,
+  joined_at: isoTimestampSchema
+});
+var exportStudentRecordSchema = external_exports.object({
+  student_id: uuidSchema,
+  organization_id: uuidSchema,
+  department: external_exports.string().nullable(),
+  graduation_year: external_exports.number().int().nullable(),
+  current_status: external_exports.string(),
+  created_at: isoTimestampSchema
+});
+var exportResumeSchema = external_exports.object({
+  resume_id: uuidSchema,
+  original_filename: external_exports.string(),
+  content_type: external_exports.string(),
+  byte_size: external_exports.number().int().min(0),
+  status: resumeStatusSchema,
+  parsed_text: external_exports.string().nullable(),
+  parsed_profile: parsedProfileSchema.nullable(),
+  ats_score: external_exports.number().nullable(),
+  ats_report: external_exports.record(external_exports.string(), external_exports.unknown()).nullable(),
+  failure_reason: external_exports.string().nullable(),
+  parsed_at: isoTimestampSchema.nullable(),
+  created_at: isoTimestampSchema,
+  updated_at: isoTimestampSchema
+});
+var exportApplicationEventSchema = external_exports.object({
+  event_id: uuidSchema,
+  from_status: applicationStatusSchema.nullable(),
+  to_status: applicationStatusSchema,
+  note: external_exports.string().nullable(),
+  metadata: external_exports.record(external_exports.string(), external_exports.unknown()),
+  created_at: isoTimestampSchema
+});
+var exportJobContextSchema = external_exports.object({
+  job_id: uuidSchema,
+  title: external_exports.string().nullable(),
+  company_name: external_exports.string().nullable(),
+  location: external_exports.string().nullable()
+});
+var exportApplicationSchema = external_exports.object({
+  application_id: uuidSchema,
+  job: exportJobContextSchema,
+  resume_id: uuidSchema.nullable(),
+  organization_id: uuidSchema.nullable(),
+  status: applicationStatusSchema,
+  mode: applicationModeSchema,
+  cover_letter: external_exports.string().nullable(),
+  submitted_at: isoTimestampSchema.nullable(),
+  last_event_at: isoTimestampSchema,
+  failure_reason: external_exports.string().nullable(),
+  created_at: isoTimestampSchema,
+  events: external_exports.array(exportApplicationEventSchema)
+});
+var exportMessageSchema = external_exports.object({
+  message_id: uuidSchema,
+  application_id: uuidSchema.nullable(),
+  /** Id only: the contact's own details belong to the contact, not to this export. */
+  contact_id: uuidSchema.nullable(),
+  channel: messageChannelSchema,
+  status: messageStatusSchema,
+  subject: external_exports.string().nullable(),
+  body: external_exports.string(),
+  scheduled_for: isoTimestampSchema.nullable(),
+  sent_at: isoTimestampSchema.nullable(),
+  created_at: isoTimestampSchema
+});
+var exportJobScoreSchema = external_exports.object({
+  job: exportJobContextSchema,
+  score: external_exports.number(),
+  reasons: external_exports.array(external_exports.string()),
+  skill_gaps: external_exports.array(external_exports.string()),
+  model_version: external_exports.string(),
+  scored_at: isoTimestampSchema
+});
+var exportActivityEventSchema = external_exports.object({
+  event_id: uuidSchema,
+  event_type: external_exports.string(),
+  organization_id: uuidSchema.nullable(),
+  payload: external_exports.record(external_exports.string(), external_exports.unknown()),
+  occurred_at: isoTimestampSchema
+});
+var exportConnectedAccountSchema = external_exports.object({
+  connector_account_id: uuidSchema,
+  organization_id: uuidSchema.nullable(),
+  provider: external_exports.string(),
+  external_account_id: external_exports.string(),
+  scopes: external_exports.array(external_exports.string()),
+  status: external_exports.string(),
+  consent_granted_at: isoTimestampSchema.nullable(),
+  expires_at: isoTimestampSchema.nullable(),
+  last_synced_at: isoTimestampSchema.nullable(),
+  created_at: isoTimestampSchema
+});
+var accountExportSchema = external_exports.object({
+  export_version: external_exports.literal(ACCOUNT_EXPORT_VERSION),
+  generated_at: isoTimestampSchema,
+  user: exportUserSchema,
+  organization_memberships: external_exports.array(exportMembershipSchema),
+  student_records: external_exports.array(exportStudentRecordSchema),
+  resumes: external_exports.array(exportResumeSchema),
+  applications: external_exports.array(exportApplicationSchema),
+  messages: external_exports.array(exportMessageSchema),
+  job_scores: external_exports.array(exportJobScoreSchema),
+  activity_events: external_exports.array(exportActivityEventSchema),
+  connected_accounts: external_exports.array(exportConnectedAccountSchema),
+  truncated: external_exports.array(exportTruncationSchema),
+  notes: external_exports.array(external_exports.string())
+});
+var DELETE_ACCOUNT_CONFIRMATION = "DELETE";
+var deleteAccountRequestSchema = external_exports.strictObject({
+  confirm: external_exports.literal(DELETE_ACCOUNT_CONFIRMATION)
+});
+var deleteAccountResponseSchema = external_exports.object({
+  status: external_exports.literal("deleted"),
+  deleted_at: isoTimestampSchema,
+  /** Organizations that had no other member and were deleted with the account. */
+  organizations_deleted: external_exports.number().int().min(0),
+  /**
+   * Stored resume files. They are removed after the database commit, on a best
+   * effort basis: `failed` counts files whose removal reported an error.
+   */
+  resume_files: external_exports.object({
+    total: external_exports.number().int().min(0),
+    failed: external_exports.number().int().min(0)
+  })
+});
+var DELETE_ACCOUNT_BLOCKERS = ["sole_owner_of_organization", "active_connected_accounts"];
+var deleteAccountBlockerSchema = external_exports.enum(DELETE_ACCOUNT_BLOCKERS);
+
 // packages/auth-kit/src/tokens.ts
 function createTokenVerifierConfig(env2) {
   const authBase = `${env2.SUPABASE_URL}/auth/v1`;
@@ -67304,9 +67483,9 @@ var originError = Symbol("OriginError");
 var CLOSE = {};
 var Query = class extends Promise {
   constructor(strings, args, handler, canceller, options = {}) {
-    let resolve, reject;
+    let resolve2, reject;
     super((a, b2) => {
-      resolve = a;
+      resolve2 = a;
       reject = b2;
     });
     this.tagged = Array.isArray(strings.raw);
@@ -67317,7 +67496,7 @@ var Query = class extends Promise {
     this.options = options;
     this.state = null;
     this.statement = null;
-    this.resolve = (x) => (this.active = false, resolve(x));
+    this.resolve = (x) => (this.active = false, resolve2(x));
     this.reject = (x) => (this.active = false, reject(x));
     this.active = false;
     this.cancelled = null;
@@ -67365,12 +67544,12 @@ var Query = class extends Promise {
           if (this.executed && !this.active)
             return { done: true };
           prev && prev();
-          const promise2 = new Promise((resolve, reject) => {
+          const promise2 = new Promise((resolve2, reject) => {
             this.cursorFn = (value) => {
-              resolve({ value, done: false });
+              resolve2({ value, done: false });
               return new Promise((r) => prev = r);
             };
-            this.resolve = () => (this.active = false, resolve({ done: true }));
+            this.resolve = () => (this.active = false, resolve2({ done: true }));
             this.reject = (x) => (this.active = false, reject(x));
           });
           this.execute();
@@ -67997,12 +68176,12 @@ function Connection(options, queues = {}, { onopen = noop, onend = noop, onclose
     x.on("drain", drain);
     return x;
   }
-  async function cancel({ pid, secret }, resolve, reject) {
+  async function cancel({ pid, secret }, resolve2, reject) {
     try {
       cancelMessage = bytes_default().i32(16).i32(80877102).i32(pid).i32(secret).end(16);
       await connect();
       socket.once("error", reject);
-      socket.once("close", resolve);
+      socket.once("close", resolve2);
     } catch (error63) {
       reject(error63);
     }
@@ -68949,7 +69128,7 @@ function parseEvent(x) {
 // node_modules/.pnpm/postgres@3.4.9/node_modules/postgres/src/large.js
 import Stream2 from "stream";
 function largeObject(sql3, oid, mode = 131072 | 262144) {
-  return new Promise(async (resolve, reject) => {
+  return new Promise(async (resolve2, reject) => {
     await sql3.begin(async (sql4) => {
       let finish;
       !oid && ([{ oid }] = await sql4`select lo_creat(-1) as oid`);
@@ -68975,7 +69154,7 @@ function largeObject(sql3, oid, mode = 131072 | 262144) {
           ) seek
         `
       };
-      resolve(lo);
+      resolve2(lo);
       return new Promise(async (r) => finish = r);
       async function readable({
         highWaterMark = 2048 * 8,
@@ -69149,8 +69328,8 @@ function Postgres(a, b2) {
   }
   async function reserve() {
     const queue = queue_default();
-    const c = open2.length ? open2.shift() : await new Promise((resolve, reject) => {
-      const query = { reserve: resolve, reject };
+    const c = open2.length ? open2.shift() : await new Promise((resolve2, reject) => {
+      const query = { reserve: resolve2, reject };
       queries.push(query);
       closed.length && connect(closed.shift(), query);
     });
@@ -69187,9 +69366,9 @@ function Postgres(a, b2) {
       let uncaughtError, result;
       name && await sql4`savepoint ${sql4(name)}`;
       try {
-        result = await new Promise((resolve, reject) => {
+        result = await new Promise((resolve2, reject) => {
           const x = fn2(sql4);
-          Promise.resolve(Array.isArray(x) ? Promise.all(x) : x).then(resolve, reject);
+          Promise.resolve(Array.isArray(x) ? Promise.all(x) : x).then(resolve2, reject);
         });
         if (uncaughtError)
           throw uncaughtError;
@@ -69246,8 +69425,8 @@ function Postgres(a, b2) {
     return c.execute(query) ? move(c, busy) : move(c, full);
   }
   function cancel(query) {
-    return new Promise((resolve, reject) => {
-      query.state ? query.active ? connection_default(options).cancel(query.state, resolve, reject) : query.cancelled = { resolve, reject } : (queries.remove(query), query.cancelled = true, query.reject(Errors.generic("57014", "canceling statement due to user request")), resolve());
+    return new Promise((resolve2, reject) => {
+      query.state ? query.active ? connection_default(options).cancel(query.state, resolve2, reject) : query.cancelled = { resolve: resolve2, reject } : (queries.remove(query), query.cancelled = true, query.reject(Errors.generic("57014", "canceling statement due to user request")), resolve2());
     });
   }
   async function end({ timeout = null } = {}) {
@@ -69266,11 +69445,11 @@ function Postgres(a, b2) {
   async function close2() {
     await Promise.all(connections.map((c) => c.end()));
   }
-  async function destroy(resolve) {
+  async function destroy(resolve2) {
     await Promise.all(connections.map((c) => c.terminate()));
     while (queries.length)
       queries.shift().reject(Errors.connection("CONNECTION_DESTROYED", options));
-    resolve();
+    resolve2();
   }
   function connect(c, query) {
     move(c, connecting);
@@ -70528,7 +70707,7 @@ function sql(strings, ...params) {
     return new SQL([new StringChunk(str)]);
   }
   sql22.raw = raw;
-  function join(chunks, separator) {
+  function join2(chunks, separator) {
     const result = [];
     for (const [i, chunk] of chunks.entries()) {
       if (i > 0 && separator !== void 0) {
@@ -70538,7 +70717,7 @@ function sql(strings, ...params) {
     }
     return new SQL(result);
   }
-  sql22.join = join;
+  sql22.join = join2;
   function identifier(value) {
     return new Name(value);
   }
@@ -74221,7 +74400,7 @@ var PgSelectQueryBuilderBase = class extends TypedQueryBuilder {
       const baseTableName = this.tableName;
       const tableName = getTableLikeName(table2);
       for (const item of extractUsedTable(table2)) this.usedTables.add(item);
-      if (typeof tableName === "string" && this.config.joins?.some((join) => join.alias === tableName)) {
+      if (typeof tableName === "string" && this.config.joins?.some((join2) => join2.alias === tableName)) {
         throw new Error(`Alias "${tableName}" is already used in this query`);
       }
       if (!this.isPartialSelect) {
@@ -75442,7 +75621,7 @@ var PgUpdateBase = class extends QueryPromise {
   createJoin(joinType) {
     return (table2, on) => {
       const tableName = getTableLikeName(table2);
-      if (typeof tableName === "string" && this.config.joins.some((join) => join.alias === tableName)) {
+      if (typeof tableName === "string" && this.config.joins.some((join2) => join2.alias === tableName)) {
         throw new Error(`Alias "${tableName}" is already used in this query`);
       }
       if (typeof on === "function") {
@@ -75538,10 +75717,10 @@ var PgUpdateBase = class extends QueryPromise {
           const fromFields = this.getTableLikeFields(this.config.from);
           fields[tableName] = fromFields;
         }
-        for (const join of this.config.joins) {
-          const tableName2 = getTableLikeName(join.table);
-          if (typeof tableName2 === "string" && !is(join.table, SQL)) {
-            const fromFields = this.getTableLikeFields(join.table);
+        for (const join2 of this.config.joins) {
+          const tableName2 = getTableLikeName(join2.table);
+          if (typeof tableName2 === "string" && !is(join2.table, SQL)) {
+            const fromFields = this.getTableLikeFields(join2.table);
             fields[tableName2] = fromFields;
           }
         }
@@ -77067,6 +77246,205 @@ async function pingDatabase(sql3) {
   }
 }
 
+// packages/storage/src/index.ts
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+// packages/storage/src/local-driver.ts
+import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { dirname, resolve, sep } from "node:path";
+function resolveKeyPath(root, key) {
+  if (!key || key.includes("\0")) {
+    throw new AppError("VALIDATION_ERROR", `Invalid storage key: "${key}"`);
+  }
+  const rootResolved = resolve(root);
+  const target = resolve(rootResolved, key);
+  if (target !== rootResolved && !target.startsWith(rootResolved + sep)) {
+    throw new AppError("VALIDATION_ERROR", `Storage key escapes root: "${key}"`);
+  }
+  return target;
+}
+function createLocalDriver(options) {
+  const root = options.root;
+  return {
+    async put(key, data, _options) {
+      const target = resolveKeyPath(root, key);
+      await mkdir(dirname(target), { recursive: true });
+      await writeFile(target, data);
+      return { key, byteSize: data.length };
+    },
+    async get(key) {
+      const target = resolveKeyPath(root, key);
+      try {
+        return await readFile(target);
+      } catch (cause) {
+        if (cause.code === "ENOENT") {
+          throw new AppError("NOT_FOUND", `No stored object for key "${key}"`, { cause });
+        }
+        throw cause;
+      }
+    },
+    async delete(key) {
+      const target = resolveKeyPath(root, key);
+      await rm(target, { force: true });
+    },
+    async exists(key) {
+      const target = resolveKeyPath(root, key);
+      try {
+        await stat(target);
+        return true;
+      } catch (cause) {
+        if (cause.code === "ENOENT") return false;
+        throw cause;
+      }
+    }
+  };
+}
+
+// packages/storage/src/supabase-driver.ts
+var DEFAULT_TIMEOUT_MS = 2e4;
+var MAX_ERROR_BODY_CHARS = 300;
+function toObjectPath(key) {
+  if (!key || key.includes("\0") || key.includes("\\") || key.startsWith("/") || key.endsWith("/")) {
+    throw new AppError("VALIDATION_ERROR", `Invalid storage key: "${key}"`);
+  }
+  const segments = key.split("/");
+  if (segments.some((segment) => segment === "" || segment === "." || segment === "..")) {
+    throw new AppError("VALIDATION_ERROR", `Invalid storage key: "${key}"`);
+  }
+  return segments.map(encodeURIComponent).join("/");
+}
+async function describeFailure(response) {
+  let body = "";
+  try {
+    body = (await response.text()).slice(0, MAX_ERROR_BODY_CHARS);
+  } catch {
+  }
+  return body ? `${response.status} ${body}` : String(response.status);
+}
+function createSupabaseDriver(options) {
+  const base = `${options.url.replace(/\/+$/, "")}/storage/v1/object`;
+  const bucket = encodeURIComponent(options.bucket);
+  const doFetch = options.fetch ?? fetch;
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const authHeaders = { authorization: `Bearer ${options.secretKey}`, apikey: options.secretKey };
+  async function request(url2, init) {
+    try {
+      return await doFetch(url2, { ...init, signal: AbortSignal.timeout(timeoutMs) });
+    } catch (cause) {
+      throw new AppError("UPSTREAM_UNAVAILABLE", "File storage is temporarily unavailable", { cause });
+    }
+  }
+  async function isMissing(response) {
+    if (response.status === 404) return true;
+    if (response.status !== 400) return false;
+    const body = await response.clone().text().catch(() => "");
+    return /not[_ ]found/i.test(body);
+  }
+  return {
+    async put(key, data, putOptions) {
+      const path = toObjectPath(key);
+      const response = await request(`${base}/${bucket}/${path}`, {
+        method: "POST",
+        headers: {
+          ...authHeaders,
+          "content-type": putOptions?.contentType ?? "application/octet-stream",
+          "x-upsert": "true"
+        },
+        body: new Uint8Array(data)
+      });
+      if (!response.ok) {
+        throw new AppError("UPSTREAM_UNAVAILABLE", "File storage rejected the upload", {
+          cause: new Error(`Supabase Storage upload failed: ${await describeFailure(response)}`)
+        });
+      }
+      return { key, byteSize: data.length };
+    },
+    async get(key) {
+      const path = toObjectPath(key);
+      const response = await request(`${base}/${bucket}/${path}`, { method: "GET", headers: authHeaders });
+      if (await isMissing(response)) {
+        throw new AppError("NOT_FOUND", `No stored object for key "${key}"`);
+      }
+      if (!response.ok) {
+        throw new AppError("UPSTREAM_UNAVAILABLE", "File storage could not read the file", {
+          cause: new Error(`Supabase Storage GET failed: ${await describeFailure(response)}`)
+        });
+      }
+      return Buffer.from(await response.arrayBuffer());
+    },
+    async delete(key) {
+      toObjectPath(key);
+      const response = await request(`${base}/${bucket}`, {
+        method: "DELETE",
+        headers: { ...authHeaders, "content-type": "application/json" },
+        body: JSON.stringify({ prefixes: [key] })
+      });
+      if (!response.ok && !await isMissing(response)) {
+        throw new AppError("UPSTREAM_UNAVAILABLE", "File storage could not delete the file", {
+          cause: new Error(`Supabase Storage DELETE failed: ${await describeFailure(response)}`)
+        });
+      }
+    },
+    async exists(key) {
+      const path = toObjectPath(key);
+      const response = await request(`${base}/${bucket}/${path}`, { method: "HEAD", headers: authHeaders });
+      if (response.ok) return true;
+      if (response.status === 404 || response.status === 400) return false;
+      throw new AppError("UPSTREAM_UNAVAILABLE", "File storage could not check the file", {
+        cause: new Error(`Supabase Storage HEAD failed: ${response.status}`)
+      });
+    }
+  };
+}
+
+// packages/storage/src/index.ts
+function createStorage(options) {
+  if (options.driver === "local") {
+    return createLocalDriver({ root: options.localRoot ?? "./.atlas-storage" });
+  }
+  if (options.driver === "supabase") {
+    if (!options.supabaseUrl || !options.supabaseSecretKey || !options.supabaseBucket) {
+      throw new Error(
+        "Storage driver 'supabase' needs SUPABASE_URL, SUPABASE_SECRET_KEY and SUPABASE_STORAGE_BUCKET."
+      );
+    }
+    return createSupabaseDriver({
+      url: options.supabaseUrl,
+      secretKey: options.supabaseSecretKey,
+      bucket: options.supabaseBucket
+    });
+  }
+  throw new Error("Storage driver 's3' is not implemented yet \u2014 set STORAGE_DRIVER=supabase (or local for development).");
+}
+function storageOptionsFromEnv(env2, runtime = {}) {
+  if (env2.STORAGE_DRIVER === "supabase") {
+    return {
+      options: {
+        driver: "supabase",
+        supabaseUrl: env2.SUPABASE_URL,
+        supabaseSecretKey: env2.SUPABASE_SECRET_KEY,
+        supabaseBucket: env2.SUPABASE_STORAGE_BUCKET
+      }
+    };
+  }
+  if (env2.STORAGE_DRIVER === "local" && runtime.serverless) {
+    return {
+      options: { driver: "local", localRoot: join(tmpdir(), "atlas-storage") },
+      warning: "STORAGE_DRIVER=local on a serverless runtime: uploaded files are kept in ephemeral temp storage and will be lost. Set STORAGE_DRIVER=supabase for durable storage."
+    };
+  }
+  return {
+    options: {
+      driver: env2.STORAGE_DRIVER,
+      localRoot: env2.STORAGE_LOCAL_ROOT,
+      s3Bucket: env2.S3_BUCKET,
+      s3Region: env2.S3_REGION,
+      s3Endpoint: env2.S3_ENDPOINT
+    }
+  };
+}
+
 // services/auth/src/app.ts
 var import_cors = __toESM(require_cors(), 1);
 var import_rate_limit = __toESM(require_rate_limit(), 1);
@@ -77228,6 +77606,700 @@ function registerRateLimitedRoutes(app2, options, declareRoutes) {
   });
 }
 
+// packages/observability/src/timestamps.ts
+var PG_TIMESTAMP = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})(?:\.(\d{1,9}))?(Z|[+-]\d{2}(?::?\d{2})?)$/;
+var TIMESTAMP_KEY = /_at$/;
+function toIsoTimestamp(value) {
+  const match = PG_TIMESTAMP.exec(value);
+  if (!match) return void 0;
+  const [, date6, time4, fraction = "", zone = "Z"] = match;
+  const millis = fraction.slice(0, 3).padEnd(3, "0");
+  let offset = zone;
+  if (zone !== "Z") {
+    const digits = zone.slice(1).replace(":", "");
+    offset = `${zone[0]}${digits.slice(0, 2)}:${digits.slice(2, 4).padEnd(2, "0")}`;
+  }
+  const parsed = /* @__PURE__ */ new Date(`${date6}T${time4}.${millis}${offset}`);
+  return Number.isNaN(parsed.getTime()) ? void 0 : parsed.toISOString();
+}
+function isPlainObject2(value) {
+  if (typeof value !== "object" || value === null) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+function normalizeTimestamps(value) {
+  return walk(value);
+}
+function walk(value) {
+  if (Array.isArray(value)) {
+    let changed = false;
+    const next = value.map((item) => {
+      const converted = walk(item);
+      if (converted !== item) changed = true;
+      return converted;
+    });
+    return changed ? next : value;
+  }
+  if (!isPlainObject2(value)) return value;
+  let copy;
+  for (const [key, child] of Object.entries(value)) {
+    let converted;
+    if (typeof child === "string" && TIMESTAMP_KEY.test(key)) {
+      converted = toIsoTimestamp(child) ?? child;
+    } else {
+      converted = walk(child);
+    }
+    if (converted !== child) {
+      copy ??= { ...value };
+      copy[key] = converted;
+    }
+  }
+  return copy ?? value;
+}
+function registerIsoTimestamps(app2) {
+  app2.addHook("preSerialization", (_request, _reply, payload, done) => {
+    done(null, normalizeTimestamps(payload));
+  });
+}
+
+// services/auth/src/lib/storage-cleanup.ts
+var STORAGE_DELETE_TIMEOUT_MS = 1e4;
+function failureKind(cause) {
+  if (typeof cause === "object" && cause !== null) {
+    const code = cause.code;
+    if (typeof code === "string") return code;
+    const name = cause.name;
+    if (typeof name === "string") return name;
+  }
+  return "unknown";
+}
+function withTimeout(work, timeoutMs) {
+  let timer2;
+  const timeout = new Promise((_, reject) => {
+    timer2 = setTimeout(() => reject(Object.assign(new Error("timed out"), { code: "TIMEOUT" })), timeoutMs);
+  });
+  return Promise.race([work, timeout]).finally(() => clearTimeout(timer2));
+}
+async function removeStoredFiles(storage2, keys, timeoutMs = STORAGE_DELETE_TIMEOUT_MS) {
+  const outcomes = await Promise.allSettled(
+    keys.map((key) => withTimeout(Promise.resolve().then(() => storage2.delete(key)), timeoutMs))
+  );
+  const kinds = /* @__PURE__ */ new Set();
+  let failed = 0;
+  for (const outcome of outcomes) {
+    if (outcome.status === "rejected") {
+      failed += 1;
+      kinds.add(failureKind(outcome.reason));
+    }
+  }
+  return { total: keys.length, failed, failureKinds: [...kinds].sort() };
+}
+
+// services/auth/src/repo/audit.ts
+var ACCOUNT_AUDIT_ACTIONS = {
+  export: "account.export",
+  deleted: "account.deleted"
+};
+async function recordAccountAudit(db2, entry) {
+  await db2.insert(schema_exports.auditLogs).values({
+    organizationId: null,
+    actorUserId: entry.actorUserId,
+    action: entry.action,
+    resourceType: "user",
+    resourceId: entry.userId,
+    traceId: entry.traceId,
+    metadata: entry.metadata ?? {}
+  });
+}
+
+// services/auth/src/repo/user-references.ts
+function analyticsEventsOf(userId) {
+  return sql`(${eq(schema_exports.analyticsEvents.userId, userId)} or ${schema_exports.analyticsEvents.payload} ->> 'user_id' = ${userId})`;
+}
+function outboxEventsOf(userId) {
+  return sql`(${eq(schema_exports.eventOutbox.userId, userId)} or ${schema_exports.eventOutbox.payload} ->> 'user_id' = ${userId})`;
+}
+function tasksOf(userId) {
+  return sql`${schema_exports.tasks.payload} ->> 'user_id' = ${userId}`;
+}
+
+// services/auth/src/repo/delete-account.ts
+function blocked(reason, message2, organizations2 = []) {
+  return new AppError("CONFLICT", message2, { details: { reason, organizations: organizations2 } });
+}
+async function deleteAccountData(db2, userId, traceId) {
+  return db2.transaction(async (tx) => {
+    const [publicAccount] = await tx.select({ userId: schema_exports.users.userId }).from(schema_exports.users).where(eq(schema_exports.users.userId, userId)).for("update");
+    const authSchemaPresent = await hasAuthUsersTable(tx);
+    const authAccountExisted = authSchemaPresent && await authUserExists(tx, userId);
+    const accountExisted = publicAccount !== void 0 || authAccountExisted;
+    const storageKeys = (await tx.select({ storageUrl: schema_exports.resumes.storageUrl }).from(schema_exports.resumes).where(eq(schema_exports.resumes.userId, userId))).map((row) => row.storageUrl);
+    const orgsToDelete = await organizationsToDelete(tx, userId);
+    const activeConnectors = await tx.select({ id: schema_exports.connectorAccounts.connectorAccountId }).from(schema_exports.connectorAccounts).where(
+      and(
+        ne(schema_exports.connectorAccounts.status, "revoked"),
+        or(
+          eq(schema_exports.connectorAccounts.userId, userId),
+          orgsToDelete.length > 0 ? inArray(
+            schema_exports.connectorAccounts.organizationId,
+            orgsToDelete.map((org) => org.organization_id)
+          ) : void 0
+        )
+      )
+    ).limit(1);
+    if (activeConnectors.length > 0) {
+      throw blocked(
+        "active_connected_accounts",
+        "You still have a connected account. Disconnect it first, so its credential is revoked, then delete your account."
+      );
+    }
+    if (orgsToDelete.length > 0) {
+      await tx.delete(schema_exports.organizations).where(
+        inArray(
+          schema_exports.organizations.organizationId,
+          orgsToDelete.map((org) => org.organization_id)
+        )
+      );
+    }
+    await tx.delete(schema_exports.eventOutbox).where(outboxEventsOf(userId));
+    await tx.delete(schema_exports.analyticsEvents).where(analyticsEventsOf(userId));
+    await tx.delete(schema_exports.tasks).where(tasksOf(userId));
+    await tx.delete(schema_exports.auditLogs).where(
+      and(
+        eq(schema_exports.auditLogs.resourceType, "user"),
+        eq(schema_exports.auditLogs.resourceId, userId),
+        // Not the tombstone an earlier, completed deletion of this account left behind.
+        ne(schema_exports.auditLogs.action, ACCOUNT_AUDIT_ACTIONS.deleted)
+      )
+    );
+    if (authSchemaPresent) {
+      await tx.execute(sql`delete from auth.users where id = ${userId}`);
+    }
+    await tx.delete(schema_exports.users).where(eq(schema_exports.users.userId, userId));
+    const deletedAt = /* @__PURE__ */ new Date();
+    if (accountExisted) {
+      await recordAccountAudit(tx, {
+        action: ACCOUNT_AUDIT_ACTIONS.deleted,
+        userId,
+        actorUserId: null,
+        traceId,
+        metadata: { organizations_deleted: orgsToDelete.length, resume_files: storageKeys.length }
+      });
+    }
+    return { deletedAt, organizationsDeleted: orgsToDelete.length, storageKeys, accountExisted };
+  });
+}
+async function hasAuthUsersTable(tx) {
+  const rows = await tx.execute(sql`select to_regclass('auth.users') is not null as present`);
+  return rows[0]?.present === true;
+}
+async function authUserExists(tx, userId) {
+  const rows = await tx.execute(sql`select 1 as present from auth.users where id = ${userId}`);
+  return rows.length > 0;
+}
+async function organizationsToDelete(tx, userId) {
+  const memberOf = await tx.select({ organizationId: schema_exports.organizationMembers.organizationId }).from(schema_exports.organizationMembers).where(eq(schema_exports.organizationMembers.userId, userId));
+  const rosterOf = await tx.select({ organizationId: schema_exports.students.organizationId }).from(schema_exports.students).where(eq(schema_exports.students.userId, userId));
+  const organizationIds = [...new Set([...memberOf, ...rosterOf].map((row) => row.organizationId))].sort();
+  if (organizationIds.length === 0) return [];
+  const organizations2 = await tx.select({
+    organizationId: schema_exports.organizations.organizationId,
+    name: schema_exports.organizations.name,
+    type: schema_exports.organizations.type
+  }).from(schema_exports.organizations).where(inArray(schema_exports.organizations.organizationId, organizationIds)).orderBy(asc(schema_exports.organizations.organizationId)).for("update");
+  const members2 = await tx.select({
+    organizationId: schema_exports.organizationMembers.organizationId,
+    userId: schema_exports.organizationMembers.userId,
+    role: schema_exports.organizationMembers.role
+  }).from(schema_exports.organizationMembers).where(inArray(schema_exports.organizationMembers.organizationId, organizationIds)).orderBy(asc(schema_exports.organizationMembers.organizationId), asc(schema_exports.organizationMembers.userId)).for("update");
+  const roster = await tx.select({ organizationId: schema_exports.students.organizationId, userId: schema_exports.students.userId }).from(schema_exports.students).where(inArray(schema_exports.students.organizationId, organizationIds));
+  const toDelete = [];
+  const soleOwnerOf = [];
+  for (const organization of organizations2) {
+    const orgMembers = members2.filter((row) => row.organizationId === organization.organizationId);
+    const otherMembers = orgMembers.filter((row) => row.userId !== userId);
+    const otherStudents = roster.filter(
+      (row) => row.organizationId === organization.organizationId && row.userId !== userId
+    );
+    const summary = { organization_id: organization.organizationId, name: organization.name };
+    if (otherMembers.length === 0 && otherStudents.length === 0) {
+      if (organization.type === "individual") toDelete.push(summary);
+      continue;
+    }
+    const ownsIt = orgMembers.some((row) => row.userId === userId && row.role === "owner");
+    const anotherOwner = otherMembers.some((row) => row.role === "owner");
+    if (ownsIt && !anotherOwner) soleOwnerOf.push(summary);
+  }
+  if (soleOwnerOf.length > 0) {
+    throw blocked(
+      "sole_owner_of_organization",
+      "You are the only owner of an organization that has other members. Make another member an owner, or remove the other members, then delete your account.",
+      soleOwnerOf
+    );
+  }
+  return toDelete;
+}
+
+// services/auth/src/http/routes/delete-account.ts
+function deleteAccountRoute(app2, deps) {
+  app2.delete("/v1/auth/me", { preHandler: requireAuth(deps.tokenVerifier) }, async (request, reply) => {
+    const actor = getActor(request);
+    deleteAccountRequestSchema.parse(request.body);
+    const outcome = await deleteAccountData(deps.db, actor.user_id, request.id);
+    const files = await removeStoredFiles(deps.storage, outcome.storageKeys);
+    request.log.info(
+      {
+        audit: true,
+        action: ACCOUNT_AUDIT_ACTIONS.deleted,
+        user_id: actor.user_id,
+        organizations_deleted: outcome.organizationsDeleted,
+        resume_files_total: files.total,
+        resume_files_failed: files.failed
+      },
+      "account deleted"
+    );
+    if (files.failed > 0) {
+      request.log.warn(
+        { user_id: actor.user_id, resume_files_failed: files.failed, failure_kinds: files.failureKinds },
+        "stored resume files could not be removed after account deletion"
+      );
+    }
+    const response = {
+      status: "deleted",
+      deleted_at: outcome.deletedAt.toISOString(),
+      organizations_deleted: outcome.organizationsDeleted,
+      resume_files: { total: files.total, failed: files.failed }
+    };
+    reply.status(200).header("cache-control", "no-store").send(response);
+  });
+}
+
+// services/auth/src/lib/export-budget.ts
+var DEFAULT_EXPORT_LIMITS = {
+  maxBytes: 35e5,
+  rows: {
+    organization_memberships: 200,
+    student_records: 200,
+    resumes: 50,
+    applications: 2e3,
+    application_events: 2e4,
+    messages: 2e3,
+    job_scores: 5e3,
+    activity_events: 5e3,
+    connected_accounts: 100
+  }
+};
+function serializeExport(doc) {
+  return JSON.stringify(doc, null, 2);
+}
+function listSection(name, read, write) {
+  return {
+    name,
+    count: () => read().length,
+    keep: (n) => write(read().slice(0, n)),
+    weight: () => Buffer.byteLength(JSON.stringify(read()), "utf8")
+  };
+}
+function trimmableSections(doc) {
+  return [
+    listSection(
+      "resumes",
+      () => doc.resumes,
+      (rows) => {
+        doc.resumes = rows;
+      }
+    ),
+    {
+      name: "applications",
+      count: () => doc.applications.length,
+      keep: (n) => {
+        doc.applications = doc.applications.slice(0, n);
+      },
+      // Without their events, which are weighed (and cut) as a section of their own: otherwise
+      // this section always outweighs its own events and whole applications would go first.
+      weight: () => Buffer.byteLength(
+        JSON.stringify(doc.applications.map(({ events: _events, ...application }) => application)),
+        "utf8"
+      )
+    },
+    {
+      // Events are nested under their application; the cap counts them all together.
+      name: "application_events",
+      count: () => doc.applications.reduce((total, application) => total + application.events.length, 0),
+      keep: (n) => {
+        let remaining = n;
+        for (const application of doc.applications) {
+          application.events = application.events.slice(0, remaining);
+          remaining -= application.events.length;
+        }
+      },
+      weight: () => Buffer.byteLength(JSON.stringify(doc.applications.map((application) => application.events)), "utf8")
+    },
+    listSection(
+      "messages",
+      () => doc.messages,
+      (rows) => {
+        doc.messages = rows;
+      }
+    ),
+    listSection(
+      "job_scores",
+      () => doc.job_scores,
+      (rows) => {
+        doc.job_scores = rows;
+      }
+    ),
+    listSection(
+      "activity_events",
+      () => doc.activity_events,
+      (rows) => {
+        doc.activity_events = rows;
+      }
+    )
+  ];
+}
+function fitExportToBudget(doc, maxBytes) {
+  const sections = trimmableSections(doc);
+  let serialized = serializeExport(doc);
+  while (Buffer.byteLength(serialized, "utf8") > maxBytes) {
+    const candidates = sections.filter((section) => section.count() > 0);
+    if (candidates.length === 0) break;
+    let heaviest = candidates[0];
+    let heaviestWeight = heaviest.weight();
+    for (const candidate of candidates.slice(1)) {
+      const weight = candidate.weight();
+      if (weight > heaviestWeight) {
+        heaviest = candidate;
+        heaviestWeight = weight;
+      }
+    }
+    heaviest.keep(Math.floor(heaviest.count() / 2));
+    recordTruncation(doc.truncated, { section: heaviest.name, returned: heaviest.count(), reason: "size_limit" });
+    serialized = serializeExport(doc);
+  }
+  return serialized;
+}
+function recordTruncation(truncated, entry) {
+  const existing = truncated.find((item) => item.section === entry.section);
+  if (!existing) {
+    truncated.push(entry);
+    return;
+  }
+  existing.returned = entry.returned;
+  existing.reason = entry.reason === "size_limit" ? "size_limit" : existing.reason;
+}
+
+// services/auth/src/lib/timestamps.ts
+function toIso(value) {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error("toIso: not a timestamp");
+  }
+  return parsed.toISOString();
+}
+function toIsoOrNull(value) {
+  return value === null ? null : toIso(value);
+}
+
+// services/auth/src/repo/export.ts
+function capRows(rows, cap, section, truncated) {
+  if (rows.length <= cap) return rows;
+  recordTruncation(truncated, { section, returned: cap, reason: "row_limit" });
+  return rows.slice(0, cap);
+}
+async function collectAccountExport(db2, userId, limits, now = /* @__PURE__ */ new Date()) {
+  return db2.transaction(
+    async (tx) => {
+      const [user] = await tx.select({
+        userId: schema_exports.users.userId,
+        profileId: schema_exports.users.profileId,
+        email: schema_exports.users.email,
+        fullName: schema_exports.users.fullName,
+        authProvider: schema_exports.users.authProvider,
+        emailVerified: schema_exports.users.emailVerified,
+        mfaEnabled: schema_exports.users.mfaEnabled,
+        lastLoginAt: schema_exports.users.lastLoginAt,
+        createdAt: schema_exports.users.createdAt,
+        updatedAt: schema_exports.users.updatedAt
+      }).from(schema_exports.users).where(eq(schema_exports.users.userId, userId)).limit(1);
+      if (!user) return null;
+      const truncated = [];
+      const membershipRows = await tx.select({
+        organizationId: schema_exports.organizations.organizationId,
+        name: schema_exports.organizations.name,
+        type: schema_exports.organizations.type,
+        plan: schema_exports.organizations.plan,
+        role: schema_exports.organizationMembers.role,
+        permissions: schema_exports.organizationMembers.permissions,
+        joinedAt: schema_exports.organizationMembers.createdAt
+      }).from(schema_exports.organizationMembers).innerJoin(
+        schema_exports.organizations,
+        eq(schema_exports.organizations.organizationId, schema_exports.organizationMembers.organizationId)
+      ).where(eq(schema_exports.organizationMembers.userId, userId)).orderBy(asc(schema_exports.organizationMembers.createdAt), asc(schema_exports.organizations.organizationId)).limit(limits.rows.organization_memberships + 1);
+      const studentRows = await tx.select({
+        studentId: schema_exports.students.studentId,
+        organizationId: schema_exports.students.organizationId,
+        department: schema_exports.students.department,
+        graduationYear: schema_exports.students.graduationYear,
+        currentStatus: schema_exports.students.currentStatus,
+        createdAt: schema_exports.students.createdAt
+      }).from(schema_exports.students).where(eq(schema_exports.students.userId, userId)).orderBy(asc(schema_exports.students.createdAt), asc(schema_exports.students.studentId)).limit(limits.rows.student_records + 1);
+      const resumeRows = await tx.select({
+        resumeId: schema_exports.resumes.resumeId,
+        originalFilename: schema_exports.resumes.originalFilename,
+        contentType: schema_exports.resumes.contentType,
+        byteSize: schema_exports.resumes.byteSize,
+        status: schema_exports.resumes.status,
+        parsedText: schema_exports.resumes.parsedText,
+        parsedProfile: schema_exports.resumes.parsedProfile,
+        atsScore: schema_exports.resumes.atsScore,
+        atsReport: schema_exports.resumes.atsReport,
+        failureReason: schema_exports.resumes.failureReason,
+        parsedAt: schema_exports.resumes.parsedAt,
+        createdAt: schema_exports.resumes.createdAt,
+        updatedAt: schema_exports.resumes.updatedAt
+      }).from(schema_exports.resumes).where(eq(schema_exports.resumes.userId, userId)).orderBy(desc(schema_exports.resumes.createdAt), desc(schema_exports.resumes.resumeId)).limit(limits.rows.resumes + 1);
+      const applicationRows = await tx.select({
+        applicationId: schema_exports.applications.applicationId,
+        jobId: schema_exports.applications.jobId,
+        resumeId: schema_exports.applications.resumeId,
+        organizationId: schema_exports.applications.organizationId,
+        status: schema_exports.applications.status,
+        mode: schema_exports.applications.mode,
+        coverLetter: schema_exports.applications.coverLetter,
+        submittedAt: schema_exports.applications.submittedAt,
+        lastEventAt: schema_exports.applications.lastEventAt,
+        failureReason: schema_exports.applications.failureReason,
+        createdAt: schema_exports.applications.createdAt,
+        jobTitle: schema_exports.jobs.title,
+        jobLocation: schema_exports.jobs.location,
+        companyName: schema_exports.companies.name
+      }).from(schema_exports.applications).leftJoin(schema_exports.jobs, eq(schema_exports.jobs.jobId, schema_exports.applications.jobId)).leftJoin(schema_exports.companies, eq(schema_exports.companies.companyId, schema_exports.jobs.companyId)).where(eq(schema_exports.applications.userId, userId)).orderBy(desc(schema_exports.applications.createdAt), desc(schema_exports.applications.applicationId)).limit(limits.rows.applications + 1);
+      const applications2 = capRows(applicationRows, limits.rows.applications, "applications", truncated);
+      const eventRows = applications2.length === 0 ? [] : await tx.select({
+        eventId: schema_exports.applicationEvents.eventId,
+        applicationId: schema_exports.applicationEvents.applicationId,
+        fromStatus: schema_exports.applicationEvents.fromStatus,
+        toStatus: schema_exports.applicationEvents.toStatus,
+        note: schema_exports.applicationEvents.note,
+        metadata: schema_exports.applicationEvents.metadata,
+        createdAt: schema_exports.applicationEvents.createdAt
+      }).from(schema_exports.applicationEvents).where(
+        inArray(
+          schema_exports.applicationEvents.applicationId,
+          applications2.map((row) => row.applicationId)
+        )
+      ).orderBy(asc(schema_exports.applicationEvents.createdAt), asc(schema_exports.applicationEvents.eventId)).limit(limits.rows.application_events + 1);
+      const events = capRows(eventRows, limits.rows.application_events, "application_events", truncated);
+      const eventsByApplication = /* @__PURE__ */ new Map();
+      for (const row of events) {
+        const list = eventsByApplication.get(row.applicationId) ?? [];
+        list.push({
+          event_id: row.eventId,
+          from_status: row.fromStatus,
+          to_status: row.toStatus,
+          note: row.note,
+          metadata: row.metadata,
+          created_at: toIso(row.createdAt)
+        });
+        eventsByApplication.set(row.applicationId, list);
+      }
+      const messageRows = await tx.select({
+        messageId: schema_exports.messages.messageId,
+        applicationId: schema_exports.messages.applicationId,
+        contactId: schema_exports.messages.contactId,
+        channel: schema_exports.messages.channel,
+        status: schema_exports.messages.status,
+        subject: schema_exports.messages.subject,
+        body: schema_exports.messages.body,
+        scheduledFor: schema_exports.messages.scheduledFor,
+        sentAt: schema_exports.messages.sentAt,
+        createdAt: schema_exports.messages.createdAt
+      }).from(schema_exports.messages).where(eq(schema_exports.messages.userId, userId)).orderBy(desc(schema_exports.messages.createdAt), desc(schema_exports.messages.messageId)).limit(limits.rows.messages + 1);
+      const scoreRows = await tx.select({
+        jobId: schema_exports.jobScores.jobId,
+        score: schema_exports.jobScores.score,
+        reasons: schema_exports.jobScores.reasons,
+        skillGaps: schema_exports.jobScores.skillGaps,
+        modelVersion: schema_exports.jobScores.modelVersion,
+        scoredAt: schema_exports.jobScores.scoredAt,
+        jobTitle: schema_exports.jobs.title,
+        jobLocation: schema_exports.jobs.location,
+        companyName: schema_exports.companies.name
+      }).from(schema_exports.jobScores).leftJoin(schema_exports.jobs, eq(schema_exports.jobs.jobId, schema_exports.jobScores.jobId)).leftJoin(schema_exports.companies, eq(schema_exports.companies.companyId, schema_exports.jobs.companyId)).where(eq(schema_exports.jobScores.userId, userId)).orderBy(desc(schema_exports.jobScores.score), asc(schema_exports.jobScores.jobId)).limit(limits.rows.job_scores + 1);
+      const activityRows = await tx.select({
+        eventId: schema_exports.analyticsEvents.eventId,
+        eventType: schema_exports.analyticsEvents.eventType,
+        organizationId: schema_exports.analyticsEvents.organizationId,
+        payload: schema_exports.analyticsEvents.payload,
+        timestamp: schema_exports.analyticsEvents.timestamp
+      }).from(schema_exports.analyticsEvents).where(analyticsEventsOf(userId)).orderBy(desc(schema_exports.analyticsEvents.timestamp), desc(schema_exports.analyticsEvents.eventId)).limit(limits.rows.activity_events + 1);
+      const connectorRows = await tx.select({
+        connectorAccountId: schema_exports.connectorAccounts.connectorAccountId,
+        organizationId: schema_exports.connectorAccounts.organizationId,
+        provider: schema_exports.connectorAccounts.provider,
+        externalAccountId: schema_exports.connectorAccounts.externalAccountId,
+        scopes: schema_exports.connectorAccounts.scopes,
+        status: schema_exports.connectorAccounts.status,
+        consentGrantedAt: schema_exports.connectorAccounts.consentGrantedAt,
+        expiresAt: schema_exports.connectorAccounts.expiresAt,
+        lastSyncedAt: schema_exports.connectorAccounts.lastSyncedAt,
+        createdAt: schema_exports.connectorAccounts.createdAt
+      }).from(schema_exports.connectorAccounts).where(eq(schema_exports.connectorAccounts.userId, userId)).orderBy(asc(schema_exports.connectorAccounts.createdAt), asc(schema_exports.connectorAccounts.connectorAccountId)).limit(limits.rows.connected_accounts + 1);
+      const memberships = capRows(membershipRows, limits.rows.organization_memberships, "organization_memberships", truncated);
+      const students2 = capRows(studentRows, limits.rows.student_records, "student_records", truncated);
+      const resumes2 = capRows(resumeRows, limits.rows.resumes, "resumes", truncated);
+      const messages3 = capRows(messageRows, limits.rows.messages, "messages", truncated);
+      const scores = capRows(scoreRows, limits.rows.job_scores, "job_scores", truncated);
+      const activity = capRows(activityRows, limits.rows.activity_events, "activity_events", truncated);
+      const connectors = capRows(connectorRows, limits.rows.connected_accounts, "connected_accounts", truncated);
+      return {
+        export_version: ACCOUNT_EXPORT_VERSION,
+        generated_at: now.toISOString(),
+        user: {
+          user_id: user.userId,
+          email: user.email,
+          full_name: user.fullName,
+          auth_provider: user.authProvider,
+          email_verified: user.emailVerified,
+          mfa_enabled: user.mfaEnabled,
+          primary_resume_id: user.profileId,
+          last_login_at: toIsoOrNull(user.lastLoginAt),
+          created_at: toIso(user.createdAt),
+          updated_at: toIso(user.updatedAt)
+        },
+        organization_memberships: memberships.map((row) => ({
+          organization: {
+            organization_id: row.organizationId,
+            name: row.name,
+            type: row.type,
+            plan: row.plan
+          },
+          role: row.role,
+          permissions: row.permissions,
+          joined_at: toIso(row.joinedAt)
+        })),
+        student_records: students2.map((row) => ({
+          student_id: row.studentId,
+          organization_id: row.organizationId,
+          department: row.department,
+          graduation_year: row.graduationYear,
+          current_status: row.currentStatus,
+          created_at: toIso(row.createdAt)
+        })),
+        resumes: resumes2.map((row) => ({
+          resume_id: row.resumeId,
+          original_filename: row.originalFilename,
+          content_type: row.contentType,
+          byte_size: row.byteSize,
+          status: row.status,
+          parsed_text: row.parsedText,
+          parsed_profile: row.parsedProfile,
+          ats_score: row.atsScore,
+          ats_report: row.atsReport,
+          failure_reason: row.failureReason,
+          parsed_at: toIsoOrNull(row.parsedAt),
+          created_at: toIso(row.createdAt),
+          updated_at: toIso(row.updatedAt)
+        })),
+        applications: applications2.map(
+          (row) => ({
+            application_id: row.applicationId,
+            job: {
+              job_id: row.jobId,
+              title: row.jobTitle,
+              company_name: row.companyName,
+              location: row.jobLocation
+            },
+            resume_id: row.resumeId,
+            organization_id: row.organizationId,
+            status: row.status,
+            mode: row.mode,
+            cover_letter: row.coverLetter,
+            submitted_at: toIsoOrNull(row.submittedAt),
+            last_event_at: toIso(row.lastEventAt),
+            failure_reason: row.failureReason,
+            created_at: toIso(row.createdAt),
+            events: eventsByApplication.get(row.applicationId) ?? []
+          })
+        ),
+        messages: messages3.map((row) => ({
+          message_id: row.messageId,
+          application_id: row.applicationId,
+          contact_id: row.contactId,
+          channel: row.channel,
+          status: row.status,
+          subject: row.subject,
+          body: row.body,
+          scheduled_for: toIsoOrNull(row.scheduledFor),
+          sent_at: toIsoOrNull(row.sentAt),
+          created_at: toIso(row.createdAt)
+        })),
+        job_scores: scores.map((row) => ({
+          job: {
+            job_id: row.jobId,
+            title: row.jobTitle,
+            company_name: row.companyName,
+            location: row.jobLocation
+          },
+          score: row.score,
+          reasons: row.reasons,
+          skill_gaps: row.skillGaps,
+          model_version: row.modelVersion,
+          scored_at: toIso(row.scoredAt)
+        })),
+        activity_events: activity.map((row) => ({
+          event_id: row.eventId,
+          event_type: row.eventType,
+          organization_id: row.organizationId,
+          payload: row.payload,
+          occurred_at: toIso(row.timestamp)
+        })),
+        connected_accounts: connectors.map((row) => ({
+          connector_account_id: row.connectorAccountId,
+          organization_id: row.organizationId,
+          provider: row.provider,
+          external_account_id: row.externalAccountId,
+          scopes: row.scopes,
+          status: row.status,
+          consent_granted_at: toIsoOrNull(row.consentGrantedAt),
+          expires_at: toIsoOrNull(row.expiresAt),
+          last_synced_at: toIsoOrNull(row.lastSyncedAt),
+          created_at: toIso(row.createdAt)
+        })),
+        truncated,
+        notes: [...ACCOUNT_EXPORT_NOTES]
+      };
+    },
+    { isolationLevel: "repeatable read", accessMode: "read only" }
+  );
+}
+
+// services/auth/src/http/routes/export-account.ts
+function exportAccountRoute(app2, deps) {
+  app2.get("/v1/auth/me/export", { preHandler: requireAuth(deps.tokenVerifier) }, async (request, reply) => {
+    const actor = getActor(request);
+    const limits = deps.exportLimits ?? DEFAULT_EXPORT_LIMITS;
+    const document = await collectAccountExport(deps.db, actor.user_id, limits);
+    if (!document) {
+      throw new AppError("USER_NOT_FOUND", "User no longer exists");
+    }
+    const body = fitExportToBudget(document, limits.maxBytes);
+    await recordAccountAudit(deps.db, {
+      action: ACCOUNT_AUDIT_ACTIONS.export,
+      userId: actor.user_id,
+      actorUserId: actor.user_id,
+      traceId: request.id,
+      metadata: { truncated_sections: document.truncated.length }
+    });
+    request.log.info(
+      { audit: true, action: ACCOUNT_AUDIT_ACTIONS.export, user_id: actor.user_id, truncated_sections: document.truncated.length },
+      "account data exported"
+    );
+    reply.status(200).header("content-type", "application/json; charset=utf-8").header("content-disposition", `attachment; filename="atlas-data-export-${document.generated_at.slice(0, 10)}.json"`).header("cache-control", "no-store").header("x-content-type-options", "nosniff").send(body);
+  });
+}
+
 // services/auth/src/http/routes/health.ts
 function healthRoute(app2, deps) {
   app2.get("/health", async (_request, reply) => {
@@ -77312,9 +78384,15 @@ function buildApp(deps) {
     trustProxy: true,
     genReqId: () => newUuid()
   });
-  void app2.register(import_cors.default, { origin: parseCorsOrigins(deps.env.CORS_ORIGINS) });
+  void app2.register(import_cors.default, {
+    origin: parseCorsOrigins(deps.env.CORS_ORIGINS),
+    // The plugin's default is GET, HEAD and POST: without DELETE here a browser's preflight for
+    // DELETE /v1/auth/me is refused whenever the web app and this API are on different origins.
+    methods: ["GET", "HEAD", "POST", "DELETE"]
+  });
   const metrics2 = createMetricsRegistry("auth-service");
   registerHttpMetrics(app2, metrics2);
+  registerIsoTimestamps(app2);
   app2.setErrorHandler((error62, request, reply) => {
     if (error62 instanceof ZodError) {
       reply.status(400).send({
@@ -77357,10 +78435,23 @@ function buildApp(deps) {
     app2,
     {
       plugin: import_rate_limit.default,
-      settings: { max: deps.env.RATE_LIMIT_MAX, timeWindow: deps.env.RATE_LIMIT_WINDOW }
+      settings: { max: deps.env.RATE_LIMIT_MAX, timeWindow: deps.env.RATE_LIMIT_WINDOW },
+      // The two account-privacy routes get their own, smaller budgets (the delete one the smallest).
+      routeLimits: {
+        "GET /v1/auth/me/export": {
+          max: deps.env.PRIVACY_EXPORT_RATE_LIMIT_MAX,
+          timeWindow: deps.env.PRIVACY_RATE_LIMIT_WINDOW
+        },
+        "DELETE /v1/auth/me": {
+          max: deps.env.PRIVACY_DELETE_RATE_LIMIT_MAX,
+          timeWindow: deps.env.PRIVACY_RATE_LIMIT_WINDOW
+        }
+      }
     },
     (api) => {
       meRoute(api, deps);
+      exportAccountRoute(api, deps);
+      deleteAccountRoute(api, deps);
     }
   );
   return app2;
@@ -77371,7 +78462,22 @@ var authServiceEnvSchema = external_exports.object({
   ...baseEnvSchema.shape,
   ...databaseEnvSchema.shape,
   ...httpEnvSchema.shape,
-  ...supabaseAuthEnvSchema.shape
+  ...supabaseAuthEnvSchema.shape,
+  /**
+   * Account deletion removes a user's stored resume files, so this service
+   * needs the same storage settings as profile-service. On Vercel all services
+   * share one project's environment, so nothing extra is set there.
+   */
+  ...storageEnvSchema.shape,
+  /**
+   * Budgets for the two account-privacy routes, per client address per window.
+   * They replace (do not add to) the general RATE_LIMIT_* budget on those
+   * routes, and the delete budget is deliberately the smaller one. Counters
+   * live in each function instance's memory, like the general limiter.
+   */
+  PRIVACY_EXPORT_RATE_LIMIT_MAX: external_exports.coerce.number().int().min(1).default(10),
+  PRIVACY_DELETE_RATE_LIMIT_MAX: external_exports.coerce.number().int().min(1).default(3),
+  PRIVACY_RATE_LIMIT_WINDOW: external_exports.string().min(1).default("1 hour")
 });
 function loadAuthServiceEnv(source = process.env) {
   const normalized = { ...source, PORT: source.PORT ?? source.AUTH_SERVICE_PORT };
@@ -77382,8 +78488,13 @@ function loadAuthServiceEnv(source = process.env) {
 var env = loadAuthServiceEnv(withServerlessEnvDefaults());
 var logger = createLogger({ service: "auth-service", level: env.LOG_LEVEL, pretty: env.LOG_PRETTY });
 var { db, sql: sql2, close } = createDatabase({ url: env.DATABASE_URL, maxConnections: env.DATABASE_POOL_MAX });
+var { options: storageOptions, warning: storageWarning } = storageOptionsFromEnv(env, {
+  serverless: Boolean(process.env.VERCEL)
+});
+if (storageWarning) logger.warn(storageWarning);
+var storage = createStorage(storageOptions);
 var tokenVerifier = createTokenVerifierConfig(env);
-var app = buildApp({ db, sql: sql2, env, logger, tokenVerifier });
+var app = buildApp({ db, sql: sql2, env, logger, tokenVerifier, storage });
 var index_default = createVercelHandler(app);
 if (!process.env.VERCEL) {
   const shutdown = async (signal) => {

@@ -75199,6 +75199,177 @@ var exportStudentsQuerySchema = rosterFilterSchema.extend({
   bom: external_exports.stringbool().default(true)
 });
 
+// packages/types/src/privacy.ts
+var ACCOUNT_EXPORT_VERSION = 1;
+var EXPORT_TRUNCATABLE_SECTIONS = [
+  "organization_memberships",
+  "student_records",
+  "resumes",
+  "applications",
+  "application_events",
+  "messages",
+  "job_scores",
+  "activity_events",
+  "connected_accounts"
+];
+var exportTruncatableSectionSchema = external_exports.enum(EXPORT_TRUNCATABLE_SECTIONS);
+var exportTruncationSchema = external_exports.object({
+  section: exportTruncatableSectionSchema,
+  /** How many rows the file contains for this section. */
+  returned: external_exports.number().int().min(0),
+  reason: external_exports.enum(["row_limit", "size_limit"])
+});
+var exportUserSchema = external_exports.object({
+  user_id: uuidSchema,
+  email: external_exports.string(),
+  full_name: external_exports.string(),
+  auth_provider: authProviderSchema,
+  email_verified: external_exports.boolean(),
+  mfa_enabled: external_exports.boolean(),
+  /** The resume currently treated as the canonical profile. */
+  primary_resume_id: uuidSchema.nullable(),
+  last_login_at: isoTimestampSchema.nullable(),
+  created_at: isoTimestampSchema,
+  updated_at: isoTimestampSchema
+});
+var exportMembershipSchema = external_exports.object({
+  organization: external_exports.object({
+    organization_id: uuidSchema,
+    name: external_exports.string(),
+    type: organizationTypeSchema,
+    plan: organizationPlanSchema
+  }),
+  role: memberRoleSchema,
+  permissions: permissionsSchema,
+  joined_at: isoTimestampSchema
+});
+var exportStudentRecordSchema = external_exports.object({
+  student_id: uuidSchema,
+  organization_id: uuidSchema,
+  department: external_exports.string().nullable(),
+  graduation_year: external_exports.number().int().nullable(),
+  current_status: external_exports.string(),
+  created_at: isoTimestampSchema
+});
+var exportResumeSchema = external_exports.object({
+  resume_id: uuidSchema,
+  original_filename: external_exports.string(),
+  content_type: external_exports.string(),
+  byte_size: external_exports.number().int().min(0),
+  status: resumeStatusSchema,
+  parsed_text: external_exports.string().nullable(),
+  parsed_profile: parsedProfileSchema.nullable(),
+  ats_score: external_exports.number().nullable(),
+  ats_report: external_exports.record(external_exports.string(), external_exports.unknown()).nullable(),
+  failure_reason: external_exports.string().nullable(),
+  parsed_at: isoTimestampSchema.nullable(),
+  created_at: isoTimestampSchema,
+  updated_at: isoTimestampSchema
+});
+var exportApplicationEventSchema = external_exports.object({
+  event_id: uuidSchema,
+  from_status: applicationStatusSchema.nullable(),
+  to_status: applicationStatusSchema,
+  note: external_exports.string().nullable(),
+  metadata: external_exports.record(external_exports.string(), external_exports.unknown()),
+  created_at: isoTimestampSchema
+});
+var exportJobContextSchema = external_exports.object({
+  job_id: uuidSchema,
+  title: external_exports.string().nullable(),
+  company_name: external_exports.string().nullable(),
+  location: external_exports.string().nullable()
+});
+var exportApplicationSchema = external_exports.object({
+  application_id: uuidSchema,
+  job: exportJobContextSchema,
+  resume_id: uuidSchema.nullable(),
+  organization_id: uuidSchema.nullable(),
+  status: applicationStatusSchema,
+  mode: applicationModeSchema,
+  cover_letter: external_exports.string().nullable(),
+  submitted_at: isoTimestampSchema.nullable(),
+  last_event_at: isoTimestampSchema,
+  failure_reason: external_exports.string().nullable(),
+  created_at: isoTimestampSchema,
+  events: external_exports.array(exportApplicationEventSchema)
+});
+var exportMessageSchema = external_exports.object({
+  message_id: uuidSchema,
+  application_id: uuidSchema.nullable(),
+  /** Id only: the contact's own details belong to the contact, not to this export. */
+  contact_id: uuidSchema.nullable(),
+  channel: messageChannelSchema,
+  status: messageStatusSchema,
+  subject: external_exports.string().nullable(),
+  body: external_exports.string(),
+  scheduled_for: isoTimestampSchema.nullable(),
+  sent_at: isoTimestampSchema.nullable(),
+  created_at: isoTimestampSchema
+});
+var exportJobScoreSchema = external_exports.object({
+  job: exportJobContextSchema,
+  score: external_exports.number(),
+  reasons: external_exports.array(external_exports.string()),
+  skill_gaps: external_exports.array(external_exports.string()),
+  model_version: external_exports.string(),
+  scored_at: isoTimestampSchema
+});
+var exportActivityEventSchema = external_exports.object({
+  event_id: uuidSchema,
+  event_type: external_exports.string(),
+  organization_id: uuidSchema.nullable(),
+  payload: external_exports.record(external_exports.string(), external_exports.unknown()),
+  occurred_at: isoTimestampSchema
+});
+var exportConnectedAccountSchema = external_exports.object({
+  connector_account_id: uuidSchema,
+  organization_id: uuidSchema.nullable(),
+  provider: external_exports.string(),
+  external_account_id: external_exports.string(),
+  scopes: external_exports.array(external_exports.string()),
+  status: external_exports.string(),
+  consent_granted_at: isoTimestampSchema.nullable(),
+  expires_at: isoTimestampSchema.nullable(),
+  last_synced_at: isoTimestampSchema.nullable(),
+  created_at: isoTimestampSchema
+});
+var accountExportSchema = external_exports.object({
+  export_version: external_exports.literal(ACCOUNT_EXPORT_VERSION),
+  generated_at: isoTimestampSchema,
+  user: exportUserSchema,
+  organization_memberships: external_exports.array(exportMembershipSchema),
+  student_records: external_exports.array(exportStudentRecordSchema),
+  resumes: external_exports.array(exportResumeSchema),
+  applications: external_exports.array(exportApplicationSchema),
+  messages: external_exports.array(exportMessageSchema),
+  job_scores: external_exports.array(exportJobScoreSchema),
+  activity_events: external_exports.array(exportActivityEventSchema),
+  connected_accounts: external_exports.array(exportConnectedAccountSchema),
+  truncated: external_exports.array(exportTruncationSchema),
+  notes: external_exports.array(external_exports.string())
+});
+var DELETE_ACCOUNT_CONFIRMATION = "DELETE";
+var deleteAccountRequestSchema = external_exports.strictObject({
+  confirm: external_exports.literal(DELETE_ACCOUNT_CONFIRMATION)
+});
+var deleteAccountResponseSchema = external_exports.object({
+  status: external_exports.literal("deleted"),
+  deleted_at: isoTimestampSchema,
+  /** Organizations that had no other member and were deleted with the account. */
+  organizations_deleted: external_exports.number().int().min(0),
+  /**
+   * Stored resume files. They are removed after the database commit, on a best
+   * effort basis: `failed` counts files whose removal reported an error.
+   */
+  resume_files: external_exports.object({
+    total: external_exports.number().int().min(0),
+    failed: external_exports.number().int().min(0)
+  })
+});
+var DELETE_ACCOUNT_BLOCKERS = ["sole_owner_of_organization", "active_connected_accounts"];
+var deleteAccountBlockerSchema = external_exports.enum(DELETE_ACCOUNT_BLOCKERS);
+
 // packages/auth-kit/src/tokens.ts
 function createTokenVerifierConfig(env2) {
   const authBase = `${env2.SUPABASE_URL}/auth/v1`;
