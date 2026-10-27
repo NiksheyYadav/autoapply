@@ -9,7 +9,12 @@ import type { Database } from '@atlas/db';
 import type { EventBroker } from '@atlas/messaging';
 import type { ErrorCode } from '@atlas/types';
 import { isAppError, newUuid, toAppError, type Logger } from '@atlas/utils';
-import { createMetricsRegistry, metricsRoute, registerHttpMetrics } from '@atlas/observability';
+import {
+  createMetricsRegistry,
+  metricsRoute,
+  registerHttpMetrics,
+  registerRateLimitedRoutes,
+} from '@atlas/observability';
 import type { ApplicationsServiceEnv } from './env.js';
 import { appendEventRoute } from './http/routes/append-event.js';
 import { createApplicationRoute } from './http/routes/create-application.js';
@@ -33,6 +38,15 @@ const STATUS_TO_CODE: Partial<Record<number, ErrorCode>> = {
   429: 'RATE_LIMITED',
 };
 
+/**
+ * Creating an application is the call here that fans out to other services (events to matching and
+ * analytics) and, later, to employers, so it is held to a tighter limit than the global one. A
+ * route listed here uses its own budget instead of the global one.
+ */
+const ROUTE_LIMITS = {
+  'POST /v1/applications': { max: 30, timeWindow: '1 minute' },
+} as const;
+
 export function buildApp(deps: AppDeps): FastifyInstance {
   const app = Fastify({
     // See services/auth/src/app.ts for why this cast is needed: pino's Logger
@@ -45,10 +59,6 @@ export function buildApp(deps: AppDeps): FastifyInstance {
   });
 
   void app.register(cors, { origin: parseCorsOrigins(deps.env.CORS_ORIGINS) });
-  void app.register(rateLimit, {
-    max: deps.env.RATE_LIMIT_MAX,
-    timeWindow: deps.env.RATE_LIMIT_WINDOW,
-  });
 
   const metrics = createMetricsRegistry('applications-service');
   registerHttpMetrics(app, metrics);
@@ -94,12 +104,26 @@ export function buildApp(deps: AppDeps): FastifyInstance {
     });
   });
 
+  // Probes are scraped by infrastructure and stay outside the rate limiter.
   healthRoute(app, deps);
   metricsRoute(app, metrics);
-  createApplicationRoute(app, deps);
-  listApplicationsRoute(app, deps);
-  getApplicationRoute(app, deps);
-  appendEventRoute(app, deps);
+
+  // Everything else is declared inside the rate-limited scope: see registerRateLimitedRoutes for
+  // why routes declared on `app` right after registering the plugin would not be limited.
+  registerRateLimitedRoutes(
+    app,
+    {
+      plugin: rateLimit,
+      settings: { max: deps.env.RATE_LIMIT_MAX, timeWindow: deps.env.RATE_LIMIT_WINDOW },
+      routeLimits: ROUTE_LIMITS,
+    },
+    (api) => {
+      createApplicationRoute(api, deps);
+      listApplicationsRoute(api, deps);
+      getApplicationRoute(api, deps);
+      appendEventRoute(api, deps);
+    },
+  );
 
   return app;
 }
