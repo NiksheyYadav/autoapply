@@ -124,6 +124,18 @@ describe('outreach-service rate limiting', () => {
     expect(seen).toEqual([401, 401, 401, 429]);
   });
 
+  it('limits mark-sent with the global budget, not the stricter send one', async () => {
+    const markSent: TestRequest = { method: 'POST', url: `/v1/messages/${MESSAGE_A}/mark-sent` };
+
+    // Spends the (small) global budget like any other business route...
+    const limited = await build();
+    expect(await statuses(limited, 5, markSent)).toEqual([401, 401, 401, 429, 429]);
+
+    // ...and is not held to the 20/minute that sending has: it only records, nothing goes out.
+    const roomy = await build({ RATE_LIMIT_MAX: '1000' });
+    expect(await statuses(roomy, SEND_LIMIT + 5, markSent)).toEqual(Array(SEND_LIMIT + 5).fill(401));
+  });
+
   it('counts unknown routes too, so probing for paths cannot run free', async () => {
     const app = await build();
 

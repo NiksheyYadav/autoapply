@@ -5,12 +5,15 @@ import { createEvent } from '@atlas/messaging';
 import { uuidSchema, type MessageResponse } from '@atlas/types';
 import { AppError, newTraceContext } from '@atlas/utils';
 import type { AppDeps } from '../../app.js';
+import { requireDeliveryEnabled } from '../../lib/delivery.js';
 import { claimForSending, findById, setFailed, toMessage } from '../../repo/messages.js';
 
 const paramsSchema = z.object({ id: uuidSchema });
 
 export function sendMessageRoute(app: FastifyInstance, deps: AppDeps): void {
-  app.post('/v1/messages/:id/send', { preHandler: requireAuth(deps.tokenVerifier) }, async (request, reply) => {
+  // requireDeliveryEnabled runs after auth and before the handler: while delivery is off, nothing below
+  // (lookup, claim, transport, event) is reached.
+  app.post('/v1/messages/:id/send', { preHandler: [requireAuth(deps.tokenVerifier), requireDeliveryEnabled(deps.env)] }, async (request, reply) => {
     const actor = getActor(request);
     const { id } = paramsSchema.parse(request.params);
 

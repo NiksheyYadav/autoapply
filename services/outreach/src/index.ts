@@ -19,6 +19,12 @@ const broker = createBroker({
 });
 const tokenVerifier = createTokenVerifierConfig(env);
 const transport = createTransport({ driver: env.OUTREACH_TRANSPORT_DRIVER, logger });
+logger.info(
+  { deliveryEnabled: env.OUTREACH_DELIVERY_ENABLED, transport: env.OUTREACH_TRANSPORT_DRIVER },
+  env.OUTREACH_DELIVERY_ENABLED
+    ? 'outreach delivery enabled'
+    : 'outreach delivery disabled: send and schedule are refused; users record sends with mark-sent',
+);
 
 export const app = buildApp({ db, sql, env, logger, broker, tokenVerifier, transport });
 
