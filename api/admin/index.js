@@ -34864,7 +34864,7 @@ var require_safe_regex2 = __commonJS({
     "use strict";
     var parse4 = require_dist4();
     var { types: types2 } = require_dist4();
-    function walk(node2, opts, starHeight) {
+    function walk2(node2, opts, starHeight) {
       let i;
       let ok;
       let len;
@@ -34877,14 +34877,14 @@ var require_safe_regex2 = __commonJS({
       const options = node2.options || node2.value?.options;
       if (options) {
         for (i = 0, len = options.length; i < len; i++) {
-          ok = walk({ stack: options[i] }, opts, starHeight);
+          ok = walk2({ stack: options[i] }, opts, starHeight);
           if (!ok) return false;
         }
       }
       const stack = node2.stack || node2.value?.stack;
       if (!stack) return true;
       for (i = 0, len = stack.length; i < len; i++) {
-        ok = walk(stack[i], opts, starHeight);
+        ok = walk2(stack[i], opts, starHeight);
         if (!ok) return false;
       }
       return true;
@@ -34897,7 +34897,7 @@ var require_safe_regex2 = __commonJS({
       if (isRegExp(re2)) re2 = re2.source;
       else if (typeof re2 !== "string") re2 = String(re2);
       try {
-        return walk(parse4(re2), opts, 0);
+        return walk2(parse4(re2), opts, 0);
       } catch {
         return false;
       }
@@ -77217,6 +77217,62 @@ function metricsRoute(app2, metrics2) {
   });
 }
 
+// packages/observability/src/timestamps.ts
+var PG_TIMESTAMP = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})(?:\.(\d{1,9}))?(Z|[+-]\d{2}(?::?\d{2})?)$/;
+var TIMESTAMP_KEY = /_at$/;
+function toIsoTimestamp(value) {
+  const match = PG_TIMESTAMP.exec(value);
+  if (!match) return void 0;
+  const [, date6, time4, fraction = "", zone = "Z"] = match;
+  const millis = fraction.slice(0, 3).padEnd(3, "0");
+  let offset = zone;
+  if (zone !== "Z") {
+    const digits = zone.slice(1).replace(":", "");
+    offset = `${zone[0]}${digits.slice(0, 2)}:${digits.slice(2, 4).padEnd(2, "0")}`;
+  }
+  const parsed = /* @__PURE__ */ new Date(`${date6}T${time4}.${millis}${offset}`);
+  return Number.isNaN(parsed.getTime()) ? void 0 : parsed.toISOString();
+}
+function isPlainObject2(value) {
+  if (typeof value !== "object" || value === null) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+function normalizeTimestamps(value) {
+  return walk(value);
+}
+function walk(value) {
+  if (Array.isArray(value)) {
+    let changed = false;
+    const next = value.map((item) => {
+      const converted = walk(item);
+      if (converted !== item) changed = true;
+      return converted;
+    });
+    return changed ? next : value;
+  }
+  if (!isPlainObject2(value)) return value;
+  let copy;
+  for (const [key, child] of Object.entries(value)) {
+    let converted;
+    if (typeof child === "string" && TIMESTAMP_KEY.test(key)) {
+      converted = toIsoTimestamp(child) ?? child;
+    } else {
+      converted = walk(child);
+    }
+    if (converted !== child) {
+      copy ??= { ...value };
+      copy[key] = converted;
+    }
+  }
+  return copy ?? value;
+}
+function registerIsoTimestamps(app2) {
+  app2.addHook("preSerialization", (_request, _reply, payload, done) => {
+    done(null, normalizeTimestamps(payload));
+  });
+}
+
 // services/admin/src/limits.ts
 var DEFAULT_IMPORT_RATE_PER_MINUTE = 10;
 var DEFAULT_EXPORT_RATE_PER_MINUTE = 10;
@@ -77302,7 +77358,7 @@ async function recordAudit(db2, entry) {
 }
 
 // services/admin/src/lib/timestamps.ts
-function toIsoTimestamp(value) {
+function toIsoTimestamp2(value) {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) {
     throw new Error("toIsoTimestamp: not a timestamp");
@@ -77315,8 +77371,8 @@ var { students: students2, users: users2, organizationMembers: organizationMembe
 function escapeLike(term) {
   return term.replace(/[\\%_]/g, (char2) => `\\${char2}`);
 }
-var PG_TIMESTAMP = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(\.\d{1,6})?(Z|[+-]\d{2}(:?\d{2})?)$/;
-var cursorSchema = external_exports.object({ createdAt: external_exports.string().regex(PG_TIMESTAMP), id: uuidSchema });
+var PG_TIMESTAMP2 = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(\.\d{1,6})?(Z|[+-]\d{2}(:?\d{2})?)$/;
+var cursorSchema = external_exports.object({ createdAt: external_exports.string().regex(PG_TIMESTAMP2), id: uuidSchema });
 function decodeRosterCursor(cursor) {
   const parsed = cursorSchema.safeParse(decodeCursor(cursor));
   if (!parsed.success) throw new AppError("VALIDATION_ERROR", "Invalid cursor");
@@ -77406,7 +77462,7 @@ async function loadInsights(db2, organizationId, userIds) {
     if (!entry) continue;
     entry.applications_by_status[row.status] = row.count;
     entry.applications_total += row.count;
-    const activity = row.lastActivityAt === null ? null : toIsoTimestamp(row.lastActivityAt);
+    const activity = row.lastActivityAt === null ? null : toIsoTimestamp2(row.lastActivityAt);
     if (activity !== null && (entry.last_application_activity_at === null || activity > entry.last_application_activity_at)) {
       entry.last_application_activity_at = activity;
     }
@@ -77425,7 +77481,7 @@ async function toRosterStudents(db2, organizationId, rows) {
       program: row.program,
       graduation_year: row.graduationYear,
       status: row.status,
-      created_at: toIsoTimestamp(row.createdAt),
+      created_at: toIsoTimestamp2(row.createdAt),
       sharing_enabled: sharingEnabled,
       insights: sharingEnabled ? insights.get(row.userId) ?? emptyInsights() : null
     };
@@ -78229,6 +78285,7 @@ function buildApp(deps) {
   });
   const metrics2 = createMetricsRegistry("admin-service");
   registerHttpMetrics(app2, metrics2);
+  registerIsoTimestamps(app2);
   app2.addHook("onSend", async (request, reply) => {
     if (request.url.startsWith("/v1/")) reply.header("cache-control", "no-store");
   });

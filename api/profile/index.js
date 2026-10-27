@@ -45810,7 +45810,7 @@ var require_safe_regex2 = __commonJS({
     "use strict";
     var parse4 = require_dist4();
     var { types: types2 } = require_dist4();
-    function walk(node2, opts, starHeight) {
+    function walk2(node2, opts, starHeight) {
       let i;
       let ok;
       let len;
@@ -45823,14 +45823,14 @@ var require_safe_regex2 = __commonJS({
       const options = node2.options || node2.value?.options;
       if (options) {
         for (i = 0, len = options.length; i < len; i++) {
-          ok = walk({ stack: options[i] }, opts, starHeight);
+          ok = walk2({ stack: options[i] }, opts, starHeight);
           if (!ok) return false;
         }
       }
       const stack = node2.stack || node2.value?.stack;
       if (!stack) return true;
       for (i = 0, len = stack.length; i < len; i++) {
-        ok = walk(stack[i], opts, starHeight);
+        ok = walk2(stack[i], opts, starHeight);
         if (!ok) return false;
       }
       return true;
@@ -45843,7 +45843,7 @@ var require_safe_regex2 = __commonJS({
       if (isRegExp(re2)) re2 = re2.source;
       else if (typeof re2 !== "string") re2 = String(re2);
       try {
-        return walk(parse4(re2), opts, 0);
+        return walk2(parse4(re2), opts, 0);
       } catch {
         return false;
       }
@@ -80124,7 +80124,7 @@ var require_reader = __commonJS({
 var require_Utility = __commonJS({
   "node_modules/.pnpm/xmlbuilder@10.1.1/node_modules/xmlbuilder/lib/Utility.js"(exports2, module2) {
     (function() {
-      var assign, getValue, isArray, isEmpty2, isFunction2, isObject5, isPlainObject2, slice2 = [].slice, hasProp = {}.hasOwnProperty;
+      var assign, getValue, isArray, isEmpty2, isFunction2, isObject5, isPlainObject3, slice2 = [].slice, hasProp = {}.hasOwnProperty;
       assign = function() {
         var i, key, len, source, sources, target;
         target = arguments[0], sources = 2 <= arguments.length ? slice2.call(arguments, 1) : [];
@@ -80169,7 +80169,7 @@ var require_Utility = __commonJS({
           return true;
         }
       };
-      isPlainObject2 = function(val) {
+      isPlainObject3 = function(val) {
         var ctor2, proto;
         return isObject5(val) && (proto = Object.getPrototypeOf(val)) && (ctor2 = proto.constructor) && typeof ctor2 === "function" && ctor2 instanceof ctor2 && Function.prototype.toString.call(ctor2) === Function.prototype.toString.call(Object);
       };
@@ -80185,7 +80185,7 @@ var require_Utility = __commonJS({
       module2.exports.isObject = isObject5;
       module2.exports.isArray = isArray;
       module2.exports.isEmpty = isEmpty2;
-      module2.exports.isPlainObject = isPlainObject2;
+      module2.exports.isPlainObject = isPlainObject3;
       module2.exports.getValue = getValue;
     }).call(exports2);
   }
@@ -81883,7 +81883,7 @@ var require_XMLStringWriter = __commonJS({
 var require_XMLDocument = __commonJS({
   "node_modules/.pnpm/xmlbuilder@10.1.1/node_modules/xmlbuilder/lib/XMLDocument.js"(exports2, module2) {
     (function() {
-      var XMLDocument, XMLNode, XMLStringWriter, XMLStringifier, isPlainObject2, extend2 = function(child, parent) {
+      var XMLDocument, XMLNode, XMLStringWriter, XMLStringifier, isPlainObject3, extend2 = function(child, parent) {
         for (var key in parent) {
           if (hasProp.call(parent, key)) child[key] = parent[key];
         }
@@ -81895,7 +81895,7 @@ var require_XMLDocument = __commonJS({
         child.__super__ = parent.prototype;
         return child;
       }, hasProp = {}.hasOwnProperty;
-      isPlainObject2 = require_Utility().isPlainObject;
+      isPlainObject3 = require_Utility().isPlainObject;
       XMLNode = require_XMLNode();
       XMLStringifier = require_XMLStringifier();
       XMLStringWriter = require_XMLStringWriter();
@@ -81916,7 +81916,7 @@ var require_XMLDocument = __commonJS({
           var writerOptions;
           if (!writer) {
             writer = this.options.writer;
-          } else if (isPlainObject2(writer)) {
+          } else if (isPlainObject3(writer)) {
             writerOptions = writer;
             writer = this.options.writer.set(writerOptions);
           }
@@ -81935,8 +81935,8 @@ var require_XMLDocument = __commonJS({
 var require_XMLDocumentCB = __commonJS({
   "node_modules/.pnpm/xmlbuilder@10.1.1/node_modules/xmlbuilder/lib/XMLDocumentCB.js"(exports2, module2) {
     (function() {
-      var XMLAttribute, XMLCData, XMLComment, XMLDTDAttList, XMLDTDElement, XMLDTDEntity, XMLDTDNotation, XMLDeclaration, XMLDocType, XMLDocumentCB, XMLElement, XMLProcessingInstruction, XMLRaw, XMLStringWriter, XMLStringifier, XMLText, getValue, isFunction2, isObject5, isPlainObject2, ref, hasProp = {}.hasOwnProperty;
-      ref = require_Utility(), isObject5 = ref.isObject, isFunction2 = ref.isFunction, isPlainObject2 = ref.isPlainObject, getValue = ref.getValue;
+      var XMLAttribute, XMLCData, XMLComment, XMLDTDAttList, XMLDTDElement, XMLDTDEntity, XMLDTDNotation, XMLDeclaration, XMLDocType, XMLDocumentCB, XMLElement, XMLProcessingInstruction, XMLRaw, XMLStringWriter, XMLStringifier, XMLText, getValue, isFunction2, isObject5, isPlainObject3, ref, hasProp = {}.hasOwnProperty;
+      ref = require_Utility(), isObject5 = ref.isObject, isFunction2 = ref.isFunction, isPlainObject3 = ref.isPlainObject, getValue = ref.getValue;
       XMLElement = require_XMLElement();
       XMLCData = require_XMLCData();
       XMLComment = require_XMLComment();
@@ -81959,7 +81959,7 @@ var require_XMLDocumentCB = __commonJS({
           options || (options = {});
           if (!options.writer) {
             options.writer = new XMLStringWriter(options);
-          } else if (isPlainObject2(options.writer)) {
+          } else if (isPlainObject3(options.writer)) {
             writerOptions = options.writer;
             options.writer = new XMLStringWriter(writerOptions);
           }
@@ -120182,6 +120182,62 @@ function registerRateLimitedRoutes(app2, options, declareRoutes) {
   });
 }
 
+// packages/observability/src/timestamps.ts
+var PG_TIMESTAMP = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})(?:\.(\d{1,9}))?(Z|[+-]\d{2}(?::?\d{2})?)$/;
+var TIMESTAMP_KEY = /_at$/;
+function toIsoTimestamp(value) {
+  const match = PG_TIMESTAMP.exec(value);
+  if (!match) return void 0;
+  const [, date6, time4, fraction = "", zone = "Z"] = match;
+  const millis = fraction.slice(0, 3).padEnd(3, "0");
+  let offset = zone;
+  if (zone !== "Z") {
+    const digits = zone.slice(1).replace(":", "");
+    offset = `${zone[0]}${digits.slice(0, 2)}:${digits.slice(2, 4).padEnd(2, "0")}`;
+  }
+  const parsed = /* @__PURE__ */ new Date(`${date6}T${time4}.${millis}${offset}`);
+  return Number.isNaN(parsed.getTime()) ? void 0 : parsed.toISOString();
+}
+function isPlainObject2(value) {
+  if (typeof value !== "object" || value === null) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+function normalizeTimestamps(value) {
+  return walk(value);
+}
+function walk(value) {
+  if (Array.isArray(value)) {
+    let changed = false;
+    const next = value.map((item) => {
+      const converted = walk(item);
+      if (converted !== item) changed = true;
+      return converted;
+    });
+    return changed ? next : value;
+  }
+  if (!isPlainObject2(value)) return value;
+  let copy;
+  for (const [key, child] of Object.entries(value)) {
+    let converted;
+    if (typeof child === "string" && TIMESTAMP_KEY.test(key)) {
+      converted = toIsoTimestamp(child) ?? child;
+    } else {
+      converted = walk(child);
+    }
+    if (converted !== child) {
+      copy ??= { ...value };
+      copy[key] = converted;
+    }
+  }
+  return copy ?? value;
+}
+function registerIsoTimestamps(app2) {
+  app2.addHook("preSerialization", (_request, _reply, payload, done) => {
+    done(null, normalizeTimestamps(payload));
+  });
+}
+
 // services/profile/src/repo/resumes.ts
 function toResume(row) {
   return {
@@ -126356,7 +126412,7 @@ var XfaText = class _XfaText {
       items,
       styles: /* @__PURE__ */ Object.create(null)
     };
-    function walk(node2) {
+    function walk2(node2) {
       if (!node2) {
         return;
       }
@@ -126380,10 +126436,10 @@ var XfaText = class _XfaText {
         return;
       }
       for (const child of node2.children) {
-        walk(child);
+        walk2(child);
       }
     }
-    walk(xfa);
+    walk2(xfa);
     return output2;
   }
   static shouldBuildText(name) {
@@ -153077,6 +153133,7 @@ function buildApp(deps) {
   });
   const metrics2 = createMetricsRegistry("profile-service");
   registerHttpMetrics(app2, metrics2);
+  registerIsoTimestamps(app2);
   app2.setErrorHandler((error62, request, reply) => {
     if (error62 instanceof ZodError) {
       reply.status(400).send({

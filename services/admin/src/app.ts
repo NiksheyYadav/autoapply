@@ -8,7 +8,12 @@ import { parseCorsOrigins } from '@atlas/config';
 import type { Database } from '@atlas/db';
 import type { ErrorCode } from '@atlas/types';
 import { isAppError, newUuid, toAppError, type Logger } from '@atlas/utils';
-import { createMetricsRegistry, metricsRoute, registerHttpMetrics } from '@atlas/observability';
+import {
+  createMetricsRegistry,
+  metricsRoute,
+  registerHttpMetrics,
+  registerIsoTimestamps,
+} from '@atlas/observability';
 import type { AdminServiceEnv } from './env.js';
 import type { ServiceLimits } from './limits.js';
 import { exportStudentsRoute } from './http/routes/export-students.js';
@@ -87,6 +92,8 @@ export function buildApp(deps: AppDeps): FastifyInstance {
 
   const metrics = createMetricsRegistry('admin-service');
   registerHttpMetrics(app, metrics);
+  // Postgres-style timestamps ('2026-10-27 12:59:21+00') become strict ISO 8601, which Safari can parse.
+  registerIsoTimestamps(app);
 
   // Everything under /v1/admin is student personal data: never cacheable by a
   // browser, proxy or CDN.

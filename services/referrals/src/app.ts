@@ -13,6 +13,7 @@ import {
   createMetricsRegistry,
   metricsRoute,
   registerHttpMetrics,
+  registerIsoTimestamps,
   registerRateLimitedRoutes,
 } from '@atlas/observability';
 import type { ReferralsServiceEnv } from './env.js';
@@ -53,6 +54,8 @@ export function buildApp(deps: AppDeps): FastifyInstance {
 
   const metrics = createMetricsRegistry('referrals-service');
   registerHttpMetrics(app, metrics);
+  // Postgres-style timestamps ('2026-10-27 12:59:21+00') become strict ISO 8601, which Safari can parse.
+  registerIsoTimestamps(app);
 
   app.setErrorHandler((error: FastifyError | ZodError, request, reply) => {
     if (error instanceof ZodError) {
