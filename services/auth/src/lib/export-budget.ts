@@ -70,13 +70,20 @@ function trimmableSections(doc: AccountExport): TrimmableSection[] {
         doc.resumes = rows;
       },
     ),
-    listSection(
-      'applications',
-      () => doc.applications,
-      (rows) => {
-        doc.applications = rows;
+    {
+      name: 'applications',
+      count: () => doc.applications.length,
+      keep: (n) => {
+        doc.applications = doc.applications.slice(0, n);
       },
-    ),
+      // Without their events, which are weighed (and cut) as a section of their own: otherwise
+      // this section always outweighs its own events and whole applications would go first.
+      weight: () =>
+        Buffer.byteLength(
+          JSON.stringify(doc.applications.map(({ events: _events, ...application }) => application)),
+          'utf8',
+        ),
+    },
     {
       // Events are nested under their application; the cap counts them all together.
       name: 'application_events',

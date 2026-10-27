@@ -54,7 +54,12 @@ export function buildApp(deps: AppDeps): FastifyInstance {
     genReqId: () => newUuid(),
   });
 
-  void app.register(cors, { origin: parseCorsOrigins(deps.env.CORS_ORIGINS) });
+  void app.register(cors, {
+    origin: parseCorsOrigins(deps.env.CORS_ORIGINS),
+    // The plugin's default is GET, HEAD and POST: without DELETE here a browser's preflight for
+    // DELETE /v1/auth/me is refused whenever the web app and this API are on different origins.
+    methods: ['GET', 'HEAD', 'POST', 'DELETE'],
+  });
 
   const metrics = createMetricsRegistry('auth-service');
   registerHttpMetrics(app, metrics);

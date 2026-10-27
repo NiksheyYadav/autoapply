@@ -7,7 +7,7 @@ import { analyticsEventsOf, outboxEventsOf, tasksOf } from './user-references.js
 
 export interface DeleteAccountOutcome {
   deletedAt: Date;
-  /** Organizations the user was the last member of; they went with the account. */
+  /** Personal organizations the user was the last member of; they went with the account. */
   organizationsDeleted: number;
   /** Object-store keys of the user's resume files, collected before the rows holding them were deleted. */
   storageKeys: string[];
@@ -42,7 +42,10 @@ function blocked(
  *       audit_logs         the user's own account-level entries (resource = the user);
  *                          entries where the user acted inside an organization are kept
  *                          by design, with the actor set to null by its foreign key
- *     and organizations the user was the last member of.
+ *     and the personal (`individual`) organizations the user was the last member of.
+ *     An institutional organization (university, enterprise) is never deleted as a
+ *     side effect of one person leaving: it is provisioned by platform administrators
+ *     and outlives any member, so the user's membership goes and the organization stays.
  *   - Shared listings (jobs, companies, contacts) are not user data and stay.
  *
  * It refuses (409 CONFLICT) instead of deleting when doing so would strand other
@@ -117,9 +120,14 @@ export async function deleteAccountData(
     await tx.delete(schema.eventOutbox).where(outboxEventsOf(userId));
     await tx.delete(schema.analyticsEvents).where(analyticsEventsOf(userId));
     await tx.delete(schema.tasks).where(tasksOf(userId));
-    await tx
-      .delete(schema.auditLogs)
-      .where(and(eq(schema.auditLogs.resourceType, 'user'), eq(schema.auditLogs.resourceId, userId)));
+    await tx.delete(schema.auditLogs).where(
+      and(
+        eq(schema.auditLogs.resourceType, 'user'),
+        eq(schema.auditLogs.resourceId, userId),
+        // Not the tombstone an earlier, completed deletion of this account left behind.
+        ne(schema.auditLogs.action, ACCOUNT_AUDIT_ACTIONS.deleted),
+      ),
+    );
 
     if (authSchemaPresent) {
       await tx.execute(sql`delete from auth.users where id = ${userId}`);
@@ -157,7 +165,10 @@ async function authUserExists(tx: Transaction, userId: string): Promise<boolean>
 /**
  * Looks at every organization the user belongs to (as a member or on its student
  * roster), locks them, and decides each one's fate:
- *   - the user is the only person in it: it is deleted with the account;
+ *   - the user is the only person in it and it is a personal workspace: it is
+ *     deleted with the account;
+ *   - the user is the only person in it and it is an institution: it stays, minus
+ *     the user's rows;
  *   - others remain and the user is not their only owner: just the user's rows go;
  *   - others remain and the user is the only owner: deletion is refused.
  *
@@ -182,7 +193,11 @@ async function organizationsToDelete(
   if (organizationIds.length === 0) return [];
 
   const organizations = await tx
-    .select({ organizationId: schema.organizations.organizationId, name: schema.organizations.name })
+    .select({
+      organizationId: schema.organizations.organizationId,
+      name: schema.organizations.name,
+      type: schema.organizations.type,
+    })
     .from(schema.organizations)
     .where(inArray(schema.organizations.organizationId, organizationIds))
     .orderBy(asc(schema.organizations.organizationId))
@@ -216,7 +231,8 @@ async function organizationsToDelete(
     const summary = { organization_id: organization.organizationId, name: organization.name };
 
     if (otherMembers.length === 0 && otherStudents.length === 0) {
-      toDelete.push(summary);
+      // Nobody else is in it. A personal workspace goes with its only member; an institution stays.
+      if (organization.type === 'individual') toDelete.push(summary);
       continue;
     }
 
