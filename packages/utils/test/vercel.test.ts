@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  SERVERLESS_DEFAULT_MESSAGING_DRIVER,
   SERVERLESS_PLACEHOLDER_PORT,
   createVercelHandler,
   withServerlessEnvDefaults,
@@ -85,19 +86,37 @@ describe('withServerlessEnvDefaults', () => {
     expect(withServerlessEnvDefaults(source)).not.toHaveProperty('PORT');
   });
 
-  it('supplies a placeholder PORT on Vercel without mutating the source', () => {
+  it('supplies a placeholder PORT and the durable event driver on Vercel without mutating the source', () => {
     const source = { VERCEL: '1', DATABASE_URL: 'postgres://example' };
     const result = withServerlessEnvDefaults(source);
-    expect(result).toEqual({ ...source, PORT: SERVERLESS_PLACEHOLDER_PORT });
+    expect(result).toEqual({
+      ...source,
+      PORT: SERVERLESS_PLACEHOLDER_PORT,
+      MESSAGING_DRIVER: SERVERLESS_DEFAULT_MESSAGING_DRIVER,
+    });
     expect(source).not.toHaveProperty('PORT');
+    expect(source).not.toHaveProperty('MESSAGING_DRIVER');
   });
 
   it('keeps an explicitly configured PORT on Vercel', () => {
     expect(withServerlessEnvDefaults({ VERCEL: '1', PORT: '8080' }).PORT).toBe('8080');
   });
 
-  it('does not invent any other configuration', () => {
+  it('defaults to the postgres outbox on Vercel because the in-memory broker cannot cross functions', () => {
+    expect(SERVERLESS_DEFAULT_MESSAGING_DRIVER).toBe('postgres');
+    expect(withServerlessEnvDefaults({ VERCEL: '1' }).MESSAGING_DRIVER).toBe('postgres');
+  });
+
+  it('keeps an explicitly configured MESSAGING_DRIVER on Vercel', () => {
+    expect(withServerlessEnvDefaults({ VERCEL: '1', MESSAGING_DRIVER: 'rabbitmq' }).MESSAGING_DRIVER).toBe('rabbitmq');
+  });
+
+  it('does not default MESSAGING_DRIVER outside Vercel, so local dev and tests keep the memory broker', () => {
+    expect(withServerlessEnvDefaults({}).MESSAGING_DRIVER).toBeUndefined();
+  });
+
+  it('does not invent any genuine configuration (database, auth, secrets)', () => {
     const result = withServerlessEnvDefaults({ VERCEL: '1' });
-    expect(Object.keys(result).sort()).toEqual(['PORT', 'VERCEL']);
+    expect(Object.keys(result).sort()).toEqual(['MESSAGING_DRIVER', 'PORT', 'VERCEL']);
   });
 });

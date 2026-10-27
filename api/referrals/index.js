@@ -1954,7 +1954,7 @@ var require_wait = __commonJS({
     var WAIT_MS = 1e4;
     function wait(state, index2, expected, timeout, done) {
       const max = timeout === Infinity ? Infinity : Date.now() + timeout;
-      const check2 = () => {
+      const check3 = () => {
         const current = Atomics.load(state, index2);
         if (current === expected) {
           done(null, "ok");
@@ -1967,16 +1967,16 @@ var require_wait = __commonJS({
         const remaining = max === Infinity ? WAIT_MS : Math.min(WAIT_MS, Math.max(1, max - Date.now()));
         const result = Atomics.waitAsync(state, index2, current, remaining);
         if (result.async) {
-          result.value.then(check2);
+          result.value.then(check3);
         } else {
-          setImmediate(check2);
+          setImmediate(check3);
         }
       };
-      check2();
+      check3();
     }
     function waitDiff(state, index2, expected, timeout, done) {
       const max = timeout === Infinity ? Infinity : Date.now() + timeout;
-      const check2 = () => {
+      const check3 = () => {
         const current = Atomics.load(state, index2);
         if (current !== expected) {
           done(null, "ok");
@@ -1994,13 +1994,13 @@ var require_wait = __commonJS({
               done(null, "ok");
               return;
             }
-            check2();
+            check3();
           });
         } else {
-          setImmediate(check2);
+          setImmediate(check3);
         }
       };
-      check2();
+      check3();
     }
     module.exports = { wait, waitDiff };
   }
@@ -10447,8 +10447,8 @@ var require_heartbeat = __commonJS({
         clearInterval(this.sendTimer);
         clearInterval(this.recvTimer);
       }
-      runHeartbeat(check2, fail) {
-        if (!check2())
+      runHeartbeat(check3, fail) {
+        if (!check3())
           fail();
       }
     };
@@ -11047,14 +11047,14 @@ var require_connection = __commonJS({
         recv();
       }
       checkSend() {
-        var check2 = this.sentSinceLastCheck;
+        var check3 = this.sentSinceLastCheck;
         this.sentSinceLastCheck = false;
-        return check2;
+        return check3;
       }
       checkRecv() {
-        var check2 = this.recvSinceLastCheck;
+        var check3 = this.recvSinceLastCheck;
         this.recvSinceLastCheck = false;
-        return check2;
+        return check3;
       }
       sendBytes(bytes) {
         this.sentSinceLastCheck = true;
@@ -17179,13 +17179,13 @@ var require_plugin = __commonJS({
         done();
         return;
       }
-      const check2 = () => {
+      const check3 = () => {
         debug("check", this.name, this.queue.length(), this.queue.running(), this._promise);
         if (this.queue.length() === 0 && this.queue.running() === 0) {
           if (this._promise) {
             const wrap = () => {
               debug("wrap");
-              queueMicrotask(check2);
+              queueMicrotask(check3);
             };
             this._promise.resolve();
             this._promise.promise.then(wrap, wrap);
@@ -17198,11 +17198,11 @@ var require_plugin = __commonJS({
           this.queue.drain = () => {
             debug("drain", this.name);
             this.queue.drain = noop3;
-            queueMicrotask(check2);
+            queueMicrotask(check3);
           };
         }
       };
-      queueMicrotask(check2);
+      queueMicrotask(check3);
       this.queue.resume();
     };
     function noop3() {
@@ -53983,9 +53983,14 @@ function createVercelHandler(app2) {
   };
 }
 var SERVERLESS_PLACEHOLDER_PORT = "3000";
+var SERVERLESS_DEFAULT_MESSAGING_DRIVER = "postgres";
 function withServerlessEnvDefaults(source = process.env) {
   if (!source.VERCEL) return source;
-  return { ...source, PORT: source.PORT ?? SERVERLESS_PLACEHOLDER_PORT };
+  return {
+    ...source,
+    PORT: source.PORT ?? SERVERLESS_PLACEHOLDER_PORT,
+    MESSAGING_DRIVER: source.MESSAGING_DRIVER ?? SERVERLESS_DEFAULT_MESSAGING_DRIVER
+  };
 }
 
 // node_modules/.pnpm/jose@6.2.12/node_modules/jose/dist/webapi/lib/buffer_utils.js
@@ -67513,8 +67518,8 @@ var ZodType = /* @__PURE__ */ $constructor("ZodType", (inst, def) => {
       reg.add(this, meta3);
       return this;
     },
-    refine(check2, params) {
-      return this.check(refine(check2, params));
+    refine(check3, params) {
+      return this.check(refine(check3, params));
     },
     superRefine(refinement, params) {
       return this.check(superRefine(refinement, params));
@@ -75080,6 +75085,33 @@ var pgTable = (name, columns, extraConfig) => {
   return pgTableWithSchema(name, columns, extraConfig, void 0);
 };
 
+// node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_postgres@3.4.9/node_modules/drizzle-orm/pg-core/checks.js
+var CheckBuilder = class {
+  constructor(name, value) {
+    this.name = name;
+    this.value = value;
+  }
+  static [entityKind] = "PgCheckBuilder";
+  brand;
+  /** @internal */
+  build(table2) {
+    return new Check(table2, this);
+  }
+};
+var Check = class {
+  constructor(table2, builder) {
+    this.table = table2;
+    this.name = builder.name;
+    this.value = builder.value;
+  }
+  static [entityKind] = "PgCheck";
+  name;
+  value;
+};
+function check2(name, value) {
+  return new CheckBuilder(name, value);
+}
+
 // node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_postgres@3.4.9/node_modules/drizzle-orm/pg-core/indexes.js
 var IndexBuilderOn = class {
   constructor(unique, name) {
@@ -79176,6 +79208,9 @@ __export(schema_exports, {
   contacts: () => contacts,
   contactsRelations: () => contactsRelations,
   employmentTypeEnum: () => employmentTypeEnum,
+  eventConsumers: () => eventConsumers,
+  eventDeliveries: () => eventDeliveries,
+  eventOutbox: () => eventOutbox,
   idempotencyKeys: () => idempotencyKeys,
   jobScores: () => jobScores,
   jobSourceEnum: () => jobSourceEnum,
@@ -79630,6 +79665,60 @@ var processedEvents = pgTable(
     index("processed_events_processed_at_idx").on(table2.processedAt)
   ]
 );
+var eventOutbox = pgTable(
+  "event_outbox",
+  {
+    eventId: uuid3("event_id").primaryKey(),
+    eventType: varchar("event_type", { length: 120 }).notNull(),
+    occurredAt: timestamp("occurred_at", { withTimezone: true, mode: "string" }).notNull(),
+    // The envelope's trace context, flattened so "what happened to trace X" is
+    // a plain indexed query. No FKs: the outbox must never block a user or
+    // organization deletion.
+    traceId: varchar("trace_id", { length: 100 }).notNull(),
+    correlationId: varchar("correlation_id", { length: 100 }).notNull(),
+    organizationId: uuid3("organization_id"),
+    userId: uuid3("user_id"),
+    payload: jsonb("payload").$type().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "string" }).notNull().defaultNow()
+  },
+  (table2) => [
+    // Drain cursor order (created_at, event_id), also the purge scan.
+    index("event_outbox_created_idx").on(table2.createdAt, table2.eventId),
+    // Fan-out for consumers that subscribe to a few of the event types.
+    index("event_outbox_type_created_idx").on(table2.eventType, table2.createdAt, table2.eventId),
+    index("event_outbox_trace_idx").on(table2.traceId)
+  ]
+);
+var eventConsumers = pgTable("event_consumers", {
+  consumer: varchar("consumer", { length: 160 }).primaryKey(),
+  eventTypes: text("event_types").array().notNull(),
+  materializedThrough: timestamp("materialized_through", { withTimezone: true, mode: "string" }).notNull().default(sql`'1970-01-01T00:00:00Z'`),
+  lastDrainedAt: timestamp("last_drained_at", { withTimezone: true, mode: "string" }),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "string" }).notNull().defaultNow()
+});
+var eventDeliveries = pgTable(
+  "event_deliveries",
+  {
+    eventId: uuid3("event_id").notNull().references(() => eventOutbox.eventId, { onDelete: "cascade" }),
+    consumer: varchar("consumer", { length: 160 }).notNull(),
+    status: varchar("status", { length: 16 }).notNull().default("pending"),
+    attempts: integer2("attempts").notNull().default(0),
+    /** Sanitized and truncated by the broker — never a raw driver message. */
+    lastError: text("last_error"),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
+    lockedUntil: timestamp("locked_until", { withTimezone: true, mode: "string" }),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" }).notNull().defaultNow()
+  },
+  (table2) => [
+    primaryKey({ columns: [table2.eventId, table2.consumer] }),
+    // The claim query: due pending work for a consumer, oldest first. Partial,
+    // so the (large, append-only) done history never bloats the hot path.
+    index("event_deliveries_claim_idx").on(table2.consumer, table2.nextAttemptAt).where(sql`${table2.status} = 'pending'`),
+    index("event_deliveries_dead_idx").on(table2.consumer, table2.updatedAt).where(sql`${table2.status} = 'dead'`),
+    check2("event_deliveries_status_check", sql`${table2.status} IN ('pending', 'done', 'dead')`)
+  ]
+);
 var connectorAccounts = pgTable(
   "connector_accounts",
   {
@@ -79782,20 +79871,471 @@ var MemoryBroker = class {
   }
 };
 
+// packages/messaging/src/postgres-broker.ts
+var EPOCH = "1970-01-01T00:00:00Z";
+var NIL_UUID = "00000000-0000-0000-0000-000000000000";
+var DEFAULT_MAX_RETRIES = 5;
+var DEFAULT_LEASE_MS = 9e4;
+var DEFAULT_VISIBILITY_OVERLAP_MS = 6e4;
+var DEFAULT_RETENTION_MS = 7 * 24 * 60 * 60 * 1e3;
+var DEFAULT_DRAIN_LIMIT = 100;
+var DEFAULT_DRAIN_BUDGET_MS = 2e4;
+var FAN_OUT_BATCH = 500;
+var DEFAULT_PURGE_LIMIT = 500;
+var MAX_ERROR_LENGTH = 300;
+var MAX_CONSUMER_LENGTH = 160;
+function inList(values2) {
+  return sql.join(
+    values2.map((value) => sql`${value}`),
+    sql`, `
+  );
+}
+function sanitizeError(error51) {
+  let described;
+  if (error51 instanceof Error) {
+    const inner = error51.message.startsWith("Failed query") && error51.cause instanceof Error ? error51.cause : error51;
+    described = `${inner.name}: ${inner.message}`;
+  } else {
+    described = String(error51);
+  }
+  return (described.split("\n")[0] ?? "").replace(/[a-z][a-z0-9+.-]*:\/\/[^\s/@]+@\S+/gi, "[url]").replace(/\beyJ[\w-]+\.[\w-]+\.[\w-]*/g, "[token]").replace(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g, "[email]").replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, MAX_ERROR_LENGTH);
+}
+var PostgresBroker = class {
+  db;
+  logger;
+  defaultMaxRetries;
+  leaseMs;
+  visibilityOverlapMs;
+  retentionMs;
+  backoffMs;
+  onDeadLetter;
+  registrations = /* @__PURE__ */ new Map();
+  closed = false;
+  constructor(options) {
+    this.db = options.db;
+    this.logger = options.logger;
+    this.defaultMaxRetries = options.defaultMaxRetries ?? DEFAULT_MAX_RETRIES;
+    this.leaseMs = options.leaseMs ?? DEFAULT_LEASE_MS;
+    this.visibilityOverlapMs = options.visibilityOverlapMs ?? DEFAULT_VISIBILITY_OVERLAP_MS;
+    this.retentionMs = options.retentionMs ?? DEFAULT_RETENTION_MS;
+    this.backoffMs = options.backoffMs ?? ((retry) => backoffDelayMs(retry));
+    this.onDeadLetter = options.onDeadLetter;
+  }
+  async publish(envelope) {
+    this.assertOpen();
+    const event = parseEvent(envelope);
+    await this.db.insert(schema_exports.eventOutbox).values({
+      eventId: event.event_id,
+      eventType: event.event_type,
+      occurredAt: event.occurred_at,
+      traceId: event.trace.trace_id,
+      correlationId: event.trace.correlation_id,
+      organizationId: event.trace.organization_id,
+      userId: event.trace.user_id,
+      payload: event.payload
+    }).onConflictDoNothing({ target: schema_exports.eventOutbox.eventId });
+  }
+  async subscribe(options) {
+    this.assertOpen();
+    if (this.registrations.has(options.consumer)) {
+      throw new Error(`Consumer "${options.consumer}" is already subscribed`);
+    }
+    if (options.consumer.length === 0 || options.consumer.length > MAX_CONSUMER_LENGTH) {
+      throw new Error(`Consumer name must be 1-${MAX_CONSUMER_LENGTH} characters`);
+    }
+    if (options.eventTypes.length === 0) {
+      throw new Error(`Consumer "${options.consumer}" must subscribe to at least one event type`);
+    }
+    this.registrations.set(options.consumer, options);
+    return {
+      consumer: options.consumer,
+      stop: async () => {
+        this.registrations.delete(options.consumer);
+      }
+    };
+  }
+  /**
+   * Delivers due events to the handlers registered on this instance:
+   * registers the consumers, fans new outbox rows out to them, then claims
+   * and runs deliveries one at a time until `limit` deliveries have been
+   * attempted, `budgetMs` has elapsed, or nothing is due. Safe to run
+   * concurrently from any number of instances — a delivery is claimed with
+   * `FOR UPDATE SKIP LOCKED` and leased, so exactly one drain runs it.
+   */
+  async drain(options = {}) {
+    this.assertOpen();
+    const limit = options.limit ?? DEFAULT_DRAIN_LIMIT;
+    const budgetMs = options.budgetMs ?? DEFAULT_DRAIN_BUDGET_MS;
+    const startedAt = performance.now();
+    const outOfTime = () => performance.now() - startedAt >= budgetMs;
+    const result = { processed: 0, failed: 0, dead: 0, purged: 0 };
+    const registrations = [...this.registrations.values()];
+    if (registrations.length === 0) return result;
+    const states = await this.registerConsumers(registrations);
+    for (const registration of registrations) {
+      if (outOfTime()) break;
+      const state = states.get(registration.consumer);
+      if (state !== void 0) await this.fanOut(registration, state, outOfTime);
+    }
+    const byName = new Map(
+      registrations.map((registration) => [registration.consumer, registration])
+    );
+    const names = [...byName.keys()];
+    while (result.processed + result.failed + result.dead < limit && !outOfTime()) {
+      const claimed = await this.claimNext(names);
+      if (claimed === null) break;
+      const registration = byName.get(claimed.consumer);
+      if (registration === void 0) break;
+      result[await this.deliver(registration, claimed)] += 1;
+    }
+    if (this.retentionMs > 0 && !outOfTime()) {
+      result.purged = await this.purge(new Date(Date.now() - this.retentionMs));
+    }
+    return result;
+  }
+  /**
+   * Removes outbox events (and, by cascade, their delivery rows) created
+   * before `olderThan`, in batches. An event is kept while any delivery is
+   * still `pending` (including a retry that is backing off), while a
+   * registered consumer subscribed to its type has no delivery for it yet and
+   * has not been fanned out past it (so it could still be owed the event),
+   * and — unless `includeDead` — while any delivery is `dead`. Returns the
+   * number of events removed.
+   *
+   * A consumer that is registered but permanently gone keeps its types from
+   * being purged; remove its `event_consumers` row when decommissioning it.
+   */
+  async purge(olderThan, options = {}) {
+    this.assertOpen();
+    const cutoff = typeof olderThan === "string" ? olderThan : olderThan.toISOString();
+    const rows = await this.db.execute(sql`
+      WITH doomed AS (
+        SELECT o.event_id
+        FROM event_outbox o
+        WHERE o.created_at < ${cutoff}::timestamptz
+          AND NOT EXISTS (
+            SELECT 1 FROM event_deliveries d
+            WHERE d.event_id = o.event_id
+              AND (d.status = 'pending' OR (d.status = 'dead' AND NOT ${options.includeDead === true}::boolean))
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM event_consumers c
+            WHERE o.event_type = ANY (c.event_types)
+              AND c.materialized_through <= o.created_at
+              AND NOT EXISTS (
+                SELECT 1 FROM event_deliveries d2 WHERE d2.event_id = o.event_id AND d2.consumer = c.consumer
+              )
+          )
+        ORDER BY o.created_at
+        LIMIT ${options.limit ?? DEFAULT_PURGE_LIMIT}
+        FOR UPDATE OF o SKIP LOCKED
+      )
+      DELETE FROM event_outbox WHERE event_id IN (SELECT event_id FROM doomed)
+      RETURNING event_id
+    `);
+    return rows.length;
+  }
+  isHealthy() {
+    return !this.closed;
+  }
+  async close() {
+    this.closed = true;
+    this.registrations.clear();
+  }
+  assertOpen() {
+    if (this.closed) throw new Error("PostgresBroker is closed");
+  }
+  /**
+   * Upserts this instance's consumers. A consumer new to the table starts at
+   * the epoch (so it receives the whole retained history); one that has since
+   * subscribed to an event type it did not have before is rewound to the epoch
+   * too, which is harmless for the types it already had because delivery rows
+   * are unique per (event, consumer).
+   */
+  async registerConsumers(registrations) {
+    const table2 = schema_exports.eventConsumers;
+    const rows = await this.db.insert(table2).values(
+      registrations.map((registration) => ({
+        consumer: registration.consumer,
+        eventTypes: [...registration.eventTypes]
+      }))
+    ).onConflictDoUpdate({
+      target: table2.consumer,
+      set: {
+        materializedThrough: sql`CASE WHEN ${table2.eventTypes} @> excluded.event_types THEN ${table2.materializedThrough} ELSE ${EPOCH}::timestamptz END`,
+        eventTypes: sql`excluded.event_types`
+      }
+    }).returning({
+      consumer: table2.consumer,
+      materializedThrough: sql`${table2.materializedThrough}::text`,
+      snapshotAt: sql`now()::text`
+    });
+    return new Map(
+      rows.map((row) => [
+        row.consumer,
+        { materializedThrough: row.materializedThrough, snapshotAt: row.snapshotAt }
+      ])
+    );
+  }
+  /**
+   * Creates a `pending` delivery for `registration` for every outbox row of
+   * its types at or after `state.materializedThrough`, in (created_at,
+   * event_id) order and in bounded batches, then advances the cursor.
+   *
+   * Why the cursor trails the clock. `created_at` is the transaction start, a
+   * row only becomes visible when it commits, and the scan reads whatever is
+   * visible now. A row that commits after this scan therefore must not fall
+   * behind the cursor, or it would never be delivered. A row invisible to a
+   * statement that ran at time T committed after T, so its `created_at` is
+   * later than T minus the longest publish transaction. The cursor is held at
+   * T minus `visibilityOverlapMs` (and never past the last row scanned if the
+   * pass was cut short), and the overlap window is simply scanned again next
+   * time; `ON CONFLICT DO NOTHING` makes the repeat free of side effects.
+   */
+  async fanOut(registration, state, outOfTime) {
+    let afterCreatedAt = state.materializedThrough;
+    let afterEventId = NIL_UUID;
+    let lastScannedAt = null;
+    let complete = false;
+    while (!outOfTime()) {
+      const batch = await this.db.execute(sql`
+        WITH batch AS (
+          SELECT event_id, created_at
+          FROM event_outbox
+          WHERE event_type IN (${inList(registration.eventTypes)})
+            AND (created_at, event_id) > (${afterCreatedAt}::timestamptz, ${afterEventId}::uuid)
+          ORDER BY created_at, event_id
+          LIMIT ${FAN_OUT_BATCH}
+        ), inserted AS (
+          INSERT INTO event_deliveries (event_id, consumer, next_attempt_at)
+          SELECT event_id, ${registration.consumer}::varchar, now() FROM batch
+          ON CONFLICT (event_id, consumer) DO NOTHING
+        )
+        SELECT event_id, created_at::text AS created_at FROM batch ORDER BY created_at, event_id
+      `);
+      const last = batch[batch.length - 1];
+      if (last !== void 0) {
+        afterCreatedAt = last.created_at;
+        afterEventId = last.event_id;
+        lastScannedAt = last.created_at;
+      }
+      if (batch.length < FAN_OUT_BATCH) {
+        complete = true;
+        break;
+      }
+    }
+    const bound = complete ? "infinity" : lastScannedAt ?? state.materializedThrough;
+    await this.db.execute(sql`
+      UPDATE event_consumers
+      SET materialized_through = GREATEST(
+            materialized_through,
+            LEAST(
+              ${state.snapshotAt}::timestamptz - make_interval(secs => ${this.visibilityOverlapMs / 1e3}::double precision),
+              ${bound}::timestamptz
+            )
+          ),
+          last_drained_at = now()
+      WHERE consumer = ${registration.consumer}
+    `);
+  }
+  /**
+   * Leases the oldest due delivery of any of `consumers`. `SKIP LOCKED` makes
+   * concurrent claimers pass over each other's rows instead of waiting; the
+   * lease (`locked_until`) then keeps the row claimed after this statement's
+   * row lock is gone, while the handler runs outside any transaction.
+   * `attempts` is bumped here, so a delivery that keeps crashing its drain
+   * still runs out of retries.
+   */
+  async claimNext(consumers) {
+    const rows = await this.db.execute(sql`
+      WITH picked AS (
+        SELECT event_id, consumer
+        FROM event_deliveries
+        WHERE consumer IN (${inList(consumers)})
+          AND status = 'pending'
+          AND next_attempt_at <= now()
+          AND (locked_until IS NULL OR locked_until <= now())
+        ORDER BY next_attempt_at, created_at
+        LIMIT 1
+        FOR UPDATE SKIP LOCKED
+      ), claimed AS (
+        UPDATE event_deliveries d
+        SET attempts = d.attempts + 1,
+            locked_until = now() + make_interval(secs => ${this.leaseMs / 1e3}::double precision),
+            updated_at = now()
+        FROM picked
+        WHERE d.event_id = picked.event_id AND d.consumer = picked.consumer
+        RETURNING d.event_id, d.consumer, d.attempts
+      )
+      SELECT c.consumer,
+             c.attempts,
+             o.event_id,
+             o.event_type,
+             to_char(o.occurred_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS occurred_at,
+             o.trace_id,
+             o.correlation_id,
+             o.organization_id,
+             o.user_id,
+             o.payload
+      FROM claimed c
+      JOIN event_outbox o ON o.event_id = c.event_id
+    `);
+    return rows[0] ?? null;
+  }
+  async deliver(registration, claimed) {
+    let envelope;
+    try {
+      envelope = parseEvent({
+        event_id: claimed.event_id,
+        event_type: claimed.event_type,
+        occurred_at: claimed.occurred_at,
+        trace: {
+          trace_id: claimed.trace_id,
+          correlation_id: claimed.correlation_id,
+          organization_id: claimed.organization_id,
+          user_id: claimed.user_id
+        },
+        payload: claimed.payload
+      });
+    } catch (error51) {
+      this.logger.error(
+        { consumer: claimed.consumer, event_id: claimed.event_id },
+        "dead-lettering unparseable outbox event"
+      );
+      return this.settle(claimed, "dead", `unparseable envelope: ${sanitizeError(error51)}`);
+    }
+    if (claimed.attempts - 1 > this.maxRetriesFor(registration)) {
+      return this.bury(
+        claimed,
+        envelope,
+        "retries exhausted: earlier attempts never reported back (the function timed out or crashed)"
+      );
+    }
+    try {
+      if (await this.alreadyProcessed(claimed)) {
+        return await this.complete(claimed);
+      }
+    } catch (error51) {
+      return this.retryOrBury(registration, claimed, envelope, error51);
+    }
+    const context2 = { attempt: claimed.attempts - 1, trace: envelope.trace };
+    try {
+      await registration.handler(envelope, context2);
+    } catch (error51) {
+      return this.retryOrBury(registration, claimed, envelope, error51);
+    }
+    return this.complete(claimed);
+  }
+  async alreadyProcessed(claimed) {
+    const [row] = await this.db.select({ eventId: schema_exports.processedEvents.eventId }).from(schema_exports.processedEvents).where(
+      and(
+        eq(schema_exports.processedEvents.eventId, claimed.event_id),
+        eq(schema_exports.processedEvents.consumer, claimed.consumer)
+      )
+    ).limit(1);
+    return row !== void 0;
+  }
+  /**
+   * Records success: the `processed_events` row (idempotent — analytics
+   * writes its own inside its handler, in the same transaction as its side
+   * effect) and `done`, atomically. The update is fenced on `attempts`, so a
+   * drain whose lease expired mid-handler cannot overwrite the state written
+   * by whoever claimed the delivery next.
+   */
+  async complete(claimed) {
+    try {
+      const updated = await this.db.transaction(async (tx) => {
+        await tx.insert(schema_exports.processedEvents).values({ eventId: claimed.event_id, consumer: claimed.consumer }).onConflictDoNothing();
+        return tx.update(schema_exports.eventDeliveries).set({ status: "done", lockedUntil: null, lastError: null, updatedAt: sql`now()` }).where(this.fence(claimed)).returning({ eventId: schema_exports.eventDeliveries.eventId });
+      });
+      if (updated.length === 0) {
+        this.logger.warn(
+          { consumer: claimed.consumer, event_id: claimed.event_id },
+          "delivery lease expired before completion; another drain owns it now"
+        );
+      }
+      return "processed";
+    } catch (error51) {
+      this.logger.error(
+        { err: error51, consumer: claimed.consumer, event_id: claimed.event_id },
+        "failed to record a successful delivery"
+      );
+      return "failed";
+    }
+  }
+  async retryOrBury(registration, claimed, envelope, error51) {
+    const retry = claimed.attempts - 1;
+    const description = sanitizeError(error51);
+    if (retry < this.maxRetriesFor(registration)) {
+      return this.settle(claimed, "failed", description, this.backoffMs(retry));
+    }
+    return this.bury(claimed, envelope, description);
+  }
+  maxRetriesFor(registration) {
+    return registration.maxRetries ?? this.defaultMaxRetries;
+  }
+  async bury(claimed, envelope, description) {
+    this.logger.error(
+      { consumer: claimed.consumer, event_id: claimed.event_id, attempts: claimed.attempts },
+      "dead-lettering event after exhausting retries"
+    );
+    const outcome = await this.settle(claimed, "dead", description);
+    try {
+      this.onDeadLetter?.({
+        envelope,
+        consumer: claimed.consumer,
+        attempts: claimed.attempts,
+        error: description,
+        deadLetteredAt: (/* @__PURE__ */ new Date()).toISOString()
+      });
+    } catch (callbackError) {
+      this.logger.error({ err: callbackError }, "onDeadLetter callback threw");
+    }
+    return outcome;
+  }
+  /** Writes a failure: back to `pending` after `delayMs`, or `dead`. */
+  async settle(claimed, outcome, description, delayMs = 0) {
+    try {
+      await this.db.update(schema_exports.eventDeliveries).set({
+        status: outcome === "dead" ? "dead" : "pending",
+        lastError: description,
+        lockedUntil: null,
+        nextAttemptAt: sql`now() + make_interval(secs => ${delayMs / 1e3}::double precision)`,
+        updatedAt: sql`now()`
+      }).where(this.fence(claimed));
+    } catch (error51) {
+      this.logger.error(
+        { err: error51, consumer: claimed.consumer, event_id: claimed.event_id },
+        "failed to record a failed delivery"
+      );
+    }
+    return outcome;
+  }
+  fence(claimed) {
+    return and(
+      eq(schema_exports.eventDeliveries.eventId, claimed.event_id),
+      eq(schema_exports.eventDeliveries.consumer, claimed.consumer),
+      eq(schema_exports.eventDeliveries.attempts, claimed.attempts),
+      eq(schema_exports.eventDeliveries.status, "pending")
+    );
+  }
+};
+
 // packages/messaging/src/rabbitmq-broker.ts
 var import_amqplib = __toESM(require_channel_api(), 1);
 
 // packages/messaging/src/envelope.ts
-function createEvent(eventType, payload, trace2, occurredAt = (/* @__PURE__ */ new Date()).toISOString()) {
+function createEvent(eventType, payload, trace2, occurredAt = (/* @__PURE__ */ new Date()).toISOString(), eventId = newUuid()) {
   eventPayloadSchema(eventType).parse(payload);
   return {
-    event_id: newUuid(),
+    event_id: eventId,
     event_type: eventType,
     occurred_at: occurredAt,
     trace: trace2,
     payload
   };
 }
+var DERIVED_EVENT_NAMESPACE = Buffer.from("6f1d0c3ae2b94d7f8a5c9e04b7d31a62", "hex");
 function routingKeyFor(eventType) {
   return eventType;
 }
@@ -79940,10 +80480,38 @@ var RabbitMqBroker = class {
   }
 };
 
+// packages/messaging/src/broker.ts
+function isDrainableBroker(broker2) {
+  return typeof broker2.drain === "function";
+}
+
+// packages/messaging/src/drain-auth.ts
+import { createHash as createHash2, timingSafeEqual as timingSafeEqual2 } from "node:crypto";
+function digest(value) {
+  return createHash2("sha256").update(value, "utf8").digest();
+}
+function isAuthorizedDrainRequest(authorization, secret) {
+  if (secret === "") return false;
+  const match = /^Bearer\s+(\S+)\s*$/i.exec(authorization ?? "");
+  const presented = match?.[1] ?? "";
+  const equal = timingSafeEqual2(digest(presented), digest(secret));
+  return equal && match !== null;
+}
+
 // packages/messaging/src/index.ts
 function createBroker(options) {
   if (options.driver === "memory") {
     return new MemoryBroker({ defaultMaxRetries: options.maxRetries ?? 3 });
+  }
+  if (options.driver === "postgres") {
+    if (options.db === void 0) {
+      throw new Error("A database handle is required when MESSAGING_DRIVER=postgres");
+    }
+    return new PostgresBroker({
+      db: options.db,
+      logger: options.logger,
+      ...options.maxRetries === void 0 ? {} : { defaultMaxRetries: options.maxRetries }
+    });
   }
   if (options.url === void 0 || options.url === "") {
     throw new Error("RABBITMQ_URL is required when MESSAGING_DRIVER=rabbitmq");
@@ -79976,7 +80544,7 @@ var redisEnvSchema = external_exports.object({
   REDIS_URL: external_exports.string().min(1).default("redis://localhost:6379")
 });
 var messagingEnvSchema = external_exports.object({
-  MESSAGING_DRIVER: external_exports.enum(["memory", "rabbitmq"]).default("memory"),
+  MESSAGING_DRIVER: external_exports.enum(["memory", "rabbitmq", "postgres"]).default("memory"),
   RABBITMQ_URL: external_exports.string().min(1).optional(),
   MESSAGING_EXCHANGE: external_exports.string().min(1).default("atlas.events"),
   MESSAGING_MAX_RETRIES: external_exports.coerce.number().int().min(0).max(20).default(5)
@@ -80254,6 +80822,43 @@ function createContactRoute(app2, deps) {
   });
 }
 
+// services/referrals/src/http/routes/drain.ts
+var DEFAULT_BUDGET_MS = 2e4;
+var MAX_BUDGET_MS = 25e3;
+var DRAIN_PATHS = ["/internal/drain", "/internal/referrals/drain"];
+var drainQuerySchema = external_exports.object({
+  limit: external_exports.coerce.number().int().min(1).max(1e3).optional(),
+  budget_ms: external_exports.coerce.number().int().min(100).max(MAX_BUDGET_MS).optional()
+});
+function drainRoute(app2, deps) {
+  const handle = async (request, reply) => {
+    const secret = deps.env.CRON_SECRET;
+    if (secret === void 0) {
+      throw new AppError("UPSTREAM_UNAVAILABLE", "Event draining is not configured");
+    }
+    if (!isAuthorizedDrainRequest(request.headers.authorization, secret)) {
+      reply.header("www-authenticate", "Bearer");
+      throw new AppError("UNAUTHENTICATED", "Missing or invalid drain credentials");
+    }
+    if (!isDrainableBroker(deps.broker)) {
+      throw new AppError("CONFLICT", "The configured messaging driver has nothing to drain");
+    }
+    const query = drainQuerySchema.parse(request.query);
+    const startedAt = Date.now();
+    const result = await deps.broker.drain({
+      budgetMs: query.budget_ms ?? DEFAULT_BUDGET_MS,
+      limit: query.limit
+    });
+    const durationMs = Date.now() - startedAt;
+    request.log.info({ ...result, duration_ms: durationMs }, "drained queued events");
+    reply.status(200).send({ ...result, duration_ms: durationMs });
+  };
+  for (const path of DRAIN_PATHS) {
+    app2.get(path, handle);
+    app2.post(path, handle);
+  }
+}
+
 // services/referrals/src/http/routes/health.ts
 function healthRoute(app2, deps) {
   app2.get("/health", async (_request, reply) => {
@@ -80396,6 +81001,7 @@ function buildApp(deps) {
   });
   healthRoute(app2, deps);
   metricsRoute(app2, metrics2);
+  drainRoute(app2, deps);
   createContactRoute(app2, deps);
   listCompanyContactsRoute(app2, deps);
   listReferralsRoute(app2, deps);
@@ -80408,7 +81014,13 @@ var referralsServiceEnvSchema = external_exports.object({
   ...databaseEnvSchema.shape,
   ...httpEnvSchema.shape,
   ...messagingEnvSchema.shape,
-  ...supabaseAuthEnvSchema.shape
+  ...supabaseAuthEnvSchema.shape,
+  /**
+   * Bearer secret for `/internal/drain`, which Vercel Cron sends as
+   * `Authorization: Bearer $CRON_SECRET` when this variable is set. Unset, the
+   * route answers 503 and never runs a drain.
+   */
+  CRON_SECRET: external_exports.string().min(16, "CRON_SECRET must be at least 16 characters").optional()
 });
 function loadReferralsServiceEnv(source = process.env) {
   const normalized = { ...source, PORT: source.PORT ?? source.REFERRALS_SERVICE_PORT };
@@ -80455,6 +81067,7 @@ var broker = createBroker({
   url: env.RABBITMQ_URL,
   exchange: env.MESSAGING_EXCHANGE,
   maxRetries: env.MESSAGING_MAX_RETRIES,
+  db,
   logger
 });
 var tokenVerifier = createTokenVerifierConfig(env);

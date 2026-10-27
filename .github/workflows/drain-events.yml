@@ -1,0 +1,56 @@
+name: Drain events
+
+# Cross-service events live in a Postgres outbox (MESSAGING_DRIVER=postgres) and
+# are only processed when a consumer service's drain endpoint is called — a
+# serverless function has no long-lived worker to poll for them. Vercel Cron on a
+# Hobby plan runs at most once a day, so this scheduled workflow is the trigger:
+# every 5 minutes it calls POST /internal/<service>/drain on the four consumers
+# (matching, referrals, learning, analytics) with the shared CRON_SECRET.
+#
+# Inert until configured. Set, in GitHub -> Settings -> Secrets and variables:
+#   variable ATLAS_API_BASE_URL   e.g. https://atlas-backend.example.vercel.app (no trailing slash)
+#   secret   CRON_SECRET          the same value set as CRON_SECRET on the Vercel project
+#
+# Caveats: GitHub only runs `schedule` on the default branch, may delay runs under
+# load, and disables schedules after 60 days without repository activity. If the
+# project moves to Vercel Pro, replace this with `crons` entries in vercel.json.
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+# A slow drain must not pile up behind the next tick.
+concurrency:
+  group: drain-events
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  drain:
+    name: Drain ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [matching, referrals, learning, analytics]
+    steps:
+      - name: Call the drain endpoint
+        env:
+          ATLAS_API_BASE_URL: ${{ vars.ATLAS_API_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SERVICE: ${{ matrix.service }}
+        run: |
+          if [ -z "${ATLAS_API_BASE_URL}" ] || [ -z "${CRON_SECRET}" ]; then
+            echo "::notice title=Drain skipped::Set the ATLAS_API_BASE_URL variable and CRON_SECRET secret to enable event draining."
+            exit 0
+          fi
+          # --fail-with-body makes a 401/503/5xx fail the job (visible in Actions)
+          # while still printing the JSON counts the endpoint returns.
+          curl --fail-with-body --silent --show-error --max-time 60 \
+            --request POST \
+            --header "Authorization: Bearer ${CRON_SECRET}" \
+            "${ATLAS_API_BASE_URL%/}/internal/${SERVICE}/drain"
+          echo

@@ -44,14 +44,27 @@ export function createVercelHandler(app: ServerlessApp): VercelHandler {
 export const SERVERLESS_PLACEHOLDER_PORT = '3000';
 
 /**
+ * Event driver used on Vercel when none is configured. The in-memory broker
+ * only delivers inside one process, and every function is its own process, so
+ * on serverless it silently drops every cross-service event. Defaulting to the
+ * durable Postgres outbox means a forgotten env var can't recreate that bug.
+ */
+export const SERVERLESS_DEFAULT_MESSAGING_DRIVER = 'postgres';
+
+/**
  * Env source for a service's `load<Name>ServiceEnv()`. Outside Vercel it is
  * `source` untouched, so local dev and tests keep strict validation; on Vercel
- * it supplies `PORT` when none is configured. Everything else (DATABASE_URL,
- * SUPABASE_URL, ...) is genuine configuration and still fails fast if absent.
+ * it supplies `PORT` and `MESSAGING_DRIVER` when none is configured. Everything
+ * else (DATABASE_URL, SUPABASE_URL, ...) is genuine configuration and still
+ * fails fast if absent.
  */
 export function withServerlessEnvDefaults(
   source: Record<string, string | undefined> = process.env,
 ): Record<string, string | undefined> {
   if (!source.VERCEL) return source;
-  return { ...source, PORT: source.PORT ?? SERVERLESS_PLACEHOLDER_PORT };
+  return {
+    ...source,
+    PORT: source.PORT ?? SERVERLESS_PLACEHOLDER_PORT,
+    MESSAGING_DRIVER: source.MESSAGING_DRIVER ?? SERVERLESS_DEFAULT_MESSAGING_DRIVER,
+  };
 }

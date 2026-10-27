@@ -1954,7 +1954,7 @@ var require_wait = __commonJS({
     var WAIT_MS = 1e4;
     function wait(state, index2, expected, timeout, done) {
       const max = timeout === Infinity ? Infinity : Date.now() + timeout;
-      const check2 = () => {
+      const check3 = () => {
         const current = Atomics.load(state, index2);
         if (current === expected) {
           done(null, "ok");
@@ -1967,16 +1967,16 @@ var require_wait = __commonJS({
         const remaining = max === Infinity ? WAIT_MS : Math.min(WAIT_MS, Math.max(1, max - Date.now()));
         const result = Atomics.waitAsync(state, index2, current, remaining);
         if (result.async) {
-          result.value.then(check2);
+          result.value.then(check3);
         } else {
-          setImmediate(check2);
+          setImmediate(check3);
         }
       };
-      check2();
+      check3();
     }
     function waitDiff(state, index2, expected, timeout, done) {
       const max = timeout === Infinity ? Infinity : Date.now() + timeout;
-      const check2 = () => {
+      const check3 = () => {
         const current = Atomics.load(state, index2);
         if (current !== expected) {
           done(null, "ok");
@@ -1994,13 +1994,13 @@ var require_wait = __commonJS({
               done(null, "ok");
               return;
             }
-            check2();
+            check3();
           });
         } else {
-          setImmediate(check2);
+          setImmediate(check3);
         }
       };
-      check2();
+      check3();
     }
     module.exports = { wait, waitDiff };
   }
@@ -9267,13 +9267,13 @@ var require_plugin = __commonJS({
         done();
         return;
       }
-      const check2 = () => {
+      const check3 = () => {
         debug("check", this.name, this.queue.length(), this.queue.running(), this._promise);
         if (this.queue.length() === 0 && this.queue.running() === 0) {
           if (this._promise) {
             const wrap = () => {
               debug("wrap");
-              queueMicrotask(check2);
+              queueMicrotask(check3);
             };
             this._promise.resolve();
             this._promise.promise.then(wrap, wrap);
@@ -9286,11 +9286,11 @@ var require_plugin = __commonJS({
           this.queue.drain = () => {
             debug("drain", this.name);
             this.queue.drain = noop3;
-            queueMicrotask(check2);
+            queueMicrotask(check3);
           };
         }
       };
-      queueMicrotask(check2);
+      queueMicrotask(check3);
       this.queue.resume();
     };
     function noop3() {
@@ -46033,9 +46033,14 @@ function createVercelHandler(app2) {
   };
 }
 var SERVERLESS_PLACEHOLDER_PORT = "3000";
+var SERVERLESS_DEFAULT_MESSAGING_DRIVER = "postgres";
 function withServerlessEnvDefaults(source = process.env) {
   if (!source.VERCEL) return source;
-  return { ...source, PORT: source.PORT ?? SERVERLESS_PLACEHOLDER_PORT };
+  return {
+    ...source,
+    PORT: source.PORT ?? SERVERLESS_PLACEHOLDER_PORT,
+    MESSAGING_DRIVER: source.MESSAGING_DRIVER ?? SERVERLESS_DEFAULT_MESSAGING_DRIVER
+  };
 }
 
 // node_modules/.pnpm/jose@6.2.12/node_modules/jose/dist/webapi/lib/buffer_utils.js
@@ -59563,8 +59568,8 @@ var ZodType = /* @__PURE__ */ $constructor("ZodType", (inst, def) => {
       reg.add(this, meta3);
       return this;
     },
-    refine(check2, params) {
-      return this.check(refine(check2, params));
+    refine(check3, params) {
+      return this.check(refine(check3, params));
     },
     superRefine(refinement, params) {
       return this.check(superRefine(refinement, params));
@@ -67121,6 +67126,33 @@ var pgTable = (name, columns, extraConfig) => {
   return pgTableWithSchema(name, columns, extraConfig, void 0);
 };
 
+// node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_postgres@3.4.9/node_modules/drizzle-orm/pg-core/checks.js
+var CheckBuilder = class {
+  constructor(name, value) {
+    this.name = name;
+    this.value = value;
+  }
+  static [entityKind] = "PgCheckBuilder";
+  brand;
+  /** @internal */
+  build(table2) {
+    return new Check(table2, this);
+  }
+};
+var Check = class {
+  constructor(table2, builder) {
+    this.table = table2;
+    this.name = builder.name;
+    this.value = builder.value;
+  }
+  static [entityKind] = "PgCheck";
+  name;
+  value;
+};
+function check2(name, value) {
+  return new CheckBuilder(name, value);
+}
+
 // node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_postgres@3.4.9/node_modules/drizzle-orm/pg-core/indexes.js
 var IndexBuilderOn = class {
   constructor(unique, name) {
@@ -71217,6 +71249,9 @@ __export(schema_exports, {
   contacts: () => contacts,
   contactsRelations: () => contactsRelations,
   employmentTypeEnum: () => employmentTypeEnum,
+  eventConsumers: () => eventConsumers,
+  eventDeliveries: () => eventDeliveries,
+  eventOutbox: () => eventOutbox,
   idempotencyKeys: () => idempotencyKeys,
   jobScores: () => jobScores,
   jobSourceEnum: () => jobSourceEnum,
@@ -71671,6 +71706,60 @@ var processedEvents = pgTable(
     index("processed_events_processed_at_idx").on(table2.processedAt)
   ]
 );
+var eventOutbox = pgTable(
+  "event_outbox",
+  {
+    eventId: uuid3("event_id").primaryKey(),
+    eventType: varchar("event_type", { length: 120 }).notNull(),
+    occurredAt: timestamp("occurred_at", { withTimezone: true, mode: "string" }).notNull(),
+    // The envelope's trace context, flattened so "what happened to trace X" is
+    // a plain indexed query. No FKs: the outbox must never block a user or
+    // organization deletion.
+    traceId: varchar("trace_id", { length: 100 }).notNull(),
+    correlationId: varchar("correlation_id", { length: 100 }).notNull(),
+    organizationId: uuid3("organization_id"),
+    userId: uuid3("user_id"),
+    payload: jsonb("payload").$type().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "string" }).notNull().defaultNow()
+  },
+  (table2) => [
+    // Drain cursor order (created_at, event_id), also the purge scan.
+    index("event_outbox_created_idx").on(table2.createdAt, table2.eventId),
+    // Fan-out for consumers that subscribe to a few of the event types.
+    index("event_outbox_type_created_idx").on(table2.eventType, table2.createdAt, table2.eventId),
+    index("event_outbox_trace_idx").on(table2.traceId)
+  ]
+);
+var eventConsumers = pgTable("event_consumers", {
+  consumer: varchar("consumer", { length: 160 }).primaryKey(),
+  eventTypes: text("event_types").array().notNull(),
+  materializedThrough: timestamp("materialized_through", { withTimezone: true, mode: "string" }).notNull().default(sql`'1970-01-01T00:00:00Z'`),
+  lastDrainedAt: timestamp("last_drained_at", { withTimezone: true, mode: "string" }),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "string" }).notNull().defaultNow()
+});
+var eventDeliveries = pgTable(
+  "event_deliveries",
+  {
+    eventId: uuid3("event_id").notNull().references(() => eventOutbox.eventId, { onDelete: "cascade" }),
+    consumer: varchar("consumer", { length: 160 }).notNull(),
+    status: varchar("status", { length: 16 }).notNull().default("pending"),
+    attempts: integer2("attempts").notNull().default(0),
+    /** Sanitized and truncated by the broker — never a raw driver message. */
+    lastError: text("last_error"),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
+    lockedUntil: timestamp("locked_until", { withTimezone: true, mode: "string" }),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" }).notNull().defaultNow()
+  },
+  (table2) => [
+    primaryKey({ columns: [table2.eventId, table2.consumer] }),
+    // The claim query: due pending work for a consumer, oldest first. Partial,
+    // so the (large, append-only) done history never bloats the hot path.
+    index("event_deliveries_claim_idx").on(table2.consumer, table2.nextAttemptAt).where(sql`${table2.status} = 'pending'`),
+    index("event_deliveries_dead_idx").on(table2.consumer, table2.updatedAt).where(sql`${table2.status} = 'dead'`),
+    check2("event_deliveries_status_check", sql`${table2.status} IN ('pending', 'done', 'dead')`)
+  ]
+);
 var connectorAccounts = pgTable(
   "connector_accounts",
   {
@@ -71768,7 +71857,7 @@ var redisEnvSchema = external_exports.object({
   REDIS_URL: external_exports.string().min(1).default("redis://localhost:6379")
 });
 var messagingEnvSchema = external_exports.object({
-  MESSAGING_DRIVER: external_exports.enum(["memory", "rabbitmq"]).default("memory"),
+  MESSAGING_DRIVER: external_exports.enum(["memory", "rabbitmq", "postgres"]).default("memory"),
   RABBITMQ_URL: external_exports.string().min(1).optional(),
   MESSAGING_EXCHANGE: external_exports.string().min(1).default("atlas.events"),
   MESSAGING_MAX_RETRIES: external_exports.coerce.number().int().min(0).max(20).default(5)
