@@ -4,7 +4,7 @@ import { requireAuth } from '@atlas/auth-kit';
 import { uuidSchema } from '@atlas/types';
 import { AppError } from '@atlas/utils';
 import type { AppDeps } from '../../app.js';
-import { findById, toJob } from '../../repo/jobs.js';
+import { companyNamesByIds, findById, toJob } from '../../repo/jobs.js';
 
 // A malformed id must be a 400 here, not reach Postgres as a uuid cast
 // failure (22P02) and surface as a 500.
@@ -17,6 +17,7 @@ export function getJobRoute(app: FastifyInstance, deps: AppDeps): void {
     if (!job) {
       throw new AppError('JOB_NOT_FOUND', 'Job not found');
     }
-    reply.status(200).send({ job: toJob(job) });
+    const companyNames = await companyNamesByIds(deps.db, [job.companyId]);
+    reply.status(200).send({ job: toJob(job, companyNames.get(job.companyId) ?? null) });
   });
 }

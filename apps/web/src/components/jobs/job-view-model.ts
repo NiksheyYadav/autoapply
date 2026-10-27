@@ -24,6 +24,18 @@ export function employmentTypeLabel(value: string): string {
   return (EMPLOYMENT_LABELS as Record<string, string>)[value] ?? value.replaceAll('_', ' ');
 }
 
+/**
+ * The employer to show for a job: the name the jobs API sent, else the one on an
+ * application's job summary (older responses), else nothing. Blank names count as absent.
+ */
+export function employerName(job: Pick<Job, 'company_name'>, fallback?: string | null): string | null {
+  for (const candidate of [job.company_name, fallback]) {
+    const trimmed = candidate?.trim();
+    if (trimmed) return trimmed;
+  }
+  return null;
+}
+
 /** 0–1 score -> whole percent, clamped; null for anything that isn't a finite number. */
 export function matchPercent(score: unknown): number | null {
   if (typeof score !== 'number' || !Number.isFinite(score)) return null;

@@ -16,7 +16,7 @@ import { Banknote, Briefcase, CalendarDays, Laptop, MapPin } from 'lucide-react'
 import * as React from 'react';
 import { JobDescription } from './JobDescription';
 import { JobMatchSummary } from './JobMatchSummary';
-import { employmentTypeLabel, formatSalary, remoteTypeLabel } from './job-view-model';
+import { employerName, employmentTypeLabel, formatSalary, remoteTypeLabel } from './job-view-model';
 
 function MetaItem({ icon: Icon, children }: { icon: typeof MapPin; children: React.ReactNode }) {
   return (
@@ -51,8 +51,7 @@ export function JobDetail({ job }: { job: Job }) {
 
   const salary = formatSalary(job);
   const posted = formatServiceDate(job.posted_at, { fallback: '' });
-  // The jobs API returns no company name; it's only known once an application's job summary has been loaded.
-  const companyName = application?.job?.company_name ?? null;
+  const companyName = employerName(job, application?.job?.company_name);
 
   return (
     <div className="mt-4 flex max-w-4xl flex-col gap-6">

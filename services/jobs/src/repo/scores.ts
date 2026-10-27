@@ -46,9 +46,10 @@ export async function listForUser(
   }
 
   const rows = await db
-    .select({ score: schema.jobScores, job: schema.jobs })
+    .select({ score: schema.jobScores, job: schema.jobs, companyName: schema.companies.name })
     .from(schema.jobScores)
     .innerJoin(schema.jobs, eq(schema.jobScores.jobId, schema.jobs.jobId))
+    .leftJoin(schema.companies, eq(schema.jobs.companyId, schema.companies.companyId))
     .where(and(...conditions))
     .orderBy(desc(schema.jobScores.score), desc(schema.jobScores.jobId))
     .limit(pagination.limit + 1);
@@ -56,7 +57,7 @@ export async function listForUser(
   const hasMore = rows.length > pagination.limit;
   const page = hasMore ? rows.slice(0, pagination.limit) : rows;
   const items: JobRecommendation[] = page.map((row) => ({
-    job: toJob(row.job),
+    job: toJob(row.job, row.companyName),
     score: row.score.score,
     reasons: row.score.reasons,
   }));

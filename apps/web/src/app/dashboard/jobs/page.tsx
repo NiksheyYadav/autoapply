@@ -4,6 +4,7 @@ import { useSession } from '@/lib/auth-context';
 import { getRecommendations } from '@/lib/services/jobs';
 import { useResource } from '@/lib/use-resource';
 import { ResourceError } from '@/components/dashboard/ResourceError';
+import { employerName } from '@/components/jobs/job-view-model';
 import { SkeletonGroup } from '@/components/dashboard/SkeletonGroup';
 import { Badge, Card, CardDescription, CardTitle, ProgressRing, Skeleton, fadeUp, staggerContainer } from '@atlas/ui';
 import { motion } from 'framer-motion';
@@ -54,6 +55,9 @@ export default function JobsPage() {
                       {job.title}
                     </Link>
                   </CardTitle>
+                  {employerName(job) ? (
+                    <p className="mt-0.5 text-sm text-[var(--color-ink-soft)]">{employerName(job)}</p>
+                  ) : null}
                   <CardDescription className="mt-1">
                     {job.location ?? 'Location unspecified'} · {job.remote_type}
                   </CardDescription>

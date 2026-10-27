@@ -195,6 +195,8 @@ describe.skipIf(!testDatabaseUrl)('jobs-service HTTP flow', () => {
     expect(listRes.statusCode).toBe(200);
     const found = listRes.json().items.find((j: { title: string }) => j.title === 'Staff Backend Engineer');
     expect(found).toBeDefined();
+    // The list names the employer, so a client does not need a second lookup per job.
+    expect(found.company_name).toBe(companyName);
 
     const getRes = await app.inject({
       method: 'GET',
@@ -203,6 +205,7 @@ describe.skipIf(!testDatabaseUrl)('jobs-service HTTP flow', () => {
     });
     expect(getRes.statusCode).toBe(200);
     expect(getRes.json().job.remote_type).toBe('remote');
+    expect(getRes.json().job.company_name).toBe(companyName);
     expect(getRes.json().job.skills).toEqual(expect.arrayContaining([]));
   });
 

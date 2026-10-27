@@ -5,10 +5,25 @@ import { decodeCursor, encodeCursor } from '@atlas/utils';
 
 type JobRow = typeof schema.jobs.$inferSelect;
 
-export function toJob(row: JobRow): Job {
+/** `company_id` to display name for the given companies, in one query. Ids with no row are absent. */
+export async function companyNamesByIds(db: Database, companyIds: readonly string[]): Promise<Map<string, string>> {
+  const names = new Map<string, string>();
+  const unique = [...new Set(companyIds)];
+  if (unique.length === 0) return names;
+  const rows = await db
+    .select({ companyId: schema.companies.companyId, name: schema.companies.name })
+    .from(schema.companies)
+    .where(inArray(schema.companies.companyId, unique));
+  for (const row of rows) names.set(row.companyId, row.name);
+  return names;
+}
+
+/** `companyName` is the employer's display name; `null` when its company row is gone. */
+export function toJob(row: JobRow, companyName: string | null = null): Job {
   return {
     job_id: row.jobId,
     company_id: row.companyId,
+    company_name: companyName,
     title: row.title,
     description: row.description,
     salary_min: row.salaryMin,

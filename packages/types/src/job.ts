@@ -27,6 +27,12 @@ export type SalaryRange = z.infer<typeof salaryRangeSchema>;
 export const jobSchema = z.object({
   job_id: uuidSchema,
   company_id: uuidSchema,
+  /**
+   * The employer's display name, filled in by the jobs service on every read so
+   * a client can show who is hiring without a second lookup. `null` if the
+   * company row is gone; absent where the job comes from another service.
+   */
+  company_name: z.string().min(1).max(300).nullable().optional(),
   title: z.string().min(1).max(300),
   description: z.string().nullable(),
   salary_min: z.number().int().min(0).nullable(),

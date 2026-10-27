@@ -49,6 +49,12 @@ describe.skipIf(!testDatabaseUrl)('recommendations and deactivated postings, aga
     expect(page.nextCursor).toBeNull();
   });
 
+  it('names the employer on every recommended job', async () => {
+    const page = await listForUser(dbHandle.db, userId, {}, { limit: 10 });
+
+    expect(page.items.map((item) => item.job.company_name)).toEqual([companyName]);
+  });
+
   it('recommends it again if its source lists it again', async () => {
     await dbHandle.db.update(schema.jobs).set({ isActive: true }).where(eq(schema.jobs.title, `Closed ${tag}`));
 

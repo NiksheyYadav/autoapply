@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   descriptionToParagraphs,
+  employerName,
   employmentTypeLabel,
   formatSalary,
   matchPercent,
@@ -119,5 +120,24 @@ describe('paragraphsLength', () => {
   it('sums the characters', () => {
     expect(paragraphsLength(['abc', 'de'])).toBe(5);
     expect(paragraphsLength([])).toBe(0);
+  });
+});
+
+describe('employerName', () => {
+  it('prefers the name the jobs API sent', () => {
+    expect(employerName({ company_name: 'Acme' }, 'Other Co')).toBe('Acme');
+  });
+
+  it('falls back to the application summary when the job has no name', () => {
+    expect(employerName({ company_name: null }, 'Other Co')).toBe('Other Co');
+    expect(employerName({}, 'Other Co')).toBe('Other Co');
+  });
+
+  it.each([[null], [undefined], [''], ['   ']])('treats %j as no name', (blank) => {
+    expect(employerName({ company_name: blank }, blank)).toBeNull();
+  });
+
+  it('trims surrounding whitespace', () => {
+    expect(employerName({ company_name: '  Acme  ' })).toBe('Acme');
   });
 });
