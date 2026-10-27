@@ -10463,13 +10463,13 @@ var require_format = __commonJS({
     var defs = require_defs();
     var format = __require("util").format;
     var HEARTBEAT = require_frame().HEARTBEAT;
-    module.exports.closeMessage = function(close) {
-      var code = close.fields.replyCode;
+    module.exports.closeMessage = function(close2) {
+      var code = close2.fields.replyCode;
       return format(
         '%d (%s) with message "%s"',
         code,
         defs.constant_strs[code],
-        close.fields.replyText
+        close2.fields.replyText
       );
     };
     module.exports.methodName = function(id) {
@@ -21626,8 +21626,8 @@ var require_log_controller = __commonJS({
        * @param {import('../fastify').FastifyBaseLogger} logger
        * @param {import('../fastify').FastifyInstance} server
        */
-      serviceUnavailable(logger, server) {
-        logger.info({ res: { statusCode: 503 } }, "request aborted - refusing to accept new requests as server is closing");
+      serviceUnavailable(logger2, server) {
+        logger2.info({ res: { statusCode: 503 } }, "request aborted - refusing to accept new requests as server is closing");
       }
     };
     module.exports = { LogController };
@@ -21674,20 +21674,20 @@ var require_logger_pino = __commonJS({
       }
       const prevLogger = opts.logger;
       const prevGenReqId = opts.genReqId;
-      let logger = null;
+      let logger2 = null;
       if (prevLogger) {
         opts.logger = void 0;
         opts.genReqId = void 0;
         if (prevLogger[serializersSym]) {
           opts.serializers = Object.assign({}, opts.serializers, prevLogger[serializersSym]);
         }
-        logger = prevLogger.child({}, opts);
+        logger2 = prevLogger.child({}, opts);
         opts.logger = prevLogger;
         opts.genReqId = prevGenReqId;
       } else {
-        logger = pino2(opts, opts.stream);
+        logger2 = pino2(opts, opts.stream);
       }
-      return logger;
+      return logger2;
     }
     var serializers2 = {
       req: function asReqValue(req) {
@@ -21730,22 +21730,22 @@ var require_logger_factory = __commonJS({
       kLogController
     } = require_symbols3();
     var { LogController } = require_log_controller();
-    function createChildLogger(context2, logger, req, reqId, loggerOpts) {
+    function createChildLogger(context2, logger2, req, reqId, loggerOpts) {
       const loggerBindings = {
         [context2.server[kLogController].requestIdLogLabel]: reqId
       };
-      const child = context2.childLoggerFactory.call(context2.server, logger, loggerBindings, loggerOpts || {}, req);
+      const child = context2.childLoggerFactory.call(context2.server, logger2, loggerBindings, loggerOpts || {}, req);
       if (context2.childLoggerFactory !== defaultChildLoggerFactory) {
         validateLogger(child, true);
       }
       return child;
     }
-    function defaultChildLoggerFactory(logger, bindings, opts) {
-      return logger.child(bindings, opts);
+    function defaultChildLoggerFactory(logger2, bindings, opts) {
+      return logger2.child(bindings, opts);
     }
-    function validateLogger(logger, strict) {
+    function validateLogger(logger2, strict) {
       const methods = ["info", "error", "debug", "fatal", "warn", "trace", "child"];
-      const missingMethods = logger ? methods.filter((method) => !logger[method] || typeof logger[method] !== "function") : methods;
+      const missingMethods = logger2 ? methods.filter((method) => !logger2[method] || typeof logger2[method] !== "function") : methods;
       if (!missingMethods.length) {
         return true;
       } else if (missingMethods.length === methods.length && !strict) {
@@ -21760,17 +21760,17 @@ var require_logger_factory = __commonJS({
       }
       if (!options.loggerInstance && !options.logger) {
         const nullLogger = require_abstract_logging();
-        const logger2 = nullLogger;
-        logger2.child = () => logger2;
-        return { logger: logger2, hasLogger: false };
+        const logger3 = nullLogger;
+        logger3.child = () => logger3;
+        return { logger: logger3, hasLogger: false };
       }
       const { createPinoLogger, serializers: serializers2 } = require_logger_pino();
       if (validateLogger(options.loggerInstance)) {
-        const logger2 = createPinoLogger({
+        const logger3 = createPinoLogger({
           logger: options.loggerInstance,
           serializers: Object.assign({}, serializers2, options.loggerInstance.serializers)
         });
-        return { logger: logger2, hasLogger: true };
+        return { logger: logger3, hasLogger: true };
       }
       if (validateLogger(options.logger)) {
         throw FST_ERR_LOG_INVALID_LOGGER_CONFIG();
@@ -21792,8 +21792,8 @@ var require_logger_factory = __commonJS({
       localLoggerOptions.level = localLoggerOptions.level || "info";
       localLoggerOptions.serializers = Object.assign({}, serializers2, localLoggerOptions.serializers);
       options.logger = localLoggerOptions;
-      const logger = createPinoLogger(options.logger);
-      return { logger, hasLogger: true };
+      const logger2 = createPinoLogger(options.logger);
+      return { logger: logger2, hasLogger: true };
     }
     function createLogController(options) {
       const userController = options.logController;
@@ -22204,8 +22204,8 @@ var require_error_serializer = __commonJS({
         json3 += JSON_STR_END_OBJECT;
         return json3;
       }
-      const main2 = anonymous0;
-      return main2;
+      const main = anonymous0;
+      return main;
     }(validator, serializer);
   }
 });
@@ -28097,20 +28097,20 @@ var require_compile = __commonJS({
     var util_1 = require_util();
     var validate_1 = require_validate();
     var SchemaEnv = class {
-      constructor(env) {
+      constructor(env2) {
         var _a3;
         this.refs = {};
         this.dynamicAnchors = {};
         let schema;
-        if (typeof env.schema == "object")
-          schema = env.schema;
-        this.schema = env.schema;
-        this.schemaId = env.schemaId;
-        this.root = env.root || this;
-        this.baseId = (_a3 = env.baseId) !== null && _a3 !== void 0 ? _a3 : (0, resolve_1.normalizeId)(schema === null || schema === void 0 ? void 0 : schema[env.schemaId || "$id"]);
-        this.schemaPath = env.schemaPath;
-        this.localRefs = env.localRefs;
-        this.meta = env.meta;
+        if (typeof env2.schema == "object")
+          schema = env2.schema;
+        this.schema = env2.schema;
+        this.schemaId = env2.schemaId;
+        this.root = env2.root || this;
+        this.baseId = (_a3 = env2.baseId) !== null && _a3 !== void 0 ? _a3 : (0, resolve_1.normalizeId)(schema === null || schema === void 0 ? void 0 : schema[env2.schemaId || "$id"]);
+        this.schemaPath = env2.schemaPath;
+        this.localRefs = env2.localRefs;
+        this.meta = env2.meta;
         this.$async = schema === null || schema === void 0 ? void 0 : schema.$async;
         this.refs = {};
       }
@@ -28294,15 +28294,15 @@ var require_compile = __commonJS({
           baseId = (0, resolve_1.resolveUrl)(this.opts.uriResolver, baseId, schId);
         }
       }
-      let env;
+      let env2;
       if (typeof schema != "boolean" && schema.$ref && !(0, util_1.schemaHasRulesButRef)(schema, this.RULES)) {
         const $ref = (0, resolve_1.resolveUrl)(this.opts.uriResolver, baseId, schema.$ref);
-        env = resolveSchema.call(this, root, $ref);
+        env2 = resolveSchema.call(this, root, $ref);
       }
       const { schemaId } = this.opts;
-      env = env || new SchemaEnv({ schema, schemaId, root, baseId });
-      if (env.schema !== env.root.schema)
-        return env;
+      env2 = env2 || new SchemaEnv({ schema, schemaId, root, baseId });
+      if (env2.schema !== env2.root.schema)
+        return env2;
       return void 0;
     }
   }
@@ -29989,13 +29989,13 @@ var require_core = __commonJS({
     }, warn() {
     }, error() {
     } };
-    function getLogger(logger) {
-      if (logger === false)
+    function getLogger(logger2) {
+      if (logger2 === false)
         return noLogs;
-      if (logger === void 0)
+      if (logger2 === void 0)
         return console;
-      if (logger.log && logger.warn && logger.error)
-        return logger;
+      if (logger2.log && logger2.warn && logger2.error)
+        return logger2;
       throw new Error("logger must implement log, warn and error methods");
     }
     var KEYWORD_NAME = /^[a-z_$][a-z0-9_$:-]*$/i;
@@ -30100,8 +30100,8 @@ var require_ref = __commonJS({
       schemaType: "string",
       code(cxt) {
         const { gen, schema: $ref, it } = cxt;
-        const { baseId, schemaEnv: env, validateName, opts, self: self2 } = it;
-        const { root } = env;
+        const { baseId, schemaEnv: env2, validateName, opts, self: self2 } = it;
+        const { root } = env2;
         if (($ref === "#" || $ref === "#/") && baseId === root.baseId)
           return callRootRef();
         const schOrEnv = compile_1.resolveRef.call(self2, root, baseId, $ref);
@@ -30111,8 +30111,8 @@ var require_ref = __commonJS({
           return callValidate(schOrEnv);
         return inlineRefSchema(schOrEnv);
         function callRootRef() {
-          if (env === root)
-            return callRef(cxt, validateName, env, env.$async);
+          if (env2 === root)
+            return callRef(cxt, validateName, env2, env2.$async);
           const rootName = gen.scopeValue("root", { ref: root });
           return callRef(cxt, (0, codegen_1._)`${rootName}.validate`, root, root.$async);
         }
@@ -30142,14 +30142,14 @@ var require_ref = __commonJS({
     exports.getValidate = getValidate;
     function callRef(cxt, v, sch, $async) {
       const { gen, it } = cxt;
-      const { allErrors, schemaEnv: env, opts } = it;
+      const { allErrors, schemaEnv: env2, opts } = it;
       const passCxt = opts.passContext ? names_1.default.this : codegen_1.nil;
       if ($async)
         callAsyncRef();
       else
         callSyncRef();
       function callAsyncRef() {
-        if (!env.$async)
+        if (!env2.$async)
           throw new Error("async schema referenced by sync schema");
         const valid = gen.let("valid");
         gen.try(() => {
@@ -44649,7 +44649,7 @@ var require_route = __commonJS({
       const router = FindMyWay(options);
       let avvio;
       let fourOhFour;
-      let logger;
+      let logger2;
       let hasLogger;
       let setupResponseListeners;
       let throwIfAlreadyStarted;
@@ -44667,7 +44667,7 @@ var require_route = __commonJS({
         setup(options2, fastifyArgs) {
           avvio = fastifyArgs.avvio;
           fourOhFour = fastifyArgs.fourOhFour;
-          logger = options2.logger;
+          logger2 = options2.logger;
           hasLogger = fastifyArgs.hasLogger;
           setupResponseListeners = fastifyArgs.setupResponseListeners;
           throwIfAlreadyStarted = fastifyArgs.throwIfAlreadyStarted;
@@ -44811,7 +44811,7 @@ var require_route = __commonJS({
           opts.routePath = path2;
           opts.prefix = prefix;
           opts.logLevel = opts.logLevel || this[kLogLevel];
-          validateLogLevelOption(opts.logLevel, opts.method, opts.url, logger);
+          validateLogLevelOption(opts.logLevel, opts.method, opts.url, logger2);
           if (this[kLogSerializers] || opts.logSerializers) {
             opts.logSerializers = Object.assign(Object.create(this[kLogSerializers]), opts.logSerializers);
           }
@@ -44949,7 +44949,7 @@ var require_route = __commonJS({
         const id = getGenReqId(context2.server, req);
         let childLogger;
         if (hasLogger === false && context2.childLoggerFactory === defaultChildLoggerFactory) {
-          childLogger = logger;
+          childLogger = logger2;
         } else {
           const loggerOpts = {
             level: context2.logLevel
@@ -44957,7 +44957,7 @@ var require_route = __commonJS({
           if (context2.logSerializers) {
             loggerOpts.serializers = context2.logSerializers;
           }
-          childLogger = createChildLogger(context2, logger, req, id, loggerOpts);
+          childLogger = createChildLogger(context2, logger2, req, id, loggerOpts);
         }
         if (closing === true) {
           if (req.httpVersionMajor !== 2) {
@@ -45082,10 +45082,10 @@ var require_route = __commonJS({
         throw new FST_ERR_ROUTE_HANDLER_TIMEOUT_OPTION_NOT_INT(handlerTimeout);
       }
     }
-    function validateLogLevelOption(logLevel, method, path, logger) {
+    function validateLogLevelOption(logLevel, method, path, logger2) {
       if (logLevel == null || logLevel === "") return;
-      if (logger?.levels?.values == null) return;
-      if (typeof logLevel !== "string" || logger.levels.values[logLevel] === void 0) {
+      if (logger2?.levels?.values == null) return;
+      if (typeof logLevel !== "string" || logger2.levels.values[logLevel] === void 0) {
         throw new FST_ERR_ROUTE_LOG_LEVEL_INVALID(method, path, logLevel);
       }
     }
@@ -45150,7 +45150,7 @@ var require_four_oh_four = __commonJS({
     var { createChildLogger } = require_logger_factory();
     var { getGenReqId } = require_req_id_gen_factory();
     function fourOhFour(options) {
-      const { logger } = options;
+      const { logger: logger2 } = options;
       const router = FindMyWay({
         onBadUrl: options.routerOptions.onBadUrl,
         onMaxParamLength: options.routerOptions.onMaxParamLength,
@@ -45246,7 +45246,7 @@ var require_four_oh_four = __commonJS({
       function fourOhFourFallBack(req, res) {
         const fourOhFourContext = this[kFourOhFourLevelInstance][kFourOhFourContext];
         const id = getGenReqId(fourOhFourContext.server, req);
-        const childLogger = createChildLogger(fourOhFourContext, logger, req, id);
+        const childLogger = createChildLogger(fourOhFourContext, logger2, req, id);
         const request = new Request(id, null, req, null, childLogger, fourOhFourContext);
         const reply = new Reply(res, request, childLogger);
         fourOhFourContext.server[kLogController].incomingRequest(request, reply);
@@ -47955,7 +47955,7 @@ var require_fastify = __commonJS({
         opts.includeMeta = opts.includeHooks ? opts.includeMeta ? supportedHooks.concat(opts.includeMeta) : supportedHooks : opts.includeMeta;
         return router.printRoutes(opts);
       }
-      function wrapRouting(router2, { rewriteUrl, logger }) {
+      function wrapRouting(router2, { rewriteUrl, logger: logger2 }) {
         let isAsync;
         return function preRouting(req, res) {
           if (isAsync === void 0) isAsync = router2.isAsyncConstraint();
@@ -48033,13 +48033,13 @@ var require_fastify = __commonJS({
       if (!ajvOptions.plugins || !Array.isArray(ajvOptions.plugins)) {
         throw new FST_ERR_AJV_CUSTOM_OPTIONS_OPT_NOT_ARR(typeof ajvOptions.plugins);
       }
-      const { logger, hasLogger } = createLogger2(options);
+      const { logger: logger2, hasLogger } = createLogger2(options);
       const logController = createLogController(options);
       options.connectionTimeout = options.connectionTimeout || defaultInitOptions.connectionTimeout;
       options.keepAliveTimeout = options.keepAliveTimeout || defaultInitOptions.keepAliveTimeout;
       options.maxRequestsPerSocket = options.maxRequestsPerSocket || defaultInitOptions.maxRequestsPerSocket;
       options.requestTimeout = options.requestTimeout || defaultInitOptions.requestTimeout;
-      options.logger = logger;
+      options.logger = logger2;
       options.requestIdHeader = requestIdHeader;
       options.ajv = ajvOptions;
       options.clientErrorHandler = options.clientErrorHandler || defaultClientErrorHandler;
@@ -50747,11 +50747,11 @@ var init_global_utils = __esm({
 
 // node_modules/.pnpm/@opentelemetry+api@1.9.1/node_modules/@opentelemetry/api/build/esm/diag/ComponentLogger.js
 function logProxy(funcName, namespace, args) {
-  const logger = getGlobal("diag");
-  if (!logger) {
+  const logger2 = getGlobal("diag");
+  if (!logger2) {
     return;
   }
-  return logger[funcName](namespace, ...args);
+  return logger2[funcName](namespace, ...args);
 }
 var DiagComponentLogger;
 var init_ComponentLogger = __esm({
@@ -50797,17 +50797,17 @@ var init_types = __esm({
 });
 
 // node_modules/.pnpm/@opentelemetry+api@1.9.1/node_modules/@opentelemetry/api/build/esm/diag/internal/logLevelLogger.js
-function createLogLevelDiagLogger(maxLevel, logger) {
+function createLogLevelDiagLogger(maxLevel, logger2) {
   if (maxLevel < DiagLogLevel.NONE) {
     maxLevel = DiagLogLevel.NONE;
   } else if (maxLevel > DiagLogLevel.ALL) {
     maxLevel = DiagLogLevel.ALL;
   }
-  logger = logger || {};
+  logger2 = logger2 || {};
   function _filterFunc(funcName, theLevel) {
-    const theFunc = logger[funcName];
+    const theFunc = logger2[funcName];
     if (typeof theFunc === "function" && maxLevel >= theLevel) {
-      return theFunc.bind(logger);
+      return theFunc.bind(logger2);
     }
     return function() {
     };
@@ -50850,16 +50850,16 @@ var init_diag = __esm({
       constructor() {
         function _logProxy(funcName) {
           return function(...args) {
-            const logger = getGlobal("diag");
-            if (!logger)
+            const logger2 = getGlobal("diag");
+            if (!logger2)
               return;
-            return logger[funcName](...args);
+            return logger2[funcName](...args);
           };
         }
         const self2 = this;
-        const setLogger = (logger, optionsOrLogLevel = { logLevel: DiagLogLevel.INFO }) => {
+        const setLogger = (logger2, optionsOrLogLevel = { logLevel: DiagLogLevel.INFO }) => {
           var _a3, _b, _c;
-          if (logger === self2) {
+          if (logger2 === self2) {
             const err = new Error("Cannot use diag as the logger for itself. Please use a DiagLogger implementation like ConsoleDiagLogger or a custom implementation");
             self2.error((_a3 = err.stack) !== null && _a3 !== void 0 ? _a3 : err.message);
             return false;
@@ -50870,7 +50870,7 @@ var init_diag = __esm({
             };
           }
           const oldLogger = getGlobal("diag");
-          const newLogger = createLogLevelDiagLogger((_b = optionsOrLogLevel.logLevel) !== null && _b !== void 0 ? _b : DiagLogLevel.INFO, logger);
+          const newLogger = createLogLevelDiagLogger((_b = optionsOrLogLevel.logLevel) !== null && _b !== void 0 ? _b : DiagLogLevel.INFO, logger2);
           if (oldLogger && !optionsOrLogLevel.suppressOverrideMessage) {
             const stack = (_c = new Error().stack) !== null && _c !== void 0 ? _c : "<failed to generate stacktrace>";
             oldLogger.warn(`Current logger will be overwritten from ${stack}`);
@@ -55265,7 +55265,7 @@ var noop2 = () => {
 function Subscribe(postgres2, options) {
   const subscribers = /* @__PURE__ */ new Map(), slot = "postgresjs_" + Math.random().toString(36).slice(2), state = {};
   let connection2, stream, ended = false;
-  const sql2 = subscribe.sql = postgres2({
+  const sql3 = subscribe.sql = postgres2({
     ...options,
     transform: { column: {}, value: {}, row: {} },
     max: 1,
@@ -55281,26 +55281,26 @@ function Subscribe(postgres2, options) {
         return;
       stream = null;
       state.pid = state.secret = void 0;
-      connected(await init(sql2, slot, options.publications));
+      connected(await init(sql3, slot, options.publications));
       subscribers.forEach((event) => event.forEach(({ onsubscribe }) => onsubscribe()));
     },
     no_subscribe: true
   });
-  const end = sql2.end, close = sql2.close;
-  sql2.end = async () => {
+  const end = sql3.end, close2 = sql3.close;
+  sql3.end = async () => {
     ended = true;
     stream && await new Promise((r) => (stream.once("close", r), stream.end()));
     return end();
   };
-  sql2.close = async () => {
+  sql3.close = async () => {
     stream && await new Promise((r) => (stream.once("close", r), stream.end()));
-    return close();
+    return close2();
   };
   return subscribe;
   async function subscribe(event, fn, onsubscribe = noop2, onerror = noop2) {
     event = parseEvent(event);
     if (!connection2)
-      connection2 = init(sql2, slot, options.publications);
+      connection2 = init(sql3, slot, options.publications);
     const subscriber = { fn, onsubscribe };
     const fns = subscribers.has(event) ? subscribers.get(event).add(subscriber) : subscribers.set(event, /* @__PURE__ */ new Set([subscriber])).get(event);
     const unsubscribe = () => {
@@ -55311,7 +55311,7 @@ function Subscribe(postgres2, options) {
       connected(x);
       onsubscribe();
       stream && stream.on("error", onerror);
-      return { unsubscribe, state, sql: sql2 };
+      return { unsubscribe, state, sql: sql3 };
     });
   }
   function connected(x) {
@@ -55319,14 +55319,14 @@ function Subscribe(postgres2, options) {
     state.pid = x.state.pid;
     state.secret = x.state.secret;
   }
-  async function init(sql3, slot2, publications) {
+  async function init(sql4, slot2, publications) {
     if (!publications)
       throw new Error("Missing publication names");
-    const xs = await sql3.unsafe(
+    const xs = await sql4.unsafe(
       `CREATE_REPLICATION_SLOT ${slot2} TEMPORARY LOGICAL pgoutput NOEXPORT_SNAPSHOT`
     );
     const [x] = xs;
-    const stream2 = await sql3.unsafe(
+    const stream2 = await sql4.unsafe(
       `START_REPLICATION SLOT ${slot2} LOGICAL ${x.consistent_point} (proto_version '1', publication_names '${publications}')`
     ).writable();
     const state2 = {
@@ -55334,14 +55334,14 @@ function Subscribe(postgres2, options) {
     };
     stream2.on("data", data);
     stream2.on("error", error51);
-    stream2.on("close", sql3.close);
+    stream2.on("close", sql4.close);
     return { stream: stream2, state: xs.state };
     function error51(e) {
       console.error("Unexpected error during logical streaming - reconnecting", e);
     }
     function data(x2) {
       if (x2[0] === 119) {
-        parse(x2.subarray(25), state2, sql3.options.parsers, handle, options.transform);
+        parse(x2.subarray(25), state2, sql4.options.parsers, handle, options.transform);
       } else if (x2[0] === 107 && x2[17]) {
         state2.lsn = x2.subarray(1, 9);
         pong();
@@ -55473,22 +55473,22 @@ function parseEvent(x) {
 
 // node_modules/.pnpm/postgres@3.4.9/node_modules/postgres/src/large.js
 import Stream2 from "stream";
-function largeObject(sql2, oid, mode = 131072 | 262144) {
+function largeObject(sql3, oid, mode = 131072 | 262144) {
   return new Promise(async (resolve, reject) => {
-    await sql2.begin(async (sql3) => {
+    await sql3.begin(async (sql4) => {
       let finish;
-      !oid && ([{ oid }] = await sql3`select lo_creat(-1) as oid`);
-      const [{ fd }] = await sql3`select lo_open(${oid}, ${mode}) as fd`;
+      !oid && ([{ oid }] = await sql4`select lo_creat(-1) as oid`);
+      const [{ fd }] = await sql4`select lo_open(${oid}, ${mode}) as fd`;
       const lo = {
         writable,
         readable,
-        close: () => sql3`select lo_close(${fd})`.then(finish),
-        tell: () => sql3`select lo_tell64(${fd})`,
-        read: (x) => sql3`select loread(${fd}, ${x}) as data`,
-        write: (x) => sql3`select lowrite(${fd}, ${x})`,
-        truncate: (x) => sql3`select lo_truncate64(${fd}, ${x})`,
-        seek: (x, whence = 0) => sql3`select lo_lseek64(${fd}, ${x}, ${whence})`,
-        size: () => sql3`
+        close: () => sql4`select lo_close(${fd})`.then(finish),
+        tell: () => sql4`select lo_tell64(${fd})`,
+        read: (x) => sql4`select loread(${fd}, ${x}) as data`,
+        write: (x) => sql4`select lowrite(${fd}, ${x})`,
+        truncate: (x) => sql4`select lo_truncate64(${fd}, ${x})`,
+        seek: (x, whence = 0) => sql4`select lo_lseek64(${fd}, ${x}, ${whence})`,
+        size: () => sql4`
           select
             lo_lseek64(${fd}, location, 0) as position,
             seek.size
@@ -55563,12 +55563,12 @@ function Postgres(a, b2) {
   let ending = false;
   const queries = queue_default(), connecting = queue_default(), reserved = queue_default(), closed = queue_default(), ended = queue_default(), open = queue_default(), busy = queue_default(), full = queue_default(), queues = { connecting, reserved, closed, ended, open, busy, full };
   const connections = [...Array(options.max)].map(() => connection_default(options, queues, { onopen, onend, onclose }));
-  const sql2 = Sql(handler);
-  Object.assign(sql2, {
+  const sql3 = Sql(handler);
+  Object.assign(sql3, {
     get parameters() {
       return options.parameters;
     },
-    largeObject: largeObject.bind(null, sql2),
+    largeObject: largeObject.bind(null, sql3),
     subscribe,
     CLOSE,
     END: CLOSE,
@@ -55577,17 +55577,17 @@ function Postgres(a, b2) {
     reserve,
     listen,
     begin,
-    close,
+    close: close2,
     end
   });
-  return sql2;
+  return sql3;
   function Sql(handler2) {
     handler2.debug = options.debug;
     Object.entries(options.types).reduce((acc, [name, type]) => {
       acc[name] = (x) => new Parameter(x, type.to);
       return acc;
     }, typed);
-    Object.assign(sql3, {
+    Object.assign(sql4, {
       types: typed,
       typed,
       unsafe,
@@ -55596,11 +55596,11 @@ function Postgres(a, b2) {
       json: json3,
       file: file2
     });
-    return sql3;
+    return sql4;
     function typed(value, type) {
       return new Parameter(value, type);
     }
-    function sql3(strings, ...args) {
+    function sql4(strings, ...args) {
       const query = strings && Array.isArray(strings.raw) ? new Query(strings, args, handler2, cancel) : typeof strings === "string" && !args.length ? new Identifier(options.transform.column.to ? options.transform.column.to(strings) : strings) : new Builder(strings, args);
       return query;
     }
@@ -55631,7 +55631,7 @@ function Postgres(a, b2) {
   }
   async function listen(name, fn, onlisten) {
     const listener = { fn, onlisten };
-    const sql3 = listen.sql || (listen.sql = Postgres({
+    const sql4 = listen.sql || (listen.sql = Postgres({
       ...options,
       max: 1,
       idle_timeout: null,
@@ -55655,7 +55655,7 @@ function Postgres(a, b2) {
       listener.onlisten && listener.onlisten();
       return { state: result2.state, unlisten };
     }
-    channels[name] = { result: sql3`listen ${sql3.unsafe('"' + name.replace(/"/g, '""') + '"')}`, listeners: [listener] };
+    channels[name] = { result: sql4`listen ${sql4.unsafe('"' + name.replace(/"/g, '""') + '"')}`, listeners: [listener] };
     const result = await channels[name].result;
     listener.onlisten && listener.onlisten();
     return { state: result.state, unlisten };
@@ -55666,11 +55666,11 @@ function Postgres(a, b2) {
       if (channels[name].listeners.length)
         return;
       delete channels[name];
-      return sql3`unlisten ${sql3.unsafe('"' + name.replace(/"/g, '""') + '"')}`;
+      return sql4`unlisten ${sql4.unsafe('"' + name.replace(/"/g, '""') + '"')}`;
     }
   }
   async function notify(channel, payload) {
-    return await sql2`select pg_notify(${channel}, ${"" + payload})`;
+    return await sql3`select pg_notify(${channel}, ${"" + payload})`;
   }
   async function reserve() {
     const queue = queue_default();
@@ -55682,12 +55682,12 @@ function Postgres(a, b2) {
     move(c, reserved);
     c.reserved = () => queue.length ? c.execute(queue.shift()) : move(c, reserved);
     c.reserved.release = true;
-    const sql3 = Sql(handler2);
-    sql3.release = () => {
+    const sql4 = Sql(handler2);
+    sql4.release = () => {
       c.reserved = null;
       onopen(c);
     };
-    return sql3;
+    return sql4;
     function handler2(q) {
       c.queue === full ? queue.push(q) : c.execute(q) || move(c, full);
     }
@@ -55697,7 +55697,7 @@ function Postgres(a, b2) {
     const queries2 = queue_default();
     let savepoints = 0, connection2, prepare = null;
     try {
-      await sql2.unsafe("begin " + options2.replace(/[^a-z ]/ig, ""), [], { onexecute }).execute();
+      await sql3.unsafe("begin " + options2.replace(/[^a-z ]/ig, ""), [], { onexecute }).execute();
       return await Promise.race([
         scope(connection2, fn),
         new Promise((_, reject) => connection2.onclose = reject)
@@ -55706,29 +55706,29 @@ function Postgres(a, b2) {
       throw error51;
     }
     async function scope(c, fn2, name) {
-      const sql3 = Sql(handler2);
-      sql3.savepoint = savepoint;
-      sql3.prepare = (x) => prepare = x.replace(/[^a-z0-9$-_. ]/gi);
+      const sql4 = Sql(handler2);
+      sql4.savepoint = savepoint;
+      sql4.prepare = (x) => prepare = x.replace(/[^a-z0-9$-_. ]/gi);
       let uncaughtError, result;
-      name && await sql3`savepoint ${sql3(name)}`;
+      name && await sql4`savepoint ${sql4(name)}`;
       try {
         result = await new Promise((resolve, reject) => {
-          const x = fn2(sql3);
+          const x = fn2(sql4);
           Promise.resolve(Array.isArray(x) ? Promise.all(x) : x).then(resolve, reject);
         });
         if (uncaughtError)
           throw uncaughtError;
       } catch (e) {
-        await (name ? sql3`rollback to ${sql3(name)}` : sql3`rollback`);
+        await (name ? sql4`rollback to ${sql4(name)}` : sql4`rollback`);
         throw e instanceof PostgresError && e.code === "25P02" && uncaughtError || e;
       }
       if (!name) {
-        prepare ? await sql3`prepare transaction '${sql3.unsafe(prepare)}'` : await sql3`commit`;
+        prepare ? await sql4`prepare transaction '${sql4.unsafe(prepare)}'` : await sql4`commit`;
       }
       return result;
       function savepoint(name2, fn3) {
         if (name2 && Array.isArray(name2.raw))
-          return savepoint((sql4) => sql4.apply(sql4, arguments));
+          return savepoint((sql5) => sql5.apply(sql5, arguments));
         arguments.length === 1 && (fn3 = name2, name2 = null);
         return scope(c, fn3, "s" + savepoints++ + (name2 ? "_" + name2 : ""));
       }
@@ -55788,7 +55788,7 @@ function Postgres(a, b2) {
       ))
     ]).then(() => clearTimeout(timer2));
   }
-  async function close() {
+  async function close2() {
     await Promise.all(connections.map((c) => c.end()));
   }
   async function destroy(resolve) {
@@ -55828,7 +55828,7 @@ function Postgres(a, b2) {
 function parseOptions(a, b2) {
   if (a && a.shared)
     return a;
-  const env = process.env, o = (!a || typeof a === "string" ? b2 : a) || {}, { url: url2, multihost } = parseUrl(a), query = [...url2.searchParams].reduce((a2, [b3, c]) => (a2[b3] = c, a2), {}), host = o.hostname || o.host || multihost || url2.hostname || env.PGHOST || "localhost", port = o.port || url2.port || env.PGPORT || 5432, user = o.user || o.username || url2.username || env.PGUSERNAME || env.PGUSER || osUsername();
+  const env2 = process.env, o = (!a || typeof a === "string" ? b2 : a) || {}, { url: url2, multihost } = parseUrl(a), query = [...url2.searchParams].reduce((a2, [b3, c]) => (a2[b3] = c, a2), {}), host = o.hostname || o.host || multihost || url2.hostname || env2.PGHOST || "localhost", port = o.port || url2.port || env2.PGPORT || 5432, user = o.user || o.username || url2.username || env2.PGUSERNAME || env2.PGUSER || osUsername();
   o.no_prepare && (o.prepare = false);
   query.sslmode && (query.ssl = query.sslmode, delete query.sslmode);
   "timeout" in o && (console.log("The timeout option is deprecated, use idle_timeout instead"), o.idle_timeout = o.timeout);
@@ -55854,24 +55854,24 @@ function parseOptions(a, b2) {
     host: Array.isArray(host) ? host : host.split(",").map((x) => x.split(":")[0]),
     port: Array.isArray(port) ? port : host.split(",").map((x) => parseInt(x.split(":")[1] || port)),
     path: o.path || host.indexOf("/") > -1 && host + "/.s.PGSQL." + port,
-    database: o.database || o.db || (url2.pathname || "").slice(1) || env.PGDATABASE || user,
+    database: o.database || o.db || (url2.pathname || "").slice(1) || env2.PGDATABASE || user,
     user,
-    pass: o.pass || o.password || url2.password || env.PGPASSWORD || "",
+    pass: o.pass || o.password || url2.password || env2.PGPASSWORD || "",
     ...Object.entries(defaults).reduce(
       (acc, [k, d]) => {
-        const value = k in o ? o[k] : k in query ? query[k] === "disable" || query[k] === "false" ? false : query[k] : env["PG" + k.toUpperCase()] || d;
+        const value = k in o ? o[k] : k in query ? query[k] === "disable" || query[k] === "false" ? false : query[k] : env2["PG" + k.toUpperCase()] || d;
         acc[k] = typeof value === "string" && ints.includes(k) ? +value : value;
         return acc;
       },
       {}
     ),
     connection: {
-      application_name: env.PGAPPNAME || "postgres.js",
+      application_name: env2.PGAPPNAME || "postgres.js",
       ...o.connection,
       ...Object.entries(query).reduce((acc, [k, v]) => (k in defaults || (acc[k] = v), acc), {})
     },
     types: o.types || {},
-    target_session_attrs: tsa(o, url2, env),
+    target_session_attrs: tsa(o, url2, env2),
     onnotice: o.onnotice,
     onnotify: o.onnotify,
     onclose: o.onclose,
@@ -55883,8 +55883,8 @@ function parseOptions(a, b2) {
     ...mergeUserTypes(o.types)
   };
 }
-function tsa(o, url2, env) {
-  const x = o.target_session_attrs || url2.searchParams.get("target_session_attrs") || env.PGTARGETSESSIONATTRS;
+function tsa(o, url2, env2) {
+  const x = o.target_session_attrs || url2.searchParams.get("target_session_attrs") || env2.PGTARGETSESSIONATTRS;
   if (!x || ["read-write", "read-only", "primary", "standby", "prefer-standby"].includes(x))
     return x;
   throw new Error("target_session_attrs " + x + " is not supported");
@@ -56639,10 +56639,10 @@ function pgEnumObjectWithSchema(enumName, values2, schema) {
 // node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_postgres@3.4.9/node_modules/drizzle-orm/subquery.js
 var Subquery = class {
   static [entityKind] = "Subquery";
-  constructor(sql2, fields, alias, isWith = false, usedTables = []) {
+  constructor(sql3, fields, alias, isWith = false, usedTables = []) {
     this._ = {
       brand: "Subquery",
-      sql: sql2,
+      sql: sql3,
       selectedFields: fields,
       alias,
       isWith,
@@ -57040,19 +57040,19 @@ function sql(strings, ...params) {
   }
   return new SQL(queryChunks);
 }
-((sql2) => {
+((sql22) => {
   function empty() {
     return new SQL([]);
   }
-  sql2.empty = empty;
+  sql22.empty = empty;
   function fromList(list) {
     return new SQL(list);
   }
-  sql2.fromList = fromList;
+  sql22.fromList = fromList;
   function raw(str) {
     return new SQL([new StringChunk(str)]);
   }
-  sql2.raw = raw;
+  sql22.raw = raw;
   function join(chunks, separator) {
     const result = [];
     for (const [i, chunk] of chunks.entries()) {
@@ -57063,24 +57063,24 @@ function sql(strings, ...params) {
     }
     return new SQL(result);
   }
-  sql2.join = join;
+  sql22.join = join;
   function identifier(value) {
     return new Name(value);
   }
-  sql2.identifier = identifier;
+  sql22.identifier = identifier;
   function placeholder2(name2) {
     return new Placeholder(name2);
   }
-  sql2.placeholder = placeholder2;
+  sql22.placeholder = placeholder2;
   function param2(value, encoder) {
     return new Param(value, encoder);
   }
-  sql2.param = param2;
+  sql22.param = param2;
 })(sql || (sql = {}));
 ((SQL2) => {
   class Aliased {
-    constructor(sql2, fieldAlias) {
-      this.sql = sql2;
+    constructor(sql22, fieldAlias) {
+      this.sql = sql22;
       this.fieldAlias = fieldAlias;
     }
     static [entityKind] = "SQL.Aliased";
@@ -59900,8 +59900,8 @@ var PgDialect = class {
       return "none";
     }
   }
-  sqlToQuery(sql2, invokeSource) {
-    return sql2.toQuery({
+  sqlToQuery(sql22, invokeSource) {
+    return sql22.toQuery({
       casing: this.casing,
       escapeName: this.escapeName,
       escapeParam: this.escapeParam,
@@ -62260,10 +62260,10 @@ var PgRelationalQuery = class extends QueryPromise {
 
 // node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_postgres@3.4.9/node_modules/drizzle-orm/pg-core/query-builders/raw.js
 var PgRaw = class extends QueryPromise {
-  constructor(execute, sql2, query, mapBatchResult) {
+  constructor(execute, sql3, query, mapBatchResult) {
     super();
     this.execute = execute;
-    this.sql = sql2;
+    this.sql = sql3;
     this.query = query;
     this.mapBatchResult = mapBatchResult;
   }
@@ -62583,8 +62583,8 @@ var NoopCache = class extends Cache {
   async onMutate(_params) {
   }
 };
-async function hashQuery(sql2, params) {
-  const dataToHash = `${sql2}-${JSON.stringify(params)}`;
+async function hashQuery(sql3, params) {
+  const dataToHash = `${sql3}-${JSON.stringify(params)}`;
   const encoder = new TextEncoder();
   const data = encoder.encode(dataToHash);
   const hashBuffer = await crypto.subtle.digest("SHA-256", data);
@@ -62717,8 +62717,8 @@ var PgSession = class {
     ).all();
   }
   /** @internal */
-  async count(sql2, token) {
-    const res = await this.execute(sql2, token);
+  async count(sql22, token) {
+    const res = await this.execute(sql22, token);
     return Number(
       res[0]["count"]
     );
@@ -62755,12 +62755,12 @@ var PgTransaction = class extends PgDatabase {
 
 // node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_postgres@3.4.9/node_modules/drizzle-orm/postgres-js/session.js
 var PostgresJsPreparedQuery = class extends PgPreparedQuery {
-  constructor(client, queryString, params, logger, cache, queryMetadata, cacheConfig, fields, _isResponseInArrayMode, customResultMapper) {
+  constructor(client, queryString, params, logger2, cache, queryMetadata, cacheConfig, fields, _isResponseInArrayMode, customResultMapper) {
     super({ sql: queryString, params }, cache, queryMetadata, cacheConfig);
     this.client = client;
     this.queryString = queryString;
     this.params = params;
-    this.logger = logger;
+    this.logger = logger2;
     this.fields = fields;
     this._isResponseInArrayMode = _isResponseInArrayMode;
     this.customResultMapper = customResultMapper;
@@ -62902,11 +62902,11 @@ function construct(client, config2 = {}) {
   client.options.serializers["114"] = transparentParser;
   client.options.serializers["3802"] = transparentParser;
   const dialect = new PgDialect({ casing: config2.casing });
-  let logger;
+  let logger2;
   if (config2.logger === true) {
-    logger = new DefaultLogger();
+    logger2 = new DefaultLogger();
   } else if (config2.logger !== false) {
-    logger = config2.logger;
+    logger2 = config2.logger;
   }
   let schema;
   if (config2.schema) {
@@ -62920,14 +62920,14 @@ function construct(client, config2 = {}) {
       tableNamesMap: tablesConfig.tableNamesMap
     };
   }
-  const session = new PostgresJsSession(client, dialect, schema, { logger, cache: config2.cache });
-  const db = new PostgresJsDatabase(dialect, session, schema);
-  db.$client = client;
-  db.$cache = config2.cache;
-  if (db.$cache) {
-    db.$cache["invalidate"] = config2.cache?.onMutate;
+  const session = new PostgresJsSession(client, dialect, schema, { logger: logger2, cache: config2.cache });
+  const db2 = new PostgresJsDatabase(dialect, session, schema);
+  db2.$client = client;
+  db2.$cache = config2.cache;
+  if (db2.$cache) {
+    db2.$cache["invalidate"] = config2.cache?.onMutate;
   }
-  return db;
+  return db2;
 }
 function drizzle(...params) {
   if (typeof params[0] === "string") {
@@ -78569,7 +78569,7 @@ var idempotencyKeys = pgTable(
 
 // packages/db/src/client.ts
 function createDatabase(options) {
-  const sql2 = src_default(options.url, {
+  const sql3 = src_default(options.url, {
     max: options.singleConnection === true ? 1 : options.maxConnections ?? 10,
     // Prepared statements are disabled because pgbouncer in transaction mode
     // (the deployment target) cannot support them.
@@ -78577,18 +78577,18 @@ function createDatabase(options) {
     onnotice: options.onNotice ?? (() => {
     })
   });
-  const db = drizzle(sql2, { schema: schema_exports });
+  const db2 = drizzle(sql3, { schema: schema_exports });
   return {
-    db,
-    sql: sql2,
+    db: db2,
+    sql: sql3,
     close: async () => {
-      await sql2.end({ timeout: 5 });
+      await sql3.end({ timeout: 5 });
     }
   };
 }
-async function pingDatabase(sql2) {
+async function pingDatabase(sql3) {
   try {
-    await sql2`SELECT 1`;
+    await sql3`SELECT 1`;
     return true;
   } catch {
     return false;
@@ -78718,6 +78718,21 @@ function childTrace(parent, overrides = {}) {
     organization_id: overrides.organization_id ?? parent.organization_id,
     user_id: overrides.user_id ?? parent.user_id
   };
+}
+
+// packages/utils/src/vercel.ts
+function createVercelHandler(app2) {
+  const ready = Promise.resolve(app2.ready());
+  ready.catch(() => void 0);
+  return async (req, res) => {
+    await ready;
+    app2.server.emit("request", req, res);
+  };
+}
+var SERVERLESS_PLACEHOLDER_PORT = "3000";
+function withServerlessEnvDefaults(source = process.env) {
+  if (!source.VERCEL) return source;
+  return { ...source, PORT: source.PORT ?? SERVERLESS_PLACEHOLDER_PORT };
 }
 
 // packages/messaging/src/memory-broker.ts
@@ -79063,12 +79078,12 @@ function createMetricsRegistry(serviceName) {
 }
 
 // packages/observability/src/fastify.ts
-function registerHttpMetrics(app, metrics2) {
-  app.decorateRequest("metricsStartTime", void 0);
-  app.addHook("onRequest", async (request) => {
+function registerHttpMetrics(app2, metrics2) {
+  app2.decorateRequest("metricsStartTime", void 0);
+  app2.addHook("onRequest", async (request) => {
     request.metricsStartTime = process.hrtime.bigint();
   });
-  app.addHook("onResponse", async (request, reply) => {
+  app2.addHook("onResponse", async (request, reply) => {
     const route = request.routeOptions.url ?? request.url;
     const labels = { method: request.method, route, status_code: String(reply.statusCode) };
     metrics2.httpRequestsTotal.inc(labels);
@@ -79078,16 +79093,16 @@ function registerHttpMetrics(app, metrics2) {
     }
   });
 }
-function metricsRoute(app, metrics2) {
-  app.get("/metrics", async (_request, reply) => {
+function metricsRoute(app2, metrics2) {
+  app2.get("/metrics", async (_request, reply) => {
     reply.header("content-type", metrics2.registry.contentType);
     return metrics2.registry.metrics();
   });
 }
 
 // services/matching/src/http/routes/health.ts
-function healthRoute(app, deps) {
-  app.get("/health", async (_request, reply) => {
+function healthRoute(app2, deps) {
+  app2.get("/health", async (_request, reply) => {
     const dbOk = await pingDatabase(deps.sql);
     const brokerOk = deps.broker.isHealthy();
     const body = {
@@ -79108,7 +79123,7 @@ var STATUS_TO_CODE = {
   429: "RATE_LIMITED"
 };
 function buildApp(deps) {
-  const app = (0, import_fastify.default)({
+  const app2 = (0, import_fastify.default)({
     // See services/auth/src/app.ts for why this cast is needed: pino's Logger
     // type and Fastify's FastifyBaseLogger disagree on a structural detail
     // that doesn't matter at runtime.
@@ -79117,14 +79132,14 @@ function buildApp(deps) {
     trustProxy: true,
     genReqId: () => newUuid()
   });
-  void app.register(import_cors.default, { origin: parseCorsOrigins(deps.env.CORS_ORIGINS) });
-  void app.register(import_rate_limit.default, {
+  void app2.register(import_cors.default, { origin: parseCorsOrigins(deps.env.CORS_ORIGINS) });
+  void app2.register(import_rate_limit.default, {
     max: deps.env.RATE_LIMIT_MAX,
     timeWindow: deps.env.RATE_LIMIT_WINDOW
   });
   const metrics2 = createMetricsRegistry("matching-service");
-  registerHttpMetrics(app, metrics2);
-  app.setErrorHandler((error51, request, reply) => {
+  registerHttpMetrics(app2, metrics2);
+  app2.setErrorHandler((error51, request, reply) => {
     if (error51 instanceof ZodError) {
       reply.status(400).send({
         error: {
@@ -79155,14 +79170,14 @@ function buildApp(deps) {
     const appError = toAppError(error51);
     reply.status(appError.statusCode).send(appError.toResponse(request.id));
   });
-  app.setNotFoundHandler((request, reply) => {
+  app2.setNotFoundHandler((request, reply) => {
     reply.status(404).send({
       error: { code: "NOT_FOUND", message: "Route not found", request_id: request.id }
     });
   });
-  healthRoute(app, deps);
-  metricsRoute(app, metrics2);
-  return app;
+  healthRoute(app2, deps);
+  metricsRoute(app2, metrics2);
+  return app2;
 }
 
 // services/matching/src/env.ts
@@ -79202,28 +79217,28 @@ function toJob(row) {
     updated_at: row.updatedAt
   };
 }
-async function findJobById(db, jobId) {
-  const [row] = await db.select().from(schema_exports.jobs).where(eq(schema_exports.jobs.jobId, jobId)).limit(1);
+async function findJobById(db2, jobId) {
+  const [row] = await db2.select().from(schema_exports.jobs).where(eq(schema_exports.jobs.jobId, jobId)).limit(1);
   return row ? toJob(row) : null;
 }
 var RESCORE_BATCH_LIMIT = 500;
-async function listActiveJobs(db, limit = RESCORE_BATCH_LIMIT) {
-  const rows = await db.select().from(schema_exports.jobs).where(eq(schema_exports.jobs.isActive, true)).orderBy(desc(schema_exports.jobs.createdAt)).limit(limit);
+async function listActiveJobs(db2, limit = RESCORE_BATCH_LIMIT) {
+  const rows = await db2.select().from(schema_exports.jobs).where(eq(schema_exports.jobs.isActive, true)).orderBy(desc(schema_exports.jobs.createdAt)).limit(limit);
   return rows.map(toJob);
 }
-async function findLatestParsedProfile(db, userId) {
-  const [row] = await db.select({ parsedProfile: schema_exports.resumes.parsedProfile }).from(schema_exports.resumes).where(and(eq(schema_exports.resumes.userId, userId), eq(schema_exports.resumes.status, "parsed"))).orderBy(desc(schema_exports.resumes.parsedAt)).limit(1);
+async function findLatestParsedProfile(db2, userId) {
+  const [row] = await db2.select({ parsedProfile: schema_exports.resumes.parsedProfile }).from(schema_exports.resumes).where(and(eq(schema_exports.resumes.userId, userId), eq(schema_exports.resumes.status, "parsed"))).orderBy(desc(schema_exports.resumes.parsedAt)).limit(1);
   return row?.parsedProfile ?? null;
 }
-async function listCandidateUserIds(db, limit = RESCORE_BATCH_LIMIT) {
-  const rows = await db.select({ userId: schema_exports.resumes.userId }).from(schema_exports.resumes).where(eq(schema_exports.resumes.status, "parsed")).orderBy(desc(schema_exports.resumes.parsedAt)).limit(limit);
+async function listCandidateUserIds(db2, limit = RESCORE_BATCH_LIMIT) {
+  const rows = await db2.select({ userId: schema_exports.resumes.userId }).from(schema_exports.resumes).where(eq(schema_exports.resumes.status, "parsed")).orderBy(desc(schema_exports.resumes.parsedAt)).limit(limit);
   return [...new Set(rows.map((row) => row.userId))];
 }
 
 // services/matching/src/repo/scores.ts
-async function upsertScore(db, input) {
+async function upsertScore(db2, input) {
   const now = (/* @__PURE__ */ new Date()).toISOString();
-  await db.insert(schema_exports.jobScores).values({
+  await db2.insert(schema_exports.jobScores).values({
     jobId: input.jobId,
     userId: input.userId,
     score: input.score,
@@ -79335,19 +79350,20 @@ async function registerConsumers(deps) {
 }
 
 // services/matching/src/index.ts
-async function main() {
-  const env = loadMatchingServiceEnv();
-  const logger = createLogger({ service: "matching-service", level: env.LOG_LEVEL, pretty: env.LOG_PRETTY });
-  const { db, sql: sql2, close } = createDatabase({ url: env.DATABASE_URL, maxConnections: env.DATABASE_POOL_MAX });
-  const broker = createBroker({
-    driver: env.MESSAGING_DRIVER,
-    url: env.RABBITMQ_URL,
-    exchange: env.MESSAGING_EXCHANGE,
-    maxRetries: env.MESSAGING_MAX_RETRIES,
-    logger
-  });
-  const app = buildApp({ db, sql: sql2, env, logger, broker });
-  const subscriptions = await registerConsumers({ db, broker, logger });
+var env = loadMatchingServiceEnv(withServerlessEnvDefaults());
+var logger = createLogger({ service: "matching-service", level: env.LOG_LEVEL, pretty: env.LOG_PRETTY });
+var { db, sql: sql2, close } = createDatabase({ url: env.DATABASE_URL, maxConnections: env.DATABASE_POOL_MAX });
+var broker = createBroker({
+  driver: env.MESSAGING_DRIVER,
+  url: env.RABBITMQ_URL,
+  exchange: env.MESSAGING_EXCHANGE,
+  maxRetries: env.MESSAGING_MAX_RETRIES,
+  logger
+});
+var app = buildApp({ db, sql: sql2, env, logger, broker });
+var subscriptions = await registerConsumers({ db, broker, logger });
+var index_default = createVercelHandler(app);
+if (!process.env.VERCEL) {
   const shutdown = async (signal) => {
     logger.info({ signal }, "shutting down");
     await Promise.all(subscriptions.map((subscription) => subscription.stop()));
@@ -79360,10 +79376,10 @@ async function main() {
   process.on("SIGINT", () => void shutdown("SIGINT"));
   await app.listen({ host: env.HOST, port: env.PORT });
 }
-main().catch((error51) => {
-  console.error(error51);
-  process.exit(1);
-});
+export {
+  app,
+  index_default as default
+};
 /*! Bundled license information:
 
 amqplib/lib/defs.js:

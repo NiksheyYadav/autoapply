@@ -8659,8 +8659,8 @@ var require_queue = __commonJS({
         }
         self2.drain = noop3;
       }
-      function error51(handler2) {
-        errorHandler = handler2;
+      function error51(handler) {
+        errorHandler = handler;
       }
     }
     function noop3() {
@@ -12020,7 +12020,7 @@ var require_handle_request = __commonJS({
       }
       const method = request.method;
       if (this[kSupportedHTTPMethods].bodyless.has(method)) {
-        handler2(request, reply);
+        handler(request, reply);
         return;
       }
       if (this[kSupportedHTTPMethods].bodywith.has(method)) {
@@ -12040,10 +12040,10 @@ var require_handle_request = __commonJS({
         }
         if (ctHeader === void 0) {
           if (isEmptyBody(headers)) {
-            handler2(request, reply);
+            handler(request, reply);
             return;
           }
-          request[kRouteContext].contentTypeParser.run("", handler2, request, reply);
+          request[kRouteContext].contentTypeParser.run("", handler, request, reply);
           return;
         }
         if (!request[kRequestContentType]) {
@@ -12054,12 +12054,12 @@ var require_handle_request = __commonJS({
           reply.status(415).send(new FST_ERR_CTP_INVALID_MEDIA_TYPE());
           return;
         }
-        request[kRouteContext].contentTypeParser.run(request[kRequestContentType].toString(), handler2, request, reply);
+        request[kRouteContext].contentTypeParser.run(request[kRequestContentType].toString(), handler, request, reply);
         return;
       }
-      handler2(request, reply);
+      handler(request, reply);
     }
-    function handler2(request, reply) {
+    function handler(request, reply) {
       try {
         if (request[kRouteContext].preValidation !== null) {
           preValidationHookRunner(
@@ -12172,7 +12172,7 @@ var require_handle_request = __commonJS({
       }
     }
     module.exports = handleRequest;
-    module.exports[Symbol.for("internals")] = { handler: handler2, preHandlerCallback };
+    module.exports[Symbol.for("internals")] = { handler, preHandlerCallback };
   }
 });
 
@@ -13358,11 +13358,11 @@ var require_rfdc = __commonJS({
       constructorHandlers.set(Map, (o, fn) => new Map(cloneArray(Array.from(o), fn)));
       constructorHandlers.set(Set, (o, fn) => new Set(cloneArray(Array.from(o), fn)));
       if (opts.constructorHandlers) {
-        for (const handler3 of opts.constructorHandlers) {
-          constructorHandlers.set(handler3[0], handler3[1]);
+        for (const handler2 of opts.constructorHandlers) {
+          constructorHandlers.set(handler2[0], handler2[1]);
         }
       }
-      let handler2 = null;
+      let handler = null;
       return opts.proto ? cloneProto : clone2;
       function cloneArray(a, fn) {
         const keys = Object.keys(a);
@@ -13372,8 +13372,8 @@ var require_rfdc = __commonJS({
           const cur = a[k];
           if (typeof cur !== "object" || cur === null) {
             a2[k] = cur;
-          } else if (cur.constructor !== Object && (handler2 = constructorHandlers.get(cur.constructor))) {
-            a2[k] = handler2(cur, fn);
+          } else if (cur.constructor !== Object && (handler = constructorHandlers.get(cur.constructor))) {
+            a2[k] = handler(cur, fn);
           } else if (ArrayBuffer.isView(cur)) {
             a2[k] = copyBuffer(cur);
           } else {
@@ -13385,8 +13385,8 @@ var require_rfdc = __commonJS({
       function clone2(o) {
         if (typeof o !== "object" || o === null) return o;
         if (Array.isArray(o)) return cloneArray(o, clone2);
-        if (o.constructor !== Object && (handler2 = constructorHandlers.get(o.constructor))) {
-          return handler2(o, clone2);
+        if (o.constructor !== Object && (handler = constructorHandlers.get(o.constructor))) {
+          return handler(o, clone2);
         }
         const o2 = {};
         for (const k in o) {
@@ -13394,8 +13394,8 @@ var require_rfdc = __commonJS({
           const cur = o[k];
           if (typeof cur !== "object" || cur === null) {
             o2[k] = cur;
-          } else if (cur.constructor !== Object && (handler2 = constructorHandlers.get(cur.constructor))) {
-            o2[k] = handler2(cur, clone2);
+          } else if (cur.constructor !== Object && (handler = constructorHandlers.get(cur.constructor))) {
+            o2[k] = handler(cur, clone2);
           } else if (ArrayBuffer.isView(cur)) {
             o2[k] = copyBuffer(cur);
           } else {
@@ -13407,16 +13407,16 @@ var require_rfdc = __commonJS({
       function cloneProto(o) {
         if (typeof o !== "object" || o === null) return o;
         if (Array.isArray(o)) return cloneArray(o, cloneProto);
-        if (o.constructor !== Object && (handler2 = constructorHandlers.get(o.constructor))) {
-          return handler2(o, cloneProto);
+        if (o.constructor !== Object && (handler = constructorHandlers.get(o.constructor))) {
+          return handler(o, cloneProto);
         }
         const o2 = {};
         for (const k in o) {
           const cur = o[k];
           if (typeof cur !== "object" || cur === null) {
             o2[k] = cur;
-          } else if (cur.constructor !== Object && (handler2 = constructorHandlers.get(cur.constructor))) {
-            o2[k] = handler2(cur, cloneProto);
+          } else if (cur.constructor !== Object && (handler = constructorHandlers.get(cur.constructor))) {
+            o2[k] = handler(cur, cloneProto);
           } else if (ArrayBuffer.isView(cur)) {
             o2[k] = copyBuffer(cur);
           } else {
@@ -13434,11 +13434,11 @@ var require_rfdc = __commonJS({
       constructorHandlers.set(Map, (o, fn) => new Map(cloneArray(Array.from(o), fn)));
       constructorHandlers.set(Set, (o, fn) => new Set(cloneArray(Array.from(o), fn)));
       if (opts.constructorHandlers) {
-        for (const handler3 of opts.constructorHandlers) {
-          constructorHandlers.set(handler3[0], handler3[1]);
+        for (const handler2 of opts.constructorHandlers) {
+          constructorHandlers.set(handler2[0], handler2[1]);
         }
       }
-      let handler2 = null;
+      let handler = null;
       return opts.proto ? cloneProto : clone2;
       function cloneArray(a, fn) {
         const keys = Object.keys(a);
@@ -13448,8 +13448,8 @@ var require_rfdc = __commonJS({
           const cur = a[k];
           if (typeof cur !== "object" || cur === null) {
             a2[k] = cur;
-          } else if (cur.constructor !== Object && (handler2 = constructorHandlers.get(cur.constructor))) {
-            a2[k] = handler2(cur, fn);
+          } else if (cur.constructor !== Object && (handler = constructorHandlers.get(cur.constructor))) {
+            a2[k] = handler(cur, fn);
           } else if (ArrayBuffer.isView(cur)) {
             a2[k] = copyBuffer(cur);
           } else {
@@ -13466,8 +13466,8 @@ var require_rfdc = __commonJS({
       function clone2(o) {
         if (typeof o !== "object" || o === null) return o;
         if (Array.isArray(o)) return cloneArray(o, clone2);
-        if (o.constructor !== Object && (handler2 = constructorHandlers.get(o.constructor))) {
-          return handler2(o, clone2);
+        if (o.constructor !== Object && (handler = constructorHandlers.get(o.constructor))) {
+          return handler(o, clone2);
         }
         const o2 = {};
         refs.push(o);
@@ -13477,8 +13477,8 @@ var require_rfdc = __commonJS({
           const cur = o[k];
           if (typeof cur !== "object" || cur === null) {
             o2[k] = cur;
-          } else if (cur.constructor !== Object && (handler2 = constructorHandlers.get(cur.constructor))) {
-            o2[k] = handler2(cur, clone2);
+          } else if (cur.constructor !== Object && (handler = constructorHandlers.get(cur.constructor))) {
+            o2[k] = handler(cur, clone2);
           } else if (ArrayBuffer.isView(cur)) {
             o2[k] = copyBuffer(cur);
           } else {
@@ -13497,8 +13497,8 @@ var require_rfdc = __commonJS({
       function cloneProto(o) {
         if (typeof o !== "object" || o === null) return o;
         if (Array.isArray(o)) return cloneArray(o, cloneProto);
-        if (o.constructor !== Object && (handler2 = constructorHandlers.get(o.constructor))) {
-          return handler2(o, cloneProto);
+        if (o.constructor !== Object && (handler = constructorHandlers.get(o.constructor))) {
+          return handler(o, cloneProto);
         }
         const o2 = {};
         refs.push(o);
@@ -13507,8 +13507,8 @@ var require_rfdc = __commonJS({
           const cur = o[k];
           if (typeof cur !== "object" || cur === null) {
             o2[k] = cur;
-          } else if (cur.constructor !== Object && (handler2 = constructorHandlers.get(cur.constructor))) {
-            o2[k] = handler2(cur, cloneProto);
+          } else if (cur.constructor !== Object && (handler = constructorHandlers.get(cur.constructor))) {
+            o2[k] = handler(cur, cloneProto);
           } else if (ArrayBuffer.isView(cur)) {
             o2[k] = copyBuffer(cur);
           } else {
@@ -16822,7 +16822,7 @@ var require_context = __commonJS({
     } = require_symbols3();
     function Context({
       schema,
-      handler: handler2,
+      handler,
       config: config2,
       childLoggerFactory,
       errorHandler,
@@ -16841,7 +16841,7 @@ var require_context = __commonJS({
       handlerTimeout
     }) {
       this.schema = schema;
-      this.handler = handler2;
+      this.handler = handler;
       this.Reply = server[kReply];
       this.Request = server[kRequest];
       this.contentTypeParser = server[kContentTypeParser];
@@ -17151,11 +17151,11 @@ var require_content_type_parser = __commonJS({
       }
       return removed || idx > -1;
     };
-    ContentTypeParser.prototype.run = function(contentType, handler2, request, reply) {
+    ContentTypeParser.prototype.run = function(contentType, handler, request, reply) {
       const parser = this.getParser(contentType);
       if (parser === void 0) {
         if (request.is404 === true) {
-          handler2(request, reply);
+          handler(request, reply);
           return;
         }
         reply[kReplyIsError] = true;
@@ -17191,7 +17191,7 @@ var require_content_type_parser = __commonJS({
           return;
         }
         request.body = body;
-        handler2(request, reply);
+        handler(request, reply);
       }
     };
     function rawBody(request, reply, options, parser, done) {
@@ -35165,8 +35165,8 @@ var require_handler_storage = __commonJS({
       // The store's implementation comes from the strategies provided to the Router.
       _buildConstraintStore(store, constraint) {
         for (let i = 0; i < this.handlers.length; i++) {
-          const handler2 = this.handlers[i];
-          const constraintValue = handler2.constraints[constraint];
+          const handler = this.handlers[i];
+          const constraintValue = handler.constraints[constraint];
           if (constraintValue !== void 0) {
             let indexes = store.get(constraintValue) || 0;
             indexes |= 1 << i;
@@ -35178,8 +35178,8 @@ var require_handler_storage = __commonJS({
       _constrainedIndexBitmask(constraint) {
         let mask = 0;
         for (let i = 0; i < this.handlers.length; i++) {
-          const handler2 = this.handlers[i];
-          const constraintValue = handler2.constraints[constraint];
+          const handler = this.handlers[i];
+          const constraintValue = handler.constraints[constraint];
           if (constraintValue !== void 0) {
             mask |= 1 << i;
           }
@@ -35951,25 +35951,25 @@ var require_find_my_way = __commonJS({
       this.trees = /* @__PURE__ */ Object.create(null);
       this._treeGET = null;
     }
-    Router.prototype.on = function on(method, path, opts, handler2, store) {
+    Router.prototype.on = function on(method, path, opts, handler, store) {
       if (typeof opts === "function") {
-        if (handler2 !== void 0) {
-          store = handler2;
+        if (handler !== void 0) {
+          store = handler;
         }
-        handler2 = opts;
+        handler = opts;
         opts = {};
       }
       assert2(typeof path === "string", "Path should be a string");
       assert2(path.length > 0, "The path could not be empty");
       assert2(path[0] === "/" || path[0] === "*", "The first character of a path should be `/` or `*`");
-      assert2(typeof handler2 === "function", "Handler should be a function");
+      assert2(typeof handler === "function", "Handler should be a function");
       const optionalParamMatch = path.match(OPTIONAL_PARAM_REGEXP);
       if (optionalParamMatch) {
         assert2(path.length === optionalParamMatch.index + optionalParamMatch[0].length, "Optional Parameter needs to be the last parameter of the path");
         const pathFull = path.replace(OPTIONAL_PARAM_REGEXP, "$1$2");
         const pathOptional = path.replace(OPTIONAL_PARAM_REGEXP, "$2") || "/";
-        this.on(method, pathFull, opts, handler2, store);
-        this.on(method, pathOptional, opts, handler2, store);
+        this.on(method, pathFull, opts, handler, store);
+        this.on(method, pathOptional, opts, handler, store);
         return;
       }
       const route = path;
@@ -35983,10 +35983,10 @@ var require_find_my_way = __commonJS({
       for (const method2 of methods) {
         assert2(typeof method2 === "string", "Method should be a string");
         assert2(httpMethods.includes(method2), `Method '${method2}' is not an http method.`);
-        this._on(method2, path, opts, handler2, store, route);
+        this._on(method2, path, opts, handler, store, route);
       }
     };
-    Router.prototype._on = function _on(method, path, opts, handler2, store) {
+    Router.prototype._on = function _on(method, path, opts, handler, store) {
       let constraints = {};
       if (opts.constraints !== void 0) {
         assert2(typeof opts.constraints === "object" && opts.constraints !== null, "Constraints should be an object");
@@ -36107,7 +36107,7 @@ var require_find_my_way = __commonJS({
           throw new Error(`Method '${method}' already declared for route '${pattern}' with constraints '${JSON.stringify(constraints)}'`);
         }
       }
-      const route = { method, path, pattern, params, opts, handler: handler2, store };
+      const route = { method, path, pattern, params, opts, handler, store };
       this.routes.push(route);
       currentNode.addRoute(route, this.constrainer);
     };
@@ -36459,8 +36459,8 @@ var require_find_my_way = __commonJS({
     Router.prototype._rebuild = function(routes) {
       this.reset();
       for (const route of routes) {
-        const { method, path, opts, handler: handler2, store } = route;
-        this._on(method, path, opts, handler2, store);
+        const { method, path, opts, handler, store } = route;
+        this._on(method, path, opts, handler, store);
       }
     };
     Router.prototype._defaultRoute = function(req, res, ctx) {
@@ -36520,12 +36520,12 @@ var require_find_my_way = __commonJS({
       if (!httpMethods.hasOwnProperty(i)) continue;
       const m = httpMethods[i];
       const methodName = m.toLowerCase();
-      Router.prototype[methodName] = function(path, handler2, store) {
-        return this.on(m, path, handler2, store);
+      Router.prototype[methodName] = function(path, handler, store) {
+        return this.on(m, path, handler, store);
       };
     }
-    Router.prototype.all = function(path, handler2, store) {
-      this.on(httpMethods, path, handler2, store);
+    Router.prototype.all = function(path, handler, store) {
+      this.on(httpMethods, path, handler, store);
     };
     Router.sanitizeUrlPath = function sanitizeUrlPath(url2, useSemicolonDelimiter) {
       const decoded = safeDecodeURI(url2, useSemicolonDelimiter);
@@ -36791,14 +36791,14 @@ var require_route = __commonJS({
       function isAsyncConstraint() {
         return router.constrainer.asyncStrategiesInUse.size > 0;
       }
-      function prepareRoute({ method, url: url2, options: options2, handler: handler2, isFastify }) {
+      function prepareRoute({ method, url: url2, options: options2, handler, isFastify }) {
         if (typeof url2 !== "string") {
           throw new FST_ERR_INVALID_URL(typeof url2);
         }
-        if (!handler2 && typeof options2 === "function") {
-          handler2 = options2;
+        if (!handler && typeof options2 === "function") {
+          handler = options2;
           options2 = {};
-        } else if (handler2 && typeof handler2 === "function") {
+        } else if (handler && typeof handler === "function") {
           if (Object.prototype.toString.call(options2) !== "[object Object]") {
             throw new FST_ERR_ROUTE_OPTIONS_NOT_OBJ(method, url2);
           } else if (options2.handler) {
@@ -36813,7 +36813,7 @@ var require_route = __commonJS({
           method,
           url: url2,
           path: url2,
-          handler: handler2 || options2 && options2.handler
+          handler: handler || options2 && options2.handler
         });
         return route.call(this, { options: options2, isFastify });
       }
@@ -37264,7 +37264,7 @@ var require_four_oh_four = __commonJS({
         _404Context.onSend = context2.onSend;
         context2[kFourOhFourContext] = _404Context;
       }
-      function setNotFoundHandler(opts, handler2, avvio, routeHandler) {
+      function setNotFoundHandler(opts, handler, avvio, routeHandler) {
         if (this[kCanSetNotFoundHandler] === void 0) {
           this[kCanSetNotFoundHandler] = true;
         }
@@ -37293,25 +37293,25 @@ var require_four_oh_four = __commonJS({
           }
         }
         if (typeof opts === "function") {
-          handler2 = opts;
+          handler = opts;
           opts = void 0;
         }
         opts = opts || {};
-        if (handler2) {
+        if (handler) {
           this[kFourOhFourLevelInstance][kCanSetNotFoundHandler] = false;
-          handler2 = handler2.bind(this);
+          handler = handler.bind(this);
         } else {
-          handler2 = basic404;
+          handler = basic404;
         }
         this.after((notHandledErr, done) => {
-          _setNotFoundHandler.call(this, prefix, opts, handler2, avvio, routeHandler);
+          _setNotFoundHandler.call(this, prefix, opts, handler, avvio, routeHandler);
           done(notHandledErr);
         });
       }
-      function _setNotFoundHandler(prefix, opts, handler2, avvio, routeHandler) {
+      function _setNotFoundHandler(prefix, opts, handler, avvio, routeHandler) {
         const context2 = new Context({
           schema: opts.schema,
-          handler: handler2,
+          handler,
           config: opts.config || {},
           server: this
         });
@@ -39534,35 +39534,35 @@ var require_fastify = __commonJS({
         // routing method
         routing: httpHandler,
         // routes shorthand methods
-        delete: function _delete(url2, options2, handler2) {
-          return router.prepareRoute.call(this, { method: "DELETE", url: url2, options: options2, handler: handler2 });
+        delete: function _delete(url2, options2, handler) {
+          return router.prepareRoute.call(this, { method: "DELETE", url: url2, options: options2, handler });
         },
-        get: function _get(url2, options2, handler2) {
-          return router.prepareRoute.call(this, { method: "GET", url: url2, options: options2, handler: handler2 });
+        get: function _get(url2, options2, handler) {
+          return router.prepareRoute.call(this, { method: "GET", url: url2, options: options2, handler });
         },
-        head: function _head(url2, options2, handler2) {
-          return router.prepareRoute.call(this, { method: "HEAD", url: url2, options: options2, handler: handler2 });
+        head: function _head(url2, options2, handler) {
+          return router.prepareRoute.call(this, { method: "HEAD", url: url2, options: options2, handler });
         },
-        trace: function _trace(url2, options2, handler2) {
-          return router.prepareRoute.call(this, { method: "TRACE", url: url2, options: options2, handler: handler2 });
+        trace: function _trace(url2, options2, handler) {
+          return router.prepareRoute.call(this, { method: "TRACE", url: url2, options: options2, handler });
         },
-        patch: function _patch(url2, options2, handler2) {
-          return router.prepareRoute.call(this, { method: "PATCH", url: url2, options: options2, handler: handler2 });
+        patch: function _patch(url2, options2, handler) {
+          return router.prepareRoute.call(this, { method: "PATCH", url: url2, options: options2, handler });
         },
-        post: function _post(url2, options2, handler2) {
-          return router.prepareRoute.call(this, { method: "POST", url: url2, options: options2, handler: handler2 });
+        post: function _post(url2, options2, handler) {
+          return router.prepareRoute.call(this, { method: "POST", url: url2, options: options2, handler });
         },
-        put: function _put(url2, options2, handler2) {
-          return router.prepareRoute.call(this, { method: "PUT", url: url2, options: options2, handler: handler2 });
+        put: function _put(url2, options2, handler) {
+          return router.prepareRoute.call(this, { method: "PUT", url: url2, options: options2, handler });
         },
-        options: function _options(url2, options2, handler2) {
-          return router.prepareRoute.call(this, { method: "OPTIONS", url: url2, options: options2, handler: handler2 });
+        options: function _options(url2, options2, handler) {
+          return router.prepareRoute.call(this, { method: "OPTIONS", url: url2, options: options2, handler });
         },
-        query: function _query(url2, options2, handler2) {
-          return router.prepareRoute.call(this, { method: "QUERY", url: url2, options: options2, handler: handler2 });
+        query: function _query(url2, options2, handler) {
+          return router.prepareRoute.call(this, { method: "QUERY", url: url2, options: options2, handler });
         },
-        all: function _all(url2, options2, handler2) {
-          return router.prepareRoute.call(this, { method: this.supportedMethods, url: url2, options: options2, handler: handler2 });
+        all: function _all(url2, options2, handler) {
+          return router.prepareRoute.call(this, { method: this.supportedMethods, url: url2, options: options2, handler });
         },
         // extended route
         route: function _route(options2) {
@@ -39728,7 +39728,7 @@ var require_fastify = __commonJS({
       avvio.override = override;
       avvio.on("start", () => fastify2[kState].started = true);
       fastify2[kAvvioBoot] = fastify2.ready;
-      fastify2.ready = ready2;
+      fastify2.ready = ready;
       fastify2.printPlugins = avvio.prettyPrint.bind(avvio);
       avvio.once("preReady", () => {
         fastify2.onClose((instance, done) => {
@@ -39824,7 +39824,7 @@ var require_fastify = __commonJS({
           }, opts);
         }
       }
-      function ready2(cb) {
+      function ready(cb) {
         if (this[kState].readyResolver !== null) {
           if (cb != null) {
             this[kState].readyResolver.promise.then(() => cb(null, fastify2), cb);
@@ -39982,9 +39982,9 @@ var require_fastify = __commonJS({
           }
         };
       }
-      function setNotFoundHandler(opts, handler2) {
+      function setNotFoundHandler(opts, handler) {
         throwIfAlreadyStarted('Cannot call "setNotFoundHandler"!');
-        fourOhFour.setNotFoundHandler.call(this, opts, handler2, avvio, router.routeHandler);
+        fourOhFour.setNotFoundHandler.call(this, opts, handler, avvio, router.routeHandler);
         return this;
       }
       function setValidatorCompiler(validatorCompiler) {
@@ -40082,8 +40082,8 @@ var require_fastify = __commonJS({
         }
         const _method = method.toLowerCase();
         if (!this.hasDecorator(_method)) {
-          this.decorate(_method, function(url2, options2, handler2) {
-            return router.prepareRoute.call(this, { method, url: url2, options: options2, handler: handler2 });
+          this.decorate(_method, function(url2, options2, handler) {
+            return router.prepareRoute.call(this, { method, url: url2, options: options2, handler });
           });
         }
         return this;
@@ -46021,6 +46021,21 @@ function createLogger({ service, level = "info", pretty = false }) {
       }
     } : {}
   });
+}
+
+// packages/utils/src/vercel.ts
+function createVercelHandler(app2) {
+  const ready = Promise.resolve(app2.ready());
+  ready.catch(() => void 0);
+  return async (req, res) => {
+    await ready;
+    app2.server.emit("request", req, res);
+  };
+}
+var SERVERLESS_PLACEHOLDER_PORT = "3000";
+function withServerlessEnvDefaults(source = process.env) {
+  if (!source.VERCEL) return source;
+  return { ...source, PORT: source.PORT ?? SERVERLESS_PLACEHOLDER_PORT };
 }
 
 // node_modules/.pnpm/jose@6.2.12/node_modules/jose/dist/webapi/lib/buffer_utils.js
@@ -61916,7 +61931,7 @@ var originStackCache = /* @__PURE__ */ new Map();
 var originError = Symbol("OriginError");
 var CLOSE = {};
 var Query = class extends Promise {
-  constructor(strings, args, handler2, canceller, options = {}) {
+  constructor(strings, args, handler, canceller, options = {}) {
     let resolve, reject;
     super((a, b2) => {
       resolve = a;
@@ -61925,7 +61940,7 @@ var Query = class extends Promise {
     this.tagged = Array.isArray(strings.raw);
     this.strings = strings;
     this.args = args;
-    this.handler = handler2;
+    this.handler = handler;
     this.canceller = canceller;
     this.options = options;
     this.state = null;
@@ -63651,7 +63666,7 @@ function Postgres(a, b2) {
   let ending = false;
   const queries = queue_default(), connecting = queue_default(), reserved = queue_default(), closed = queue_default(), ended = queue_default(), open = queue_default(), busy = queue_default(), full = queue_default(), queues = { connecting, reserved, closed, ended, open, busy, full };
   const connections = [...Array(options.max)].map(() => connection_default(options, queues, { onopen, onend, onclose }));
-  const sql3 = Sql(handler2);
+  const sql3 = Sql(handler);
   Object.assign(sql3, {
     get parameters() {
       return options.parameters;
@@ -63669,8 +63684,8 @@ function Postgres(a, b2) {
     end
   });
   return sql3;
-  function Sql(handler3) {
-    handler3.debug = options.debug;
+  function Sql(handler2) {
+    handler2.debug = options.debug;
     Object.entries(options.types).reduce((acc, [name, type]) => {
       acc[name] = (x) => new Parameter(x, type.to);
       return acc;
@@ -63689,12 +63704,12 @@ function Postgres(a, b2) {
       return new Parameter(value, type);
     }
     function sql4(strings, ...args) {
-      const query = strings && Array.isArray(strings.raw) ? new Query(strings, args, handler3, cancel) : typeof strings === "string" && !args.length ? new Identifier(options.transform.column.to ? options.transform.column.to(strings) : strings) : new Builder(strings, args);
+      const query = strings && Array.isArray(strings.raw) ? new Query(strings, args, handler2, cancel) : typeof strings === "string" && !args.length ? new Identifier(options.transform.column.to ? options.transform.column.to(strings) : strings) : new Builder(strings, args);
       return query;
     }
     function unsafe(string4, args = [], options2 = {}) {
       arguments.length === 2 && !Array.isArray(args) && (options2 = args, args = []);
-      const query = new Query([string4], args, handler3, cancel, {
+      const query = new Query([string4], args, handler2, cancel, {
         prepare: false,
         ...options2,
         simple: "simple" in options2 ? options2.simple : args.length === 0
@@ -63708,7 +63723,7 @@ function Postgres(a, b2) {
           if (err)
             return query2.reject(err);
           query2.strings = [string4];
-          handler3(query2);
+          handler2(query2);
         });
       }, cancel, {
         ...options2,
@@ -63770,13 +63785,13 @@ function Postgres(a, b2) {
     move(c, reserved);
     c.reserved = () => queue.length ? c.execute(queue.shift()) : move(c, reserved);
     c.reserved.release = true;
-    const sql4 = Sql(handler3);
+    const sql4 = Sql(handler2);
     sql4.release = () => {
       c.reserved = null;
       onopen(c);
     };
     return sql4;
-    function handler3(q) {
+    function handler2(q) {
       c.queue === full ? queue.push(q) : c.execute(q) || move(c, full);
     }
   }
@@ -63794,7 +63809,7 @@ function Postgres(a, b2) {
       throw error51;
     }
     async function scope(c, fn2, name) {
-      const sql4 = Sql(handler3);
+      const sql4 = Sql(handler2);
       sql4.savepoint = savepoint;
       sql4.prepare = (x) => prepare = x.replace(/[^a-z0-9$-_. ]/gi);
       let uncaughtError, result;
@@ -63820,7 +63835,7 @@ function Postgres(a, b2) {
         arguments.length === 1 && (fn3 = name2, name2 = null);
         return scope(c, fn3, "s" + savepoints++ + (name2 ? "_" + name2 : ""));
       }
-      function handler3(q) {
+      function handler2(q) {
         q.catch((e) => uncaughtError || (uncaughtError = e));
         c.queue === full ? queries2.push(q) : c.execute(q) || move(c, full);
       }
@@ -63846,7 +63861,7 @@ function Postgres(a, b2) {
       return array2(Array.from(arguments));
     return new Parameter(x, type || (x.length ? inferType(x) || 25 : 0), options.shared.typeArrayMap);
   }
-  function handler2(query) {
+  function handler(query) {
     if (ending)
       return query.reject(Errors.connection("CONNECTION_ENDED", options, options));
     if (open.length)
@@ -63896,14 +63911,14 @@ function Postgres(a, b2) {
   function onopen(c) {
     if (queries.length === 0)
       return move(c, open);
-    let max = Math.ceil(queries.length / (connecting.length + 1)), ready2 = true;
-    while (ready2 && queries.length && max-- > 0) {
+    let max = Math.ceil(queries.length / (connecting.length + 1)), ready = true;
+    while (ready && queries.length && max-- > 0) {
       const query = queries.shift();
       if (query.reserve)
         return query.reserve(c);
-      ready2 = c.execute(query);
+      ready = c.execute(query);
     }
-    ready2 ? move(c, busy) : move(c, full);
+    ready ? move(c, busy) : move(c, full);
   }
   function onclose(c, e) {
     move(c, closed);
@@ -71858,16 +71873,12 @@ function loadAuthServiceEnv(source = process.env) {
 }
 
 // services/auth/src/index.ts
-var env = loadAuthServiceEnv();
+var env = loadAuthServiceEnv(withServerlessEnvDefaults());
 var logger = createLogger({ service: "auth-service", level: env.LOG_LEVEL, pretty: env.LOG_PRETTY });
 var { db, sql: sql2, close } = createDatabase({ url: env.DATABASE_URL, maxConnections: env.DATABASE_POOL_MAX });
 var tokenVerifier = createTokenVerifierConfig(env);
 var app = buildApp({ db, sql: sql2, env, logger, tokenVerifier });
-var ready = app.ready();
-async function handler(req, res) {
-  await ready;
-  app.server.emit("request", req, res);
-}
+var index_default = createVercelHandler(app);
 if (!process.env.VERCEL) {
   const shutdown = async (signal) => {
     logger.info({ signal }, "shutting down");
@@ -71881,7 +71892,7 @@ if (!process.env.VERCEL) {
 }
 export {
   app,
-  handler as default
+  index_default as default
 };
 /*! Bundled license information:
 
