@@ -3,7 +3,7 @@ import { paginationQuerySchema, uuidSchema } from './common.js';
 import { applicationModeSchema, applicationStatusSchema, remoteTypeSchema } from './enums.js';
 import { publicUserSchema } from './identity.js';
 import { companySchema, jobRecommendationSchema, rawJobPostingSchema } from './job.js';
-import { applicationSchema, contactSchema, messageSchema } from './application.js';
+import { applicationWithJobSchema, contactSchema, messageSchema } from './application.js';
 import { resumeOptimizationReportSchema, resumeSchema } from './profile.js';
 
 /**
@@ -130,13 +130,27 @@ export type IngestJobsRequest = z.infer<typeof ingestJobsRequestSchema>;
 export const createApplicationRequestSchema = z.object({
   job_id: uuidSchema,
   resume_id: uuidSchema,
+  /**
+   * `manual` / `review` start as an editable draft; the owner applies on the
+   * employer's site and records the outcome. `auto` is rejected (400
+   * VALIDATION_ERROR) unless the service runs with
+   * APPLICATIONS_AUTO_MODE_ENABLED=true — no submission worker exists yet.
+   */
   mode: applicationModeSchema.default('manual'),
 });
 
 export type CreateApplicationRequest = z.infer<typeof createApplicationRequestSchema>;
 
+/**
+ * What the applications API returns for one application. `job` is present on
+ * the owner's view (null if the job or its company is gone) and absent on the
+ * organization-staff view, which is applications counts/statuses only — no job
+ * or employer names (see applicationWithJobSchema).
+ */
+const applicationViewSchema = applicationWithJobSchema.partial({ job: true });
+
 export const applicationResponseSchema = z.object({
-  application: applicationSchema,
+  application: applicationViewSchema,
 });
 
 export type ApplicationResponse = z.infer<typeof applicationResponseSchema>;
@@ -145,7 +159,7 @@ export const listApplicationsQuerySchema = paginationQuerySchema;
 export type ListApplicationsQuery = z.infer<typeof listApplicationsQuerySchema>;
 
 export const listApplicationsResponseSchema = z.object({
-  items: z.array(applicationSchema),
+  items: z.array(applicationViewSchema),
   next_cursor: z.string().nullable(),
 });
 

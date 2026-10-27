@@ -7,6 +7,12 @@ export const applicationsServiceEnvSchema = z.object({
   ...httpEnvSchema.shape,
   ...messagingEnvSchema.shape,
   ...supabaseAuthEnvSchema.shape,
+  /**
+   * No worker consumes `queued` applications yet, so `mode: "auto"` would leave
+   * the user stuck in `queued` forever. Until a submission worker ships,
+   * POST /v1/applications rejects `auto` unless this is explicitly turned on.
+   */
+  APPLICATIONS_AUTO_MODE_ENABLED: z.stringbool().default(false),
 });
 
 export type ApplicationsServiceEnv = z.infer<typeof applicationsServiceEnvSchema>;
