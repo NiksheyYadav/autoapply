@@ -5,7 +5,9 @@ import * as React from 'react';
 
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   React.useEffect(() => {
-    console.error(error);
+    // Log the error's kind and Next's digest only. The message of an error
+    // thrown while rendering roster data could contain a student's details.
+    console.error('admin render error', error.name, error.digest);
   }, [error]);
 
   return (
