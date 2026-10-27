@@ -12,10 +12,18 @@ export async function uploadResume(file: File, accessToken: string): Promise<Cre
     headers: { authorization: `Bearer ${accessToken}` },
     body: form,
   });
-  const data = (await res.json()) as CreateResumeResponse | { error: { code: string; message: string } };
+  // Not every failure is our JSON envelope — an oversized body is rejected by
+  // the platform with plain text — so parse defensively.
+  const text = await res.text();
+  let data: unknown;
+  try {
+    data = text.length > 0 ? JSON.parse(text) : undefined;
+  } catch {
+    data = undefined;
+  }
   if (!res.ok) {
-    const errorBody = data as { error: { code: string; message: string } };
-    throw new ApiError(res.status, errorBody.error.code, errorBody.error.message);
+    const errorBody = data as { error?: { code?: string; message?: string } } | undefined;
+    throw new ApiError(res.status, errorBody?.error?.code ?? 'INTERNAL_ERROR', errorBody?.error?.message ?? res.statusText);
   }
   return data as CreateResumeResponse;
 }
