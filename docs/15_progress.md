@@ -2,40 +2,57 @@
 
 Status of Project Atlas against `CLAUDE.md` priorities and `docs/11`–`12`.
 Verified 2026-10-27 by running the checks below, not by reading commit messages.
+Launch target: 2026-11-17 (individuals plus one university pilot). What only the owner can do is in
+`docs/16_launch_checklist.md`.
 
 ## Verified baseline
 
 - `pnpm typecheck`, `pnpm lint`: clean.
-- `pnpm test` with `ATLAS_TEST_DATABASE_URL` set: 28 files, 183 tests pass, 0 skipped (re-run against a fresh database prepared by `scripts/ci/setup-test-db.sh`).
-- Without that variable the DB-backed suites self-skip (10 files, 58 tests). The CI backend job now starts a `pgvector/pgvector:pg17` service, prepares it with `scripts/ci/setup-test-db.sh` and sets the variable, so they are meant to run on every push and PR. **Pending first CI run:** rehearsed locally on Postgres 16, not yet observed in GitHub Actions.
-- To run them locally: `DATABASE_URL=<scratch db> scripts/ci/setup-test-db.sh` (stand-in roles and `auth.users` from `infra/ci/supabase-stub.sql`, then `pnpm db:migrate`, then `packages/db/supabase/auth-hooks.sql`), then `ATLAS_TEST_DATABASE_URL=<same url> pnpm test`.
+- `pnpm test` with `ATLAS_TEST_DATABASE_URL` set: **118 files, 1,704 tests pass**, 0 skipped, against a database prepared by `scripts/ci/setup-test-db.sh`.
+- Without that variable the DB-backed suites self-skip: 89 files, 1,275 tests pass, 29 files (429 tests) skip.
+- GitHub Actions on the integration PR (backend typecheck/lint/tests with a Postgres service and the committed-bundle freshness check, both frontend builds, dependency audit): **green** on the last pushed head at the time of writing. The Vercel preview statuses on the PR are red for a quota reason, not a code one (see `docs/16`, section 2).
+- `apps/web` and `apps/admin` build with dummy `NEXT_PUBLIC_*` values.
+- To run the DB-backed tests locally: `DATABASE_URL=<scratch db> scripts/ci/setup-test-db.sh` (stand-in roles and `auth.users` from `infra/ci/supabase-stub.sql`, then `pnpm db:migrate`, then `packages/db/supabase/auth-hooks.sql` and `rls.sql`), then `ATLAS_TEST_DATABASE_URL=<same url> pnpm test`.
+
+**Not verified:** nothing has run against a real Supabase project or a live Vercel deployment. The Supabase project `atlas` was paused when last checked, and the Vercel account the working session can reach does not contain these projects. `scripts/smoke.mjs` exists to close that gap after the first deploy.
 
 ## By priority (`CLAUDE.md`)
 
 | # | Priority | State |
 |---|----------|-------|
-| 1 | Architecture and repo structure | Done. pnpm/turbo monorepo, 14 docs, CI. |
-| 2 | Schema and service boundaries | Done. 18 tables, 3 migrations. |
-| 3 | Auth, profile ingestion, job discovery | Done. auth, profile (upload, parse, ATS score), jobs (ingest, dedupe, recommendations). |
-| 4 | Matching, resume optimization, applications, referrals, outreach | Done as heuristic MVPs. Resume optimization is `POST /v1/resumes/{id}/optimize` (advisory, stateless). No LLM is wired anywhere; no model API key is configured. |
-| 5 | University and enterprise administration | **Not started.** `organizations`, `organization_members`, `students` tables exist; there is no `admin-service` (docs/08). `apps/admin` is a UI over auth, applications, analytics and learning only. |
-| 6 | Observability, security hardening, deployment | Partial. Prometheus metrics and Vercel bundles exist. See gaps. |
+| 1 | Architecture and repo structure | Done. pnpm/turbo monorepo, 16 docs, CI. |
+| 2 | Schema and service boundaries | Done. 22 tables, 5 migrations (`0004` adds `job_sources`), Postgres event outbox. |
+| 3 | Auth, profile ingestion, job discovery | Done. Auth (sign-up/in, password reset, **data export and account deletion**), profile (upload with content sniffing, parse, ATS score, durable **Supabase Storage** driver), jobs (manual ingest, dedupe, recommendations, **scheduled ingestion from public Greenhouse, Lever and Ashby boards**). |
+| 4 | Matching, resume optimization, applications, referrals, outreach | Done as honest heuristic MVPs. **Assisted apply**: the user applies on the employer's site and records it (Atlas cannot submit for them, see below). Resume check against a job. Referral contacts are a platform-admin-curated directory. Outreach is **drafts only** (copy, open in the mail app, "I sent this"): no email is delivered. No LLM is wired anywhere. |
+| 5 | University and enterprise administration | **University pilot built**: `admin-service` (roster CSV import/export, funnel, audit-log writes, org-scoped and consent-gated) and a staff console in `apps/admin` (organization chooser, roster, import, funnel). Enterprise administration is not started. |
+| 6 | Observability, security hardening, deployment | Mostly done for a pilot. Prometheus metrics, rate limiting that actually enforces, RLS lockdown SQL, platform-admin gating of global writes, secrets kept out of responses and logs, durable Postgres-outbox messaging with a scheduled drain, post-deploy smoke script, CI with Postgres. Gaps below. |
+
+## Decisions that shape the launch
+
+- **No candidate-side auto-submit.** Greenhouse's application endpoint needs the *employer's* Job Board API key and Lever's apply API needs a key generated by an employer Super Admin, so a candidate platform cannot submit. `mode: "auto"` is refused (400) unless `APPLICATIONS_AUTO_MODE_ENABLED=true`, and no submission worker exists. The original "auto-submit on a few ATSs" answer to the scope question is therefore not delivered; this needs the owner to confirm.
+- **No fake sending.** Outreach `send`/`schedule` answer 503 unless `OUTREACH_DELIVERY_ENABLED=true`, which has no real transport behind it and refuses to boot in production with the `local` one.
+- **Organizations are created by operators**, not from sign-up metadata (that was a privilege-escalation hole). `PLATFORM_ADMIN_USER_IDS` gates job ingestion, the shared contacts directory and cross-tenant learning metrics.
 
 ## Known gaps
 
-- **Not in code at all:** GraphQL, WebSocket, Kafka, Redis client, OpenTelemetry (docs/01, 04, 14 describe them).
-- **Rate limiting** now enforces `RATE_LIMIT_MAX` per `RATE_LIMIT_WINDOW` per client IP on every business route of every service (429 `RATE_LIMITED`; `/health`, `/metrics` and the `/internal/*/drain` routes are exempt). Until this change it limited nothing outside `admin-service`: `app.register(rateLimit)` was not awaited and the routes were declared on the root app, so the plugin never attached to them (`registerRateLimitedRoutes` in `packages/observability` fixes that). Stricter per-route limits: resume upload 20/min, application create 30/min, outreach send 20/min. **Still missing: a shared store.** Counters live in each function instance's memory (the plugin's default store), so on serverless a client's real ceiling is the limit times the number of warm instances. The hook is the `settings` passed to `registerRateLimitedRoutes` in each service's `app.ts`, which goes to the plugin untouched (`store`, or `redis` with an ioredis client). Limits are keyed by IP only, so one noisy user on a shared address (a campus) can exhaust it for the rest; a per-user key needs a verified identity and is not built.
-- **`connectors-service`** is built and tested but is not in `scripts/bundle-backend.mjs` or `vercel.json`, so it is not deployed. `apps/web` connectors page is a placeholder.
-- **CI** now runs the DB-backed tests (Postgres service in the backend job). It also checks that the committed `api/` bundles are fresh and runs an advisory, non-blocking `pnpm audit`, which currently reports advisories. All three are **pending first CI run**; none has been observed in GitHub Actions.
-- **Application agent** (form filling, submission) is not implemented; `applications-service` tracks lifecycle only.
-- Several web dashboard pages render `UnderConstruction`.
+- **Not in code at all:** GraphQL, WebSocket, Kafka, Redis client, OpenTelemetry, an error-tracking vendor (docs/01, 04, 14 describe some of these). Failures are visible only in Vercel function logs.
+- **Rate limiting** enforces `RATE_LIMIT_MAX` per `RATE_LIMIT_WINDOW` per client IP on every business route (429 `RATE_LIMITED`; `/health`, `/metrics` and the machine-authenticated `/internal/*` routes are exempt). Counters live in each function instance's memory, so on serverless a client's real ceiling is the limit times the number of warm instances; a shared store plugs in through the `settings` passed to `registerRateLimitedRoutes`. Keyed by IP only, so one noisy user on a campus address can exhaust it for the rest.
+- **`connectors-service`** is built and tested but not in `scripts/bundle-backend.mjs` or `vercel.json`, so it is not deployed. The placeholder Connectors page was removed from the web dashboard.
+- **Event latency:** events are drained by a GitHub Actions schedule every five minutes (Vercel Hobby has no sub-daily cron), so matches appear minutes after a resume upload.
+- **Admin console backend gaps:** no audit-log *read* endpoint (the page says so), no endpoint listing a user's organizations or their names (the chooser uses the one org in the token or a pasted id), `retry-after` is not exposed through CORS, and viewing the roster or funnel is not audited.
+- **Account deletion** is tested against a stub of the Supabase auth schema only; real-Supabase behaviour (DELETE on `auth.users`, `storage.objects.owner`) needs a staging check. No step-up re-authentication before deleting; orphaned `resumes/<user_id>/` files have no sweeper.
+- **Job ingestion:** no Lever EU endpoint or pagination, description-only edits are not refreshed, a board that closes every role keeps its stale postings, and there is no run lock (overlapping runs are safe but redundant).
+- **Staff can move students' applications:** admin/owner staff of the organization an application is filed under can append status events to it.
+- **Legal:** no Terms of Service page; the privacy page is a static draft that needs review against what the product stores.
 
 ## Deploy note
 
-`api/*/index.js` are committed esbuild bundles. Re-run `node scripts/bundle-backend.mjs` and commit the result whenever a service or a `packages/*` dependency changes.
+`api/*/index.js` are committed esbuild bundles. Re-run `node scripts/bundle-backend.mjs` and commit the result whenever a service or a `packages/*` dependency changes; CI fails a push whose bundles are stale. Twelve Vercel projects are connected to the repository, and a push builds all of them, which exhausts the free plan's 100 deployments per day.
 
 ## Suggested next steps
 
-1. Add a Postgres service to CI so the DB-backed suites run (cheapest large gain in confidence).
-2. `admin-service` for university/enterprise (priority 5), starting with org-scoped read endpoints over `students` and applications.
-3. Shared-store rate limiting and the missing observability pieces (priority 6).
+1. Owner actions in `docs/16_launch_checklist.md`: restore Supabase and apply the SQL in order, set the environment variables and GitHub secrets, disconnect the nine per-service Vercel projects, create the pilot organization.
+2. Run `scripts/smoke.mjs` against the first deployment and walk the manual checklist in `docs/16`.
+3. Staging-verify account deletion and the end-to-end flow with real Supabase auth.
+4. Terms of Service, a data-sharing agreement for the university, and the privacy review.
+5. After launch: a shared rate-limit store, error tracking, an audit-log read endpoint, and a decision on real email delivery.

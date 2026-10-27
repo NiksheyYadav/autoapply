@@ -10356,9 +10356,9 @@ var require_mux = __commonJS({
         function roundrobin(streams) {
           var s;
           while (accepting && (s = streams.shift())) {
-            var chunk = s.read();
-            if (chunk !== null) {
-              accepting = out.write(chunk);
+            var chunk2 = s.read();
+            if (chunk2 !== null) {
+              accepting = out.write(chunk2);
               streams.push(s);
             }
           }
@@ -11201,8 +11201,8 @@ var require_connection = __commonJS({
       else {
         var ws = new Duplex();
         ws.wrap(s);
-        ws._write = function(chunk, encoding, callback) {
-          return s.write(chunk, encoding, callback);
+        ws._write = function(chunk2, encoding, callback) {
+          return s.write(chunk2, encoding, callback);
         };
         return ws;
       }
@@ -25124,8 +25124,8 @@ var require_content_type_parser = __commonJS({
       payload.on("end", onEnd);
       payload.on("error", onEnd);
       payload.resume();
-      function onData(chunk) {
-        receivedLength += asString ? Buffer.byteLength(chunk) : chunk.length;
+      function onData(chunk2) {
+        receivedLength += asString ? Buffer.byteLength(chunk2) : chunk2.length;
         const { receivedEncodedLength = 0 } = payload;
         if (receivedLength > limit || receivedEncodedLength > limit) {
           payload.removeListener("data", onData);
@@ -25135,9 +25135,9 @@ var require_content_type_parser = __commonJS({
           return;
         }
         if (asString) {
-          body += chunk;
+          body += chunk2;
         } else {
-          body.push(chunk);
+          body.push(chunk2);
         }
       }
       function onEnd(err) {
@@ -42776,7 +42776,7 @@ var require_safe_regex2 = __commonJS({
     "use strict";
     var parse4 = require_dist4();
     var { types: types2 } = require_dist4();
-    function walk(node2, opts, starHeight) {
+    function walk2(node2, opts, starHeight) {
       let i;
       let ok;
       let len;
@@ -42789,14 +42789,14 @@ var require_safe_regex2 = __commonJS({
       const options = node2.options || node2.value?.options;
       if (options) {
         for (i = 0, len = options.length; i < len; i++) {
-          ok = walk({ stack: options[i] }, opts, starHeight);
+          ok = walk2({ stack: options[i] }, opts, starHeight);
           if (!ok) return false;
         }
       }
       const stack = node2.stack || node2.value?.stack;
       if (!stack) return true;
       for (i = 0, len = stack.length; i < len; i++) {
-        ok = walk(stack[i], opts, starHeight);
+        ok = walk2(stack[i], opts, starHeight);
         if (!ok) return false;
       }
       return true;
@@ -42809,7 +42809,7 @@ var require_safe_regex2 = __commonJS({
       if (isRegExp(re2)) re2 = re2.source;
       else if (typeof re2 !== "string") re2 = String(re2);
       try {
-        return walk(parse4(re2), opts, 0);
+        return walk2(parse4(re2), opts, 0);
       } catch {
         return false;
       }
@@ -45867,10 +45867,10 @@ var require_request2 = __commonJS({
       const payload = this._lightMyRequest.payload;
       let more = true;
       let pushed = false;
-      let chunk;
-      while (more && (chunk = payload.read())) {
+      let chunk2;
+      while (more && (chunk2 = payload.read())) {
         pushed = true;
-        more = this.push(chunk);
+        more = this.push(chunk2);
       }
       if (more && !pushed) {
         this._lightMyRequest.payload.once("readable", this._read.bind(this));
@@ -47149,7 +47149,7 @@ var require_light_my_request = __commonJS({
         return next();
       }
       const chunks = [];
-      payload.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+      payload.on("data", (chunk2) => chunks.push(Buffer.from(chunk2)));
       payload.on("end", () => {
         const payload2 = Buffer.concat(chunks);
         req.headers["content-length"] = req.headers["content-length"] || "" + payload2.length;
@@ -50540,8 +50540,8 @@ var require_pushgateway = __commonJS({
         const req = httpModule.request(requestParams, options, (resp) => {
           let body = "";
           resp.setEncoding("utf8");
-          resp.on("data", (chunk) => {
-            body += chunk;
+          resp.on("data", (chunk2) => {
+            body += chunk2;
           });
           resp.on("end", () => {
             if (resp.statusCode >= 400) {
@@ -71393,8 +71393,8 @@ function rewriteKeyNames(ctx) {
       bySchema.set(entry.schema, entry);
   }
   const rewrites = /* @__PURE__ */ new Map();
-  for (const record2 of pendingRecords.get(ctx) ?? []) {
-    const seen = ctx.seen.get(record2);
+  for (const record3 of pendingRecords.get(ctx) ?? []) {
+    const seen = ctx.seen.get(record3);
     const names = (seen?.def ?? seen?.schema)?.propertyNames;
     if (!names || names === true || rewrites.has(names))
       continue;
@@ -74732,6 +74732,12 @@ var salaryRangeSchema = external_exports.object({
 var jobSchema = external_exports.object({
   job_id: uuidSchema,
   company_id: uuidSchema,
+  /**
+   * The employer's display name, filled in by the jobs service on every read so
+   * a client can show who is hiring without a second lookup. `null` if the
+   * company row is gone; absent where the job comes from another service.
+   */
+  company_name: external_exports.string().min(1).max(300).nullable().optional(),
   title: external_exports.string().min(1).max(300),
   description: external_exports.string().nullable(),
   salary_min: external_exports.number().int().min(0).nullable(),
@@ -74774,6 +74780,40 @@ var jobRecommendationSchema = external_exports.object({
   job: jobSchema,
   score: external_exports.number().min(0).max(1),
   reasons: external_exports.array(external_exports.string()).max(20)
+});
+
+// packages/types/src/job-source.ts
+var JOB_BOARD_PROVIDERS = ["greenhouse", "lever", "ashby"];
+var jobBoardProviderSchema = external_exports.enum(JOB_BOARD_PROVIDERS);
+var BOARD_TOKEN_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$/;
+var jobBoardTokenSchema = external_exports.string().regex(BOARD_TOKEN_PATTERN, 'board_token must be 1-100 letters, digits, "-" or "_" and start with a letter or digit');
+var companyNameSchema = external_exports.string().trim().min(1).max(300).refine((value) => !/[\u0000-\u001f\u007f]/.test(value), "company_name must not contain control characters");
+var upsertJobBoardSourceRequestSchema = external_exports.object({
+  provider: jobBoardProviderSchema,
+  board_token: jobBoardTokenSchema,
+  /** The employer the board's postings are attributed to (list endpoints do not all report one). */
+  company_name: companyNameSchema,
+  /** Omitted: a new source starts enabled, an existing one keeps its current state. */
+  enabled: external_exports.boolean().optional()
+});
+var JOB_BOARD_SOURCE_STATUSES = ["ok", "partial", "error"];
+var jobBoardSourceStatusSchema = external_exports.enum(JOB_BOARD_SOURCE_STATUSES);
+var jobBoardSourceSchema = external_exports.object({
+  source_id: uuidSchema,
+  provider: jobBoardProviderSchema,
+  board_token: jobBoardTokenSchema,
+  company_name: external_exports.string(),
+  enabled: external_exports.boolean(),
+  last_fetched_at: isoTimestampSchema.nullable(),
+  /** `ok` | `partial` | `error`; null until the first attempt. */
+  last_status: external_exports.string().nullable(),
+  /** Short and scrubbed: never a raw driver or upstream message. */
+  last_error: external_exports.string().nullable(),
+  last_job_count: external_exports.number().int().nullable(),
+  created_at: isoTimestampSchema
+});
+var listJobBoardSourcesResponseSchema = external_exports.object({
+  items: external_exports.array(jobBoardSourceSchema)
 });
 
 // packages/types/src/application.ts
@@ -76116,7 +76156,7 @@ function Connection(options, queues = {}, { onopen = noop, onend = noop, onclose
     target_session_attrs
   } = options;
   const sent = queue_default(), id = uid++, backend = { pid: null, secret: null }, idleTimer = timer(end, options.idle_timeout), lifeTimer = timer(end, options.max_lifetime), connectTimer = timer(connectTimedOut, options.connect_timeout);
-  let socket = null, cancelMessage, errorResponse = null, result = new Result(), incoming = Buffer.alloc(0), needsTypes = options.fetch_types, backendParameters = {}, statements = {}, statementId = Math.random().toString(36).slice(2), statementCount = 1, closedTime = 0, remaining = 0, hostIndex = 0, retries = 0, length = 0, delay = 0, rows = 0, serverSignature = null, nextWriteTimer = null, terminated = false, incomings = null, results = null, initial = null, ending = null, stream = null, chunk = null, ended = null, nonce = null, query = null, final = null;
+  let socket = null, cancelMessage, errorResponse = null, result = new Result(), incoming = Buffer.alloc(0), needsTypes = options.fetch_types, backendParameters = {}, statements = {}, statementId = Math.random().toString(36).slice(2), statementCount = 1, closedTime = 0, remaining = 0, hostIndex = 0, retries = 0, length = 0, delay = 0, rows = 0, serverSignature = null, nextWriteTimer = null, terminated = false, incomings = null, results = null, initial = null, ending = null, stream = null, chunk2 = null, ended = null, nonce = null, query = null, final = null;
   const connection2 = {
     queue: queues.closed,
     idleTimer,
@@ -76177,9 +76217,9 @@ function Connection(options, queues = {}, { onopen = noop, onend = noop, onclose
   function toBuffer(q) {
     if (q.parameters.length >= 65534)
       throw Errors.generic("MAX_PARAMETERS_EXCEEDED", "Max number of parameters (65534) exceeded");
-    return q.options.simple ? bytes_default().Q().str(q.statement.string + bytes_default.N).end() : q.describeFirst ? Buffer.concat([describe3(q), Flush]) : q.prepare ? q.prepared ? prepared(q) : Buffer.concat([describe3(q), prepared(q)]) : unnamed(q);
+    return q.options.simple ? bytes_default().Q().str(q.statement.string + bytes_default.N).end() : q.describeFirst ? Buffer.concat([describe4(q), Flush]) : q.prepare ? q.prepared ? prepared(q) : Buffer.concat([describe4(q), prepared(q)]) : unnamed(q);
   }
-  function describe3(q) {
+  function describe4(q) {
     return Buffer.concat([
       Parse(q.statement.string, q.parameters, q.statement.types, q.statement.name),
       Describe("S", q.statement.name)
@@ -76213,16 +76253,16 @@ function Connection(options, queues = {}, { onopen = noop, onend = noop, onclose
     typeof options.debug === "function" && options.debug(id, string4, parameters, types2);
   }
   function write(x, fn) {
-    chunk = chunk ? Buffer.concat([chunk, x]) : Buffer.from(x);
-    if (fn || chunk.length >= 1024)
+    chunk2 = chunk2 ? Buffer.concat([chunk2, x]) : Buffer.from(x);
+    if (fn || chunk2.length >= 1024)
       return nextWrite(fn);
     nextWriteTimer === null && (nextWriteTimer = setImmediate(nextWrite));
     return true;
   }
   function nextWrite(fn) {
-    const x = socket.write(chunk, fn);
+    const x = socket.write(chunk2, fn);
     nextWriteTimer !== null && clearImmediate(nextWriteTimer);
-    chunk = nextWriteTimer = null;
+    chunk2 = nextWriteTimer = null;
     return x;
   }
   function connectTimedOut() {
@@ -76719,8 +76759,8 @@ function Connection(options, queues = {}, { onopen = noop, onend = noop, onclose
   function CopyInResponse() {
     stream = new Stream.Writable({
       autoDestroy: true,
-      write(chunk2, encoding, callback) {
-        socket.write(bytes_default().d().raw(chunk2).end(), callback);
+      write(chunk3, encoding, callback) {
+        socket.write(bytes_default().d().raw(chunk3).end(), callback);
       },
       destroy(error63, callback) {
         callback(error63);
@@ -76750,8 +76790,8 @@ function Connection(options, queues = {}, { onopen = noop, onend = noop, onclose
         socket.resume();
       },
       /* c8 ignore next 11 */
-      write(chunk2, encoding, callback) {
-        socket.write(bytes_default().d().raw(chunk2).end(), callback);
+      write(chunk3, encoding, callback) {
+        socket.write(bytes_default().d().raw(chunk3).end(), callback);
       },
       destroy(error63, callback) {
         callback(error63);
@@ -77152,8 +77192,8 @@ function largeObject(sql3, oid, mode = 131072 | 262144) {
         start && await lo.seek(start);
         return new Stream2.Writable({
           highWaterMark,
-          write(chunk, encoding, callback) {
-            lo.write(chunk).then(() => callback(), callback);
+          write(chunk2, encoding, callback) {
+            lo.write(chunk2).then(() => callback(), callback);
           }
         });
       }
@@ -77866,6 +77906,9 @@ function iife(fn, ...args) {
 }
 
 // node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_postgres@3.4.9/node_modules/drizzle-orm/pg-core/unique-constraint.js
+function unique(name) {
+  return new UniqueOnConstraintBuilder(name);
+}
 function uniqueKeyName(table2, columns) {
   return `${table2[TableName]}_${columns.join("_")}_unique`;
 }
@@ -78418,11 +78461,11 @@ var StringChunk = class {
 var SQL = class _SQL {
   constructor(queryChunks) {
     this.queryChunks = queryChunks;
-    for (const chunk of queryChunks) {
-      if (is(chunk, Table)) {
-        const schemaName = chunk[Table.Symbol.Schema];
+    for (const chunk2 of queryChunks) {
+      if (is(chunk2, Table)) {
+        const schemaName = chunk2[Table.Symbol.Schema];
         this.usedTables.push(
-          schemaName === void 0 ? chunk[Table.Symbol.Name] : schemaName + "." + chunk[Table.Symbol.Name]
+          schemaName === void 0 ? chunk2[Table.Symbol.Name] : schemaName + "." + chunk2[Table.Symbol.Name]
         );
       }
     }
@@ -78460,65 +78503,65 @@ var SQL = class _SQL {
       inlineParams,
       paramStartIndex
     } = config2;
-    return mergeQueries(chunks.map((chunk) => {
-      if (is(chunk, StringChunk)) {
-        return { sql: chunk.value.join(""), params: [] };
+    return mergeQueries(chunks.map((chunk2) => {
+      if (is(chunk2, StringChunk)) {
+        return { sql: chunk2.value.join(""), params: [] };
       }
-      if (is(chunk, Name)) {
-        return { sql: escapeName(chunk.value), params: [] };
+      if (is(chunk2, Name)) {
+        return { sql: escapeName(chunk2.value), params: [] };
       }
-      if (chunk === void 0) {
+      if (chunk2 === void 0) {
         return { sql: "", params: [] };
       }
-      if (Array.isArray(chunk)) {
+      if (Array.isArray(chunk2)) {
         const result = [new StringChunk("(")];
-        for (const [i, p] of chunk.entries()) {
+        for (const [i, p] of chunk2.entries()) {
           result.push(p);
-          if (i < chunk.length - 1) {
+          if (i < chunk2.length - 1) {
             result.push(new StringChunk(", "));
           }
         }
         result.push(new StringChunk(")"));
         return this.buildQueryFromSourceParams(result, config2);
       }
-      if (is(chunk, _SQL)) {
-        return this.buildQueryFromSourceParams(chunk.queryChunks, {
+      if (is(chunk2, _SQL)) {
+        return this.buildQueryFromSourceParams(chunk2.queryChunks, {
           ...config2,
-          inlineParams: inlineParams || chunk.shouldInlineParams
+          inlineParams: inlineParams || chunk2.shouldInlineParams
         });
       }
-      if (is(chunk, Table)) {
-        const schemaName = chunk[Table.Symbol.Schema];
-        const tableName = chunk[Table.Symbol.Name];
+      if (is(chunk2, Table)) {
+        const schemaName = chunk2[Table.Symbol.Schema];
+        const tableName = chunk2[Table.Symbol.Name];
         return {
-          sql: schemaName === void 0 || chunk[IsAlias] ? escapeName(tableName) : escapeName(schemaName) + "." + escapeName(tableName),
+          sql: schemaName === void 0 || chunk2[IsAlias] ? escapeName(tableName) : escapeName(schemaName) + "." + escapeName(tableName),
           params: []
         };
       }
-      if (is(chunk, Column)) {
-        const columnName = casing.getColumnCasing(chunk);
+      if (is(chunk2, Column)) {
+        const columnName = casing.getColumnCasing(chunk2);
         if (_config.invokeSource === "indexes") {
           return { sql: escapeName(columnName), params: [] };
         }
-        const schemaName = chunk.table[Table.Symbol.Schema];
+        const schemaName = chunk2.table[Table.Symbol.Schema];
         return {
-          sql: chunk.table[IsAlias] || schemaName === void 0 ? escapeName(chunk.table[Table.Symbol.Name]) + "." + escapeName(columnName) : escapeName(schemaName) + "." + escapeName(chunk.table[Table.Symbol.Name]) + "." + escapeName(columnName),
+          sql: chunk2.table[IsAlias] || schemaName === void 0 ? escapeName(chunk2.table[Table.Symbol.Name]) + "." + escapeName(columnName) : escapeName(schemaName) + "." + escapeName(chunk2.table[Table.Symbol.Name]) + "." + escapeName(columnName),
           params: []
         };
       }
-      if (is(chunk, View)) {
-        const schemaName = chunk[ViewBaseConfig].schema;
-        const viewName = chunk[ViewBaseConfig].name;
+      if (is(chunk2, View)) {
+        const schemaName = chunk2[ViewBaseConfig].schema;
+        const viewName = chunk2[ViewBaseConfig].name;
         return {
-          sql: schemaName === void 0 || chunk[ViewBaseConfig].isAlias ? escapeName(viewName) : escapeName(schemaName) + "." + escapeName(viewName),
+          sql: schemaName === void 0 || chunk2[ViewBaseConfig].isAlias ? escapeName(viewName) : escapeName(schemaName) + "." + escapeName(viewName),
           params: []
         };
       }
-      if (is(chunk, Param)) {
-        if (is(chunk.value, Placeholder)) {
-          return { sql: escapeParam(paramStartIndex.value++, chunk), params: [chunk], typings: ["none"] };
+      if (is(chunk2, Param)) {
+        if (is(chunk2.value, Placeholder)) {
+          return { sql: escapeParam(paramStartIndex.value++, chunk2), params: [chunk2], typings: ["none"] };
         }
-        const mappedValue = chunk.value === null ? null : chunk.encoder.mapToDriverValue(chunk.value);
+        const mappedValue = chunk2.value === null ? null : chunk2.encoder.mapToDriverValue(chunk2.value);
         if (is(mappedValue, _SQL)) {
           return this.buildQueryFromSourceParams([mappedValue], config2);
         }
@@ -78527,67 +78570,67 @@ var SQL = class _SQL {
         }
         let typings = ["none"];
         if (prepareTyping) {
-          typings = [prepareTyping(chunk.encoder)];
+          typings = [prepareTyping(chunk2.encoder)];
         }
         return { sql: escapeParam(paramStartIndex.value++, mappedValue), params: [mappedValue], typings };
       }
-      if (is(chunk, Placeholder)) {
-        return { sql: escapeParam(paramStartIndex.value++, chunk), params: [chunk], typings: ["none"] };
+      if (is(chunk2, Placeholder)) {
+        return { sql: escapeParam(paramStartIndex.value++, chunk2), params: [chunk2], typings: ["none"] };
       }
-      if (is(chunk, _SQL.Aliased) && chunk.fieldAlias !== void 0) {
-        return { sql: escapeName(chunk.fieldAlias), params: [] };
+      if (is(chunk2, _SQL.Aliased) && chunk2.fieldAlias !== void 0) {
+        return { sql: escapeName(chunk2.fieldAlias), params: [] };
       }
-      if (is(chunk, Subquery)) {
-        if (chunk._.isWith) {
-          return { sql: escapeName(chunk._.alias), params: [] };
+      if (is(chunk2, Subquery)) {
+        if (chunk2._.isWith) {
+          return { sql: escapeName(chunk2._.alias), params: [] };
         }
         return this.buildQueryFromSourceParams([
           new StringChunk("("),
-          chunk._.sql,
+          chunk2._.sql,
           new StringChunk(") "),
-          new Name(chunk._.alias)
+          new Name(chunk2._.alias)
         ], config2);
       }
-      if (isPgEnum(chunk)) {
-        if (chunk.schema) {
-          return { sql: escapeName(chunk.schema) + "." + escapeName(chunk.enumName), params: [] };
+      if (isPgEnum(chunk2)) {
+        if (chunk2.schema) {
+          return { sql: escapeName(chunk2.schema) + "." + escapeName(chunk2.enumName), params: [] };
         }
-        return { sql: escapeName(chunk.enumName), params: [] };
+        return { sql: escapeName(chunk2.enumName), params: [] };
       }
-      if (isSQLWrapper(chunk)) {
-        if (chunk.shouldOmitSQLParens?.()) {
-          return this.buildQueryFromSourceParams([chunk.getSQL()], config2);
+      if (isSQLWrapper(chunk2)) {
+        if (chunk2.shouldOmitSQLParens?.()) {
+          return this.buildQueryFromSourceParams([chunk2.getSQL()], config2);
         }
         return this.buildQueryFromSourceParams([
           new StringChunk("("),
-          chunk.getSQL(),
+          chunk2.getSQL(),
           new StringChunk(")")
         ], config2);
       }
       if (inlineParams) {
-        return { sql: this.mapInlineParam(chunk, config2), params: [] };
+        return { sql: this.mapInlineParam(chunk2, config2), params: [] };
       }
-      return { sql: escapeParam(paramStartIndex.value++, chunk), params: [chunk], typings: ["none"] };
+      return { sql: escapeParam(paramStartIndex.value++, chunk2), params: [chunk2], typings: ["none"] };
     }));
   }
-  mapInlineParam(chunk, { escapeString }) {
-    if (chunk === null) {
+  mapInlineParam(chunk2, { escapeString }) {
+    if (chunk2 === null) {
       return "null";
     }
-    if (typeof chunk === "number" || typeof chunk === "boolean") {
-      return chunk.toString();
+    if (typeof chunk2 === "number" || typeof chunk2 === "boolean") {
+      return chunk2.toString();
     }
-    if (typeof chunk === "string") {
-      return escapeString(chunk);
+    if (typeof chunk2 === "string") {
+      return escapeString(chunk2);
     }
-    if (typeof chunk === "object") {
-      const mappedValueAsString = chunk.toString();
+    if (typeof chunk2 === "object") {
+      const mappedValueAsString = chunk2.toString();
       if (mappedValueAsString === "[object Object]") {
-        return escapeString(JSON.stringify(chunk));
+        return escapeString(JSON.stringify(chunk2));
       }
       return escapeString(mappedValueAsString);
     }
-    throw new Error("Unexpected param value: " + chunk);
+    throw new Error("Unexpected param value: " + chunk2);
   }
   getSQL() {
     return this;
@@ -78679,11 +78722,11 @@ function sql(strings, ...params) {
   sql22.raw = raw;
   function join(chunks, separator) {
     const result = [];
-    for (const [i, chunk] of chunks.entries()) {
+    for (const [i, chunk2] of chunks.entries()) {
       if (i > 0 && separator !== void 0) {
         result.push(separator);
       }
-      result.push(chunk);
+      result.push(chunk2);
     }
     return new SQL(result);
   }
@@ -80534,8 +80577,8 @@ function check2(name, value) {
 
 // node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_postgres@3.4.9/node_modules/drizzle-orm/pg-core/indexes.js
 var IndexBuilderOn = class {
-  constructor(unique, name) {
-    this.unique = unique;
+  constructor(unique2, name) {
+    this.unique = unique2;
     this.name = name;
   }
   static [entityKind] = "PgIndexBuilderOn";
@@ -80604,11 +80647,11 @@ var IndexBuilder = class {
   static [entityKind] = "PgIndexBuilder";
   /** @internal */
   config;
-  constructor(columns, unique, only, name, method = "btree") {
+  constructor(columns, unique2, only, name, method = "btree") {
     this.config = {
       name,
       columns,
-      unique,
+      unique: unique2,
       only,
       method
     };
@@ -81268,13 +81311,13 @@ var PgDialect = class {
   buildSelection(fields, { isSingleTable = false } = {}) {
     const columnsLen = fields.length;
     const chunks = fields.flatMap(({ field }, i) => {
-      const chunk = [];
+      const chunk2 = [];
       if (is(field, SQL.Aliased) && field.isSelectionField) {
-        chunk.push(sql.identifier(field.fieldAlias));
+        chunk2.push(sql.identifier(field.fieldAlias));
       } else if (is(field, SQL.Aliased) || is(field, SQL)) {
         const query = is(field, SQL.Aliased) ? field.sql : field;
         if (isSingleTable) {
-          chunk.push(
+          chunk2.push(
             new SQL(
               query.queryChunks.map((c) => {
                 if (is(c, PgColumn)) {
@@ -81285,16 +81328,16 @@ var PgDialect = class {
             )
           );
         } else {
-          chunk.push(query);
+          chunk2.push(query);
         }
         if (is(field, SQL.Aliased)) {
-          chunk.push(sql` as ${sql.identifier(field.fieldAlias)}`);
+          chunk2.push(sql` as ${sql.identifier(field.fieldAlias)}`);
         }
       } else if (is(field, Column)) {
         if (isSingleTable) {
-          chunk.push(sql.identifier(this.casing.getColumnCasing(field)));
+          chunk2.push(sql.identifier(this.casing.getColumnCasing(field)));
         } else {
-          chunk.push(field);
+          chunk2.push(field);
         }
       } else if (is(field, Subquery)) {
         const entries = Object.entries(field._.selectedFields);
@@ -81305,12 +81348,12 @@ var PgDialect = class {
             field._.sql.decoder = fieldDecoder;
           }
         }
-        chunk.push(field);
+        chunk2.push(field);
       }
       if (i < columnsLen - 1) {
-        chunk.push(sql`, `);
+        chunk2.push(sql`, `);
       }
-      return chunk;
+      return chunk2;
     });
     return sql.join(chunks);
   }
@@ -81462,9 +81505,9 @@ var PgDialect = class {
           orderByValues.push(sql.identifier(singleOrderBy.name));
         } else if (is(singleOrderBy, SQL)) {
           for (let i = 0; i < singleOrderBy.queryChunks.length; i++) {
-            const chunk = singleOrderBy.queryChunks[i];
-            if (is(chunk, PgColumn)) {
-              singleOrderBy.queryChunks[i] = sql.identifier(chunk.name);
+            const chunk2 = singleOrderBy.queryChunks[i];
+            if (is(chunk2, PgColumn)) {
+              singleOrderBy.queryChunks[i] = sql.identifier(chunk2.name);
             }
           }
           orderByValues.push(sql`${singleOrderBy}`);
@@ -84632,8 +84675,10 @@ __export(schema_exports, {
   eventDeliveries: () => eventDeliveries,
   eventOutbox: () => eventOutbox,
   idempotencyKeys: () => idempotencyKeys,
+  jobBoardProviderEnum: () => jobBoardProviderEnum,
   jobScores: () => jobScores,
   jobSourceEnum: () => jobSourceEnum,
+  jobSources: () => jobSources,
   jobs: () => jobs,
   jobsRelations: () => jobsRelations,
   memberRoleEnum: () => memberRoleEnum,
@@ -84672,6 +84717,7 @@ var messageChannelEnum = pgEnum("message_channel", MESSAGE_CHANNELS);
 var messageStatusEnum = pgEnum("message_status", MESSAGE_STATUSES);
 var taskStatusEnum = pgEnum("task_status", TASK_STATUSES);
 var jobSourceEnum = pgEnum("job_source", JOB_SOURCES);
+var jobBoardProviderEnum = pgEnum("job_board_provider", JOB_BOARD_PROVIDERS);
 
 // packages/db/src/schema/identity.ts
 var timestamps = {
@@ -84925,6 +84971,42 @@ var jobsRelations = relations(jobs, ({ one, many }) => ({
 var companiesRelations = relations(companies, ({ many }) => ({
   jobs: many(jobs)
 }));
+
+// packages/db/src/schema/job-sources.ts
+var jobSources = pgTable(
+  "job_sources",
+  {
+    sourceId: uuid3("source_id").primaryKey().defaultRandom(),
+    provider: jobBoardProviderEnum("provider").notNull(),
+    /**
+     * The board's identifier in the provider's URL (Greenhouse `board_token`,
+     * Lever site name, Ashby job board name). It is the only caller-supplied
+     * part of the outbound request URL, hence the charset check below.
+     */
+    boardToken: text("board_token").notNull(),
+    /** The employer the board's postings are attributed to. */
+    companyName: text("company_name").notNull(),
+    enabled: boolean4("enabled").notNull().default(true),
+    /** Last attempt, successful or not, so a failing source cannot starve the others. */
+    lastFetchedAt: timestamp("last_fetched_at", { withTimezone: true, mode: "string" }),
+    /** `ok` | `partial` | `error`. */
+    lastStatus: text("last_status"),
+    /** Short and scrubbed: never a raw driver or upstream message. */
+    lastError: text("last_error"),
+    /** Postings the last successful fetch listed. */
+    lastJobCount: integer2("last_job_count"),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "string" }).notNull().defaultNow()
+  },
+  (table2) => [
+    unique("job_sources_provider_board_token_key").on(table2.provider, table2.boardToken),
+    // Defense in depth for rows that bypass the API (SQL seeds, the dashboard):
+    // the fetch layer re-validates before building a URL, and so does the route.
+    check2(
+      "job_sources_board_token_check",
+      sql`${table2.boardToken} ~ '^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$'`
+    )
+  ]
+);
 
 // packages/db/src/schema/applications.ts
 var applications = pgTable(
@@ -85919,6 +86001,19 @@ var RabbitMqBroker = class {
   }
 };
 
+// packages/messaging/src/drain-auth.ts
+import { createHash as createHash2, timingSafeEqual as timingSafeEqual2 } from "node:crypto";
+function digest(value) {
+  return createHash2("sha256").update(value, "utf8").digest();
+}
+function isAuthorizedDrainRequest(authorization, secret) {
+  if (secret === "") return false;
+  const match = /^Bearer\s+(\S+)\s*$/i.exec(authorization ?? "");
+  const presented = match?.[1] ?? "";
+  const equal = timingSafeEqual2(digest(presented), digest(secret));
+  return equal && match !== null;
+}
+
 // packages/messaging/src/index.ts
 function createBroker(options) {
   if (options.driver === "memory") {
@@ -86106,11 +86201,76 @@ function registerRateLimitedRoutes(app2, options, declareRoutes) {
   });
 }
 
+// packages/observability/src/timestamps.ts
+var PG_TIMESTAMP = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})(?:\.(\d{1,9}))?(Z|[+-]\d{2}(?::?\d{2})?)$/;
+var TIMESTAMP_KEY = /_at$/;
+function toIsoTimestamp(value) {
+  const match = PG_TIMESTAMP.exec(value);
+  if (!match) return void 0;
+  const [, date6, time4, fraction = "", zone = "Z"] = match;
+  const millis = fraction.slice(0, 3).padEnd(3, "0");
+  let offset = zone;
+  if (zone !== "Z") {
+    const digits = zone.slice(1).replace(":", "");
+    offset = `${zone[0]}${digits.slice(0, 2)}:${digits.slice(2, 4).padEnd(2, "0")}`;
+  }
+  const parsed = /* @__PURE__ */ new Date(`${date6}T${time4}.${millis}${offset}`);
+  return Number.isNaN(parsed.getTime()) ? void 0 : parsed.toISOString();
+}
+function isPlainObject2(value) {
+  if (typeof value !== "object" || value === null) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+function normalizeTimestamps(value) {
+  return walk(value);
+}
+function walk(value) {
+  if (Array.isArray(value)) {
+    let changed = false;
+    const next = value.map((item) => {
+      const converted = walk(item);
+      if (converted !== item) changed = true;
+      return converted;
+    });
+    return changed ? next : value;
+  }
+  if (!isPlainObject2(value)) return value;
+  let copy;
+  for (const [key, child] of Object.entries(value)) {
+    let converted;
+    if (typeof child === "string" && TIMESTAMP_KEY.test(key)) {
+      converted = toIsoTimestamp(child) ?? child;
+    } else {
+      converted = walk(child);
+    }
+    if (converted !== child) {
+      copy ??= { ...value };
+      copy[key] = converted;
+    }
+  }
+  return copy ?? value;
+}
+function registerIsoTimestamps(app2) {
+  app2.addHook("preSerialization", (_request, _reply, payload, done) => {
+    done(null, normalizeTimestamps(payload));
+  });
+}
+
 // services/jobs/src/repo/jobs.ts
-function toJob(row) {
+async function companyNamesByIds(db2, companyIds) {
+  const names = /* @__PURE__ */ new Map();
+  const unique2 = [...new Set(companyIds)];
+  if (unique2.length === 0) return names;
+  const rows = await db2.select({ companyId: schema_exports.companies.companyId, name: schema_exports.companies.name }).from(schema_exports.companies).where(inArray(schema_exports.companies.companyId, unique2));
+  for (const row of rows) names.set(row.companyId, row.name);
+  return names;
+}
+function toJob(row, companyName = null) {
   return {
     job_id: row.jobId,
     company_id: row.companyId,
+    company_name: companyName,
     title: row.title,
     description: row.description,
     salary_min: row.salaryMin,
@@ -86145,8 +86305,44 @@ async function insert(db2, input2) {
   return row;
 }
 async function touchSeen(db2, jobId) {
-  const now = (/* @__PURE__ */ new Date()).toISOString();
-  await db2.update(schema_exports.jobs).set({ lastSeenAt: now, isActive: true, updatedAt: now }).where(eq(schema_exports.jobs.jobId, jobId));
+  await db2.update(schema_exports.jobs).set({ lastSeenAt: sql`now()`, isActive: true, updatedAt: sql`now()` }).where(eq(schema_exports.jobs.jobId, jobId));
+}
+var ID_CHUNK = 500;
+function chunk(items) {
+  const chunks = [];
+  for (let index2 = 0; index2 < items.length; index2 += ID_CHUNK) chunks.push(items.slice(index2, index2 + ID_CHUNK));
+  return chunks;
+}
+async function findJobIdsByHashes(db2, hashes) {
+  const found = /* @__PURE__ */ new Map();
+  for (const part of chunk([...new Set(hashes)])) {
+    const rows = await db2.select({ jobId: schema_exports.jobs.jobId, jobHash: schema_exports.jobs.jobHash }).from(schema_exports.jobs).where(inArray(schema_exports.jobs.jobHash, part));
+    for (const row of rows) found.set(row.jobHash, row.jobId);
+  }
+  return found;
+}
+async function touchSeenMany(db2, jobIds) {
+  for (const part of chunk([...new Set(jobIds)])) {
+    await db2.update(schema_exports.jobs).set({ lastSeenAt: sql`now()`, isActive: true, updatedAt: sql`now()` }).where(inArray(schema_exports.jobs.jobId, part));
+  }
+}
+async function findBySourceExternalId(db2, source, externalId) {
+  const [row] = await db2.select().from(schema_exports.jobs).where(and(eq(schema_exports.jobs.source, source), eq(schema_exports.jobs.externalId, externalId))).limit(1);
+  return row ?? null;
+}
+async function updateInPlace(db2, jobId, input2) {
+  await db2.update(schema_exports.jobs).set({ ...input2, isActive: true, lastSeenAt: sql`now()`, updatedAt: sql`now()` }).where(eq(schema_exports.jobs.jobId, jobId));
+}
+async function deactivateUnseenSince(db2, scope, before) {
+  const rows = await db2.update(schema_exports.jobs).set({ isActive: false, updatedAt: sql`now()` }).where(
+    and(
+      eq(schema_exports.jobs.source, scope.source),
+      eq(schema_exports.jobs.companyId, scope.companyId),
+      eq(schema_exports.jobs.isActive, true),
+      lt(schema_exports.jobs.lastSeenAt, before)
+    )
+  ).returning({ jobId: schema_exports.jobs.jobId });
+  return rows.length;
 }
 async function listActive(db2, filters, pagination) {
   const cursorValue = pagination.cursor ? decodeCursor(pagination.cursor) : null;
@@ -86183,7 +86379,8 @@ function getJobRoute(app2, deps) {
     if (!job) {
       throw new AppError("JOB_NOT_FOUND", "Job not found");
     }
-    reply.status(200).send({ job: toJob(job) });
+    const companyNames = await companyNamesByIds(deps.db, [job.companyId]);
+    reply.status(200).send({ job: toJob(job, companyNames.get(job.companyId) ?? null) });
   });
 }
 
@@ -86372,13 +86569,94 @@ async function findOrCreateByName(db2, name, website) {
   }
 }
 
-// services/jobs/src/http/routes/ingest.ts
+// services/jobs/src/lib/ingest-posting.ts
 var UNIQUE_VIOLATION2 = "23505";
 function parsePostedAt(raw) {
   if (!raw) return null;
   const date6 = new Date(raw);
   return Number.isNaN(date6.getTime()) ? null : date6.toISOString();
 }
+function hashPosting(posting) {
+  return computeJobHash(
+    posting.company_name,
+    posting.title,
+    posting.location ?? null,
+    coerceRemoteType(posting.remote_type)
+  );
+}
+function fieldsOf(posting, jobHash) {
+  return {
+    title: posting.title,
+    description: posting.description ?? null,
+    salaryMin: posting.salary_min ?? null,
+    salaryMax: posting.salary_max ?? null,
+    salaryCurrency: posting.salary_currency ?? null,
+    location: posting.location ?? null,
+    remoteType: coerceRemoteType(posting.remote_type),
+    employmentType: coerceEmploymentType(posting.employment_type),
+    applyUrl: normalizeApplyUrl(posting.apply_url),
+    jobHash,
+    skills: extractSkillKeywords(posting.description ?? ""),
+    spamScore: estimateSpamScore(posting),
+    postedAt: parsePostedAt(posting.posted_at)
+  };
+}
+async function publishDiscovered(context2, job) {
+  await context2.broker.publish(
+    createEvent(
+      "job.discovered",
+      { job_id: job.jobId, company_id: job.companyId, source: job.source, job_hash: job.jobHash, title: job.title },
+      context2.newTrace()
+    )
+  );
+}
+async function ingestPosting(context2, posting) {
+  const { db: db2 } = context2;
+  const remoteType = coerceRemoteType(posting.remote_type);
+  const jobHash = computeJobHash(posting.company_name, posting.title, posting.location ?? null, remoteType);
+  const company = context2.company ?? await findOrCreateByName(db2, posting.company_name, normalizeWebsiteUrl(posting.company_website));
+  const existing = await findByHash(db2, jobHash);
+  if (existing) {
+    await touchSeen(db2, existing.jobId);
+    return { kind: "duplicate", jobId: existing.jobId };
+  }
+  try {
+    if (context2.updateChangedListings === true && posting.external_id) {
+      const sameListing = await findBySourceExternalId(db2, posting.source, posting.external_id);
+      if (sameListing) {
+        await updateInPlace(db2, sameListing.jobId, fieldsOf(posting, jobHash));
+        await publishDiscovered(context2, {
+          jobId: sameListing.jobId,
+          companyId: sameListing.companyId,
+          source: sameListing.source,
+          jobHash,
+          title: posting.title
+        });
+        return { kind: "updated", jobId: sameListing.jobId };
+      }
+    }
+    const input2 = {
+      ...fieldsOf(posting, jobHash),
+      companyId: company.companyId,
+      source: posting.source,
+      externalId: posting.external_id
+    };
+    const job = await insert(db2, input2);
+    await publishDiscovered(context2, job);
+    return { kind: "inserted", jobId: job.jobId };
+  } catch (cause) {
+    if (pgErrorCode(cause) === UNIQUE_VIOLATION2) {
+      const raced = await findByHash(db2, jobHash);
+      if (raced) {
+        await touchSeen(db2, raced.jobId);
+        return { kind: "duplicate", jobId: raced.jobId };
+      }
+    }
+    throw cause;
+  }
+}
+
+// services/jobs/src/http/routes/ingest.ts
 function ingestRoute(app2, deps) {
   app2.post("/v1/jobs/ingest", { preHandler: requireAuth(deps.tokenVerifier) }, async (request, reply) => {
     const actor = getActor(request);
@@ -86394,55 +86672,18 @@ function ingestRoute(app2, deps) {
       errors: []
     };
     for (const [index2, posting] of postings.entries()) {
-      const remoteType = coerceRemoteType(posting.remote_type);
-      const jobHash = computeJobHash(posting.company_name, posting.title, posting.location ?? null, remoteType);
       try {
-        const company = await findOrCreateByName(
-          deps.db,
-          posting.company_name,
-          normalizeWebsiteUrl(posting.company_website)
+        const outcome = await ingestPosting(
+          {
+            db: deps.db,
+            broker: deps.broker,
+            newTrace: () => newTraceContext({ organization_id: actor.organization_id, user_id: actor.user_id })
+          },
+          posting
         );
-        const existing = await findByHash(deps.db, jobHash);
-        if (existing) {
-          await touchSeen(deps.db, existing.jobId);
-          report.duplicates += 1;
-          continue;
-        }
-        const job = await insert(deps.db, {
-          companyId: company.companyId,
-          title: posting.title,
-          description: posting.description ?? null,
-          salaryMin: posting.salary_min ?? null,
-          salaryMax: posting.salary_max ?? null,
-          salaryCurrency: posting.salary_currency ?? null,
-          location: posting.location ?? null,
-          remoteType,
-          employmentType: coerceEmploymentType(posting.employment_type),
-          source: posting.source,
-          externalId: posting.external_id,
-          applyUrl: normalizeApplyUrl(posting.apply_url),
-          jobHash,
-          skills: extractSkillKeywords(posting.description ?? ""),
-          spamScore: estimateSpamScore(posting),
-          postedAt: parsePostedAt(posting.posted_at)
-        });
-        await deps.broker.publish(
-          createEvent(
-            "job.discovered",
-            { job_id: job.jobId, company_id: job.companyId, source: job.source, job_hash: job.jobHash, title: job.title },
-            newTraceContext({ organization_id: actor.organization_id, user_id: actor.user_id })
-          )
-        );
-        report.inserted += 1;
+        if (outcome.kind === "inserted") report.inserted += 1;
+        else report.duplicates += 1;
       } catch (cause) {
-        if (pgErrorCode(cause) === UNIQUE_VIOLATION2) {
-          const raced = await findByHash(deps.db, jobHash);
-          if (raced) {
-            await touchSeen(deps.db, raced.jobId);
-            report.duplicates += 1;
-            continue;
-          }
-        }
         report.rejected += 1;
         request.log.error({ err: cause, posting_index: index2 }, "failed to ingest job posting");
         report.errors.push(`postings[${index2}]: could not be processed`);
@@ -86450,6 +86691,863 @@ function ingestRoute(app2, deps) {
     }
     reply.status(200).send(report);
   });
+}
+
+// services/jobs/src/lib/job-sources/html-text.ts
+var NAMED_ENTITIES = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+  nbsp: "\xA0",
+  ndash: "\u2013",
+  mdash: "\u2014",
+  hellip: "\u2026",
+  lsquo: "\u2018",
+  rsquo: "\u2019",
+  ldquo: "\u201C",
+  rdquo: "\u201D",
+  bull: "\u2022",
+  middot: "\xB7",
+  copy: "\xA9",
+  reg: "\xAE",
+  trade: "\u2122",
+  eacute: "\xE9",
+  euro: "\u20AC"
+};
+var ENTITY_RE = /&(#x[0-9a-f]{1,6}|#[0-9]{1,7}|[a-z][a-z0-9]{1,15});/gi;
+function codePointToString(codePoint) {
+  const valid = Number.isInteger(codePoint) && codePoint > 0 && codePoint <= 1114111 && !(codePoint >= 55296 && codePoint <= 57343);
+  return valid ? String.fromCodePoint(codePoint) : null;
+}
+function decodeHtmlEntities(text2) {
+  return text2.replace(ENTITY_RE, (match, body) => {
+    if (body.startsWith("#x") || body.startsWith("#X")) {
+      return codePointToString(Number.parseInt(body.slice(2), 16)) ?? match;
+    }
+    if (body.startsWith("#")) {
+      return codePointToString(Number.parseInt(body.slice(1), 10)) ?? match;
+    }
+    return NAMED_ENTITIES[body.toLowerCase()] ?? match;
+  });
+}
+var BLOCK_TAGS = /* @__PURE__ */ new Set(["p", "div", "h1", "h2", "h3", "h4", "h5", "h6", "ul", "ol", "table", "tr", "section", "article", "blockquote"]);
+var RAW_TEXT_TAGS = /* @__PURE__ */ new Set(["script", "style"]);
+var isLetter = (code) => code >= 65 && code <= 90 || code >= 97 && code <= 122;
+var isTagNameChar = (code) => isLetter(code) || code >= 48 && code <= 57;
+function stripTags(html) {
+  const lower = html.toLowerCase();
+  let out = "";
+  let cursor = 0;
+  let noMoreClosers = false;
+  const noMoreEndTag = /* @__PURE__ */ new Set();
+  while (cursor < html.length) {
+    const open2 = html.indexOf("<", cursor);
+    if (open2 === -1) break;
+    out += html.slice(cursor, open2);
+    const next = html.charCodeAt(open2 + 1);
+    const slash = next === 47;
+    const nameStart = open2 + (slash ? 2 : 1);
+    const looksLikeTag = slash || isLetter(next) || next === 33 || next === 63;
+    const close2 = looksLikeTag && !noMoreClosers ? html.indexOf(">", open2 + 1) : -1;
+    if (close2 === -1) {
+      if (looksLikeTag) noMoreClosers = true;
+      out += "<";
+      cursor = open2 + 1;
+      continue;
+    }
+    let nameEnd = nameStart;
+    while (nameEnd < close2 && isTagNameChar(html.charCodeAt(nameEnd))) nameEnd += 1;
+    const name = lower.slice(nameStart, nameEnd);
+    cursor = close2 + 1;
+    if (slash) {
+      if (BLOCK_TAGS.has(name)) out += "\n\n";
+    } else if (name === "br") {
+      out += "\n";
+    } else if (name === "li") {
+      out += "\n- ";
+    } else if (RAW_TEXT_TAGS.has(name) && html.charCodeAt(close2 - 1) !== 47 && !noMoreEndTag.has(name)) {
+      const end = lower.indexOf(`</${name}`, cursor);
+      if (end === -1) {
+        noMoreEndTag.add(name);
+      } else {
+        const endClose = html.indexOf(">", end);
+        cursor = endClose === -1 ? html.length : endClose + 1;
+        out += " ";
+      }
+    }
+  }
+  return out + html.slice(cursor);
+}
+function htmlToText(html) {
+  return tidyWhitespace(decodeHtmlEntities(stripTags(html)));
+}
+function tidyWhitespace(text2) {
+  return text2.replace(/\r\n?/g, "\n").split("\n").map((line2) => line2.replace(/[\u00a0\t ]+/g, " ").trim()).join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+// services/jobs/src/lib/job-sources/common.ts
+var FIELD_LIMITS = {
+  title: 300,
+  externalId: 400,
+  location: 300,
+  description: 2e5,
+  applyUrl: 2e3,
+  shortText: 50,
+  postedAt: 60
+};
+var SourcePayloadError = class extends Error {
+  constructor(message2) {
+    super(message2);
+    this.name = "SourcePayloadError";
+  }
+};
+function clampText(value, max) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (trimmed === "") return null;
+  return trimmed.length > max ? trimmed.slice(0, max).trimEnd() : trimmed;
+}
+function tidyDescription(parts) {
+  const text2 = tidyWhitespace(parts.filter((part) => typeof part === "string" && part.trim() !== "").join("\n\n"));
+  return text2 === "" ? null : text2;
+}
+function joinLocations(parts, max = FIELD_LIMITS.location) {
+  const seen = /* @__PURE__ */ new Set();
+  let joined = "";
+  for (const part of parts) {
+    const text2 = clampText(part, max);
+    if (text2 === null || seen.has(text2.toLowerCase())) continue;
+    const next = joined === "" ? text2 : `${joined} | ${text2}`;
+    if (next.length > max) break;
+    seen.add(text2.toLowerCase());
+    joined = next;
+  }
+  return joined === "" ? null : joined;
+}
+var EARLIEST_PLAUSIBLE_YEAR = 1990;
+function toIsoTimestamp2(input2) {
+  if (input2 === null || input2 === void 0 || input2 === "") return null;
+  const date6 = new Date(input2);
+  const time4 = date6.getTime();
+  if (Number.isNaN(time4)) return null;
+  const year = date6.getUTCFullYear();
+  const latest = (/* @__PURE__ */ new Date()).getUTCFullYear() + 1;
+  return year >= EARLIEST_PLAUSIBLE_YEAR && year <= latest ? date6.toISOString() : null;
+}
+var MAX_SALARY_AMOUNT = 2147483647;
+function toWholeAmount(input2) {
+  if (typeof input2 !== "number" || !Number.isFinite(input2) || input2 < 0) return null;
+  const rounded = Math.round(input2);
+  return rounded <= MAX_SALARY_AMOUNT ? rounded : null;
+}
+function finalizePosting(candidate) {
+  const clamped = {
+    ...candidate,
+    external_id: clampText(candidate.external_id, FIELD_LIMITS.externalId),
+    title: clampText(candidate.title, FIELD_LIMITS.title) ?? "",
+    description: clampText(candidate.description, FIELD_LIMITS.description),
+    location: clampText(candidate.location, FIELD_LIMITS.location),
+    remote_type: clampText(candidate.remote_type, FIELD_LIMITS.shortText),
+    employment_type: clampText(candidate.employment_type, FIELD_LIMITS.shortText),
+    apply_url: clampText(candidate.apply_url, FIELD_LIMITS.applyUrl),
+    posted_at: clampText(candidate.posted_at, FIELD_LIMITS.postedAt)
+  };
+  const parsed = rawJobPostingSchema.safeParse(clamped);
+  return parsed.success ? parsed.data : null;
+}
+function asRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value) ? value : null;
+}
+function collectPostings(entries, itemSchema, toPosting4) {
+  const postings = [];
+  let skipped = 0;
+  for (const entry of entries) {
+    const parsed = itemSchema.safeParse(entry);
+    const posting = parsed.success ? toPosting4(parsed.data) : null;
+    const finalized = posting === null ? null : finalizePosting(posting);
+    if (finalized === null) skipped += 1;
+    else postings.push(finalized);
+  }
+  return { postings, skipped };
+}
+
+// services/jobs/src/lib/job-sources/ashby.ts
+var ASHBY_ORIGIN = "https://api.ashbyhq.com";
+var ashbyJobSchema = external_exports.object({
+  id: external_exports.string().min(1).nullish(),
+  title: external_exports.string(),
+  location: external_exports.string().nullish(),
+  secondaryLocations: external_exports.array(external_exports.object({ location: external_exports.string().nullish() })).nullish(),
+  employmentType: external_exports.string().nullish(),
+  workplaceType: external_exports.string().nullish(),
+  isListed: external_exports.boolean().nullish(),
+  descriptionHtml: external_exports.string().nullish(),
+  descriptionPlain: external_exports.string().nullish(),
+  publishedAt: external_exports.string().nullish(),
+  jobUrl: external_exports.string().nullish(),
+  applyUrl: external_exports.string().nullish(),
+  address: external_exports.object({
+    postalAddress: external_exports.object({
+      addressLocality: external_exports.string().nullish(),
+      addressRegion: external_exports.string().nullish(),
+      addressCountry: external_exports.string().nullish()
+    }).nullish()
+  }).nullish()
+});
+var TRAILING_UUID_RE = /\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:\/|$)/i;
+function uuidFromUrl(url2) {
+  if (!url2) return null;
+  try {
+    return TRAILING_UUID_RE.exec(new URL(url2, ASHBY_ORIGIN).pathname)?.[1]?.toLowerCase() ?? null;
+  } catch {
+    return null;
+  }
+}
+function externalIdOf(job) {
+  return job.id ?? uuidFromUrl(job.jobUrl) ?? uuidFromUrl(job.applyUrl);
+}
+function postalLocation(job) {
+  const address = job.address?.postalAddress;
+  return joinLocations([[address?.addressLocality, address?.addressRegion, address?.addressCountry].filter(Boolean).join(", ")]);
+}
+function toPosting(job, companyName) {
+  if (job.isListed === false) return null;
+  const primary = job.location?.trim() ? job.location : postalLocation(job);
+  return {
+    source: "ashby",
+    external_id: externalIdOf(job),
+    title: job.title,
+    company_name: companyName,
+    description: tidyDescription([job.descriptionPlain ?? (job.descriptionHtml ? htmlToText(job.descriptionHtml) : null)]),
+    location: joinLocations([primary, ...(job.secondaryLocations ?? []).map((secondary) => secondary.location)]),
+    remote_type: job.workplaceType ?? null,
+    employment_type: job.employmentType ?? null,
+    apply_url: job.applyUrl ?? job.jobUrl ?? null,
+    posted_at: toIsoTimestamp2(job.publishedAt)
+  };
+}
+function mapAshbyJobs(payload, context2) {
+  const body = asRecord(payload);
+  if (body === null || !Array.isArray(body.jobs)) {
+    throw new SourcePayloadError('Ashby response has no "jobs" array');
+  }
+  return collectPostings(body.jobs, ashbyJobSchema, (job) => toPosting(job, context2.companyName));
+}
+var ashbyAdapter = {
+  provider: "ashby",
+  origin: ASHBY_ORIGIN,
+  buildUrl(boardToken) {
+    return new URL(`/posting-api/job-board/${encodeURIComponent(boardToken)}`, ASHBY_ORIGIN);
+  },
+  map: mapAshbyJobs
+};
+
+// services/jobs/src/lib/job-sources/greenhouse.ts
+var GREENHOUSE_ORIGIN = "https://boards-api.greenhouse.io";
+var greenhouseJobSchema = external_exports.object({
+  id: external_exports.union([external_exports.number().int(), external_exports.string().min(1)]),
+  title: external_exports.string(),
+  absolute_url: external_exports.string().nullish(),
+  location: external_exports.object({ name: external_exports.string().nullish() }).nullish(),
+  content: external_exports.string().nullish(),
+  first_published: external_exports.string().nullish(),
+  updated_at: external_exports.string().nullish(),
+  metadata: external_exports.array(external_exports.object({ name: external_exports.string().nullish(), value: external_exports.unknown() })).nullish()
+});
+function metadataText(job, namePattern) {
+  for (const field of job.metadata ?? []) {
+    if (field.name && namePattern.test(field.name) && typeof field.value === "string") {
+      return field.value;
+    }
+  }
+  return null;
+}
+var INTERN_TITLE_RE = /\bintern(?:ship)?\b/i;
+function toPosting2(job, companyName) {
+  const locationName = job.location?.name ?? null;
+  const workplace = metadataText(job, /location type|workplace|work type|remote/i);
+  const employment = metadataText(job, /employment|job type|worker type/i) ?? (INTERN_TITLE_RE.test(job.title) ? "internship" : null);
+  return {
+    source: "greenhouse",
+    external_id: String(job.id),
+    title: job.title,
+    // The source's configured name, not the list's own `company_name`, which the
+    // list docs do not describe.
+    company_name: companyName,
+    description: job.content ? htmlToText(decodeHtmlEntities(job.content)) : null,
+    location: locationName,
+    remote_type: workplace ?? (locationName && /remote/i.test(locationName) ? "remote" : null),
+    employment_type: employment,
+    apply_url: job.absolute_url ?? null,
+    posted_at: toIsoTimestamp2(job.first_published) ?? toIsoTimestamp2(job.updated_at)
+  };
+}
+function mapGreenhouseJobs(payload, context2) {
+  const body = asRecord(payload);
+  if (body === null || !Array.isArray(body.jobs)) {
+    throw new SourcePayloadError('Greenhouse response has no "jobs" array');
+  }
+  return collectPostings(body.jobs, greenhouseJobSchema, (job) => toPosting2(job, context2.companyName));
+}
+var greenhouseAdapter = {
+  provider: "greenhouse",
+  origin: GREENHOUSE_ORIGIN,
+  buildUrl(boardToken) {
+    const url2 = new URL(`/v1/boards/${encodeURIComponent(boardToken)}/jobs`, GREENHOUSE_ORIGIN);
+    url2.searchParams.set("content", "true");
+    return url2;
+  },
+  map: mapGreenhouseJobs
+};
+
+// services/jobs/src/lib/job-sources/lever.ts
+var LEVER_ORIGIN = "https://api.lever.co";
+var leverPostingSchema = external_exports.object({
+  id: external_exports.string().min(1),
+  text: external_exports.string(),
+  categories: external_exports.object({
+    location: external_exports.string().nullish(),
+    commitment: external_exports.string().nullish(),
+    allLocations: external_exports.array(external_exports.string()).nullish()
+  }).nullish(),
+  workplaceType: external_exports.string().nullish(),
+  createdAt: external_exports.number().nullish(),
+  descriptionPlain: external_exports.string().nullish(),
+  descriptionBodyPlain: external_exports.string().nullish(),
+  openingPlain: external_exports.string().nullish(),
+  lists: external_exports.array(external_exports.object({ text: external_exports.string().nullish(), content: external_exports.string().nullish() })).nullish(),
+  additionalPlain: external_exports.string().nullish(),
+  hostedUrl: external_exports.string().nullish(),
+  applyUrl: external_exports.string().nullish(),
+  salaryRange: external_exports.object({
+    min: external_exports.number().nullish(),
+    max: external_exports.number().nullish(),
+    currency: external_exports.string().nullish(),
+    interval: external_exports.string().nullish()
+  }).nullish()
+});
+var ANNUAL_INTERVAL = "per-year-salary";
+function describe3(posting) {
+  const parts = [];
+  const lead = posting.descriptionPlain ?? [posting.openingPlain, posting.descriptionBodyPlain].filter(Boolean).join("\n");
+  parts.push(lead);
+  for (const list of posting.lists ?? []) {
+    if (list.text) parts.push(list.text);
+    if (list.content) parts.push(htmlToText(list.content));
+  }
+  if (posting.additionalPlain) parts.push(posting.additionalPlain);
+  return tidyDescription(parts);
+}
+function toPosting3(posting, companyName) {
+  const range = posting.salaryRange;
+  const annual = range?.interval === ANNUAL_INTERVAL;
+  const salaryMin = annual ? toWholeAmount(range?.min) : null;
+  const salaryMax = annual ? toWholeAmount(range?.max) : null;
+  const hasSalary = salaryMin !== null || salaryMax !== null;
+  return {
+    source: "lever",
+    external_id: posting.id,
+    title: posting.text,
+    company_name: companyName,
+    description: describe3(posting),
+    location: joinLocations([...posting.categories?.allLocations ?? [], posting.categories?.location]),
+    remote_type: posting.workplaceType ?? null,
+    employment_type: posting.categories?.commitment ?? null,
+    salary_min: hasSalary ? salaryMin : null,
+    salary_max: hasSalary ? salaryMax : null,
+    salary_currency: hasSalary ? range?.currency ?? null : null,
+    apply_url: posting.applyUrl ?? posting.hostedUrl ?? null,
+    posted_at: toIsoTimestamp2(posting.createdAt)
+  };
+}
+function mapLeverPostings(payload, context2) {
+  if (!Array.isArray(payload)) {
+    const body = asRecord(payload);
+    throw new SourcePayloadError(
+      body === null ? "Lever response is not a JSON array" : "Lever response is an object, not an array of postings"
+    );
+  }
+  return collectPostings(payload, leverPostingSchema, (posting) => toPosting3(posting, context2.companyName));
+}
+var leverAdapter = {
+  provider: "lever",
+  origin: LEVER_ORIGIN,
+  buildUrl(boardToken) {
+    const url2 = new URL(`/v0/postings/${encodeURIComponent(boardToken)}`, LEVER_ORIGIN);
+    url2.searchParams.set("mode", "json");
+    return url2;
+  },
+  map: mapLeverPostings
+};
+
+// services/jobs/src/lib/job-sources/providers.ts
+var PROVIDER_ADAPTERS = {
+  greenhouse: greenhouseAdapter,
+  lever: leverAdapter,
+  ashby: ashbyAdapter
+};
+var InvalidBoardTokenError = class extends Error {
+  constructor() {
+    super("board token is not a valid identifier");
+    this.name = "InvalidBoardTokenError";
+  }
+};
+function buildSourceUrl(provider, boardToken) {
+  if (!BOARD_TOKEN_PATTERN.test(boardToken)) throw new InvalidBoardTokenError();
+  const adapter = PROVIDER_ADAPTERS[provider];
+  const url2 = adapter.buildUrl(boardToken);
+  if (url2.origin !== adapter.origin || url2.username !== "" || url2.password !== "" || url2.hash !== "") {
+    throw new InvalidBoardTokenError();
+  }
+  return url2;
+}
+
+// services/jobs/src/lib/job-sources/fetch-source.ts
+var SourceFetchError = class extends Error {
+  code;
+  constructor(code, message2) {
+    super(message2);
+    this.name = "SourceFetchError";
+    this.code = code;
+  }
+};
+var DEFAULT_SOURCE_TIMEOUT_MS = 1e4;
+var DEFAULT_MAX_RESPONSE_BYTES = 25 * 1024 * 1024;
+var PRODUCT = "AtlasJobIngest/1.0";
+function buildUserAgent(contact) {
+  const trimmed = contact?.trim();
+  const printable = trimmed !== void 0 && trimmed !== "" && /^[\x20-\x7e]{1,200}$/.test(trimmed);
+  return printable ? `${PRODUCT} (+read-only public job board reader; contact: ${trimmed})` : `${PRODUCT} (+read-only public job board reader)`;
+}
+function describeHttpFailure(status) {
+  if (status === 404) return "HTTP 404: board not found (check the provider and board token)";
+  if (status === 429) return "HTTP 429: the provider rate limited this request";
+  if (status >= 500) return `HTTP ${status}: the provider reported a server error`;
+  return `HTTP ${status}: the provider refused the request`;
+}
+function describeNetworkFailure(error62) {
+  const code = error62?.cause?.code;
+  return typeof code === "string" && /^[A-Z0-9_]{3,40}$/.test(code) ? `network error (${code})` : "network error";
+}
+function isAbort(error62) {
+  const name = error62?.name;
+  return name === "TimeoutError" || name === "AbortError";
+}
+async function readBody(response, maxBytes) {
+  const declared = Number(response.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > maxBytes) {
+    await response.body?.cancel().catch(() => void 0);
+    throw new SourceFetchError("too_large", "response is larger than the size limit");
+  }
+  if (response.body === null) return "";
+  const reader = response.body.getReader();
+  const decoder2 = new TextDecoder("utf-8");
+  let received = 0;
+  let text2 = "";
+  for (; ; ) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    received += value.byteLength;
+    if (received > maxBytes) {
+      await reader.cancel().catch(() => void 0);
+      throw new SourceFetchError("too_large", "response is larger than the size limit");
+    }
+    text2 += decoder2.decode(value, { stream: true });
+  }
+  return text2 + decoder2.decode();
+}
+async function fetchSourcePostings(source, options) {
+  let url2;
+  try {
+    url2 = buildSourceUrl(source.provider, source.boardToken);
+  } catch (error62) {
+    if (error62 instanceof InvalidBoardTokenError) {
+      throw new SourceFetchError("invalid_token", "board token is not a valid identifier");
+    }
+    throw error62;
+  }
+  const signal = AbortSignal.timeout(options.timeoutMs);
+  const deadline = new Promise((_resolve, reject) => {
+    signal.addEventListener("abort", () => reject(signal.reason), { once: true });
+  });
+  let body;
+  try {
+    body = await Promise.race([
+      deadline,
+      (async () => {
+        const response = await options.fetch(url2, {
+          method: "GET",
+          redirect: "error",
+          headers: { "user-agent": options.userAgent, accept: "application/json" },
+          signal
+        });
+        if (!response.ok) {
+          await response.body?.cancel().catch(() => void 0);
+          throw new SourceFetchError("http", describeHttpFailure(response.status));
+        }
+        return await readBody(response, options.maxBytes);
+      })()
+    ]);
+  } catch (error62) {
+    if (error62 instanceof SourceFetchError) throw error62;
+    if (isAbort(error62)) {
+      throw new SourceFetchError("timeout", `no complete response within ${Math.ceil(options.timeoutMs / 1e3)}s`);
+    }
+    throw new SourceFetchError("network", describeNetworkFailure(error62));
+  }
+  let payload;
+  try {
+    payload = JSON.parse(body);
+  } catch {
+    throw new SourceFetchError("invalid_json", "response is not valid JSON");
+  }
+  try {
+    return PROVIDER_ADAPTERS[source.provider].map(payload, { companyName: source.companyName });
+  } catch (error62) {
+    if (error62 instanceof SourcePayloadError) throw new SourceFetchError("bad_payload", error62.message);
+    throw error62;
+  }
+}
+
+// services/jobs/src/repo/job-sources.ts
+function toIso(value) {
+  if (value === null) return null;
+  const time4 = Date.parse(value);
+  return Number.isNaN(time4) ? null : new Date(time4).toISOString();
+}
+function toJobBoardSource(row) {
+  return {
+    source_id: row.sourceId,
+    provider: row.provider,
+    board_token: row.boardToken,
+    company_name: row.companyName,
+    enabled: row.enabled,
+    last_fetched_at: toIso(row.lastFetchedAt),
+    last_status: row.lastStatus,
+    last_error: row.lastError,
+    last_job_count: row.lastJobCount,
+    // `created_at` is NOT NULL, so there is always a date to report.
+    created_at: toIso(row.createdAt) ?? (/* @__PURE__ */ new Date(0)).toISOString()
+  };
+}
+async function listAll(db2, limit = 500) {
+  return db2.select().from(schema_exports.jobSources).orderBy(asc(schema_exports.jobSources.provider), asc(schema_exports.jobSources.boardToken)).limit(limit);
+}
+async function listByProvider(db2, provider) {
+  return db2.select().from(schema_exports.jobSources).where(eq(schema_exports.jobSources.provider, provider));
+}
+async function countEnabled(db2, onlySourceIds) {
+  if (onlySourceIds !== void 0 && onlySourceIds.length === 0) return 0;
+  const [row] = await db2.select({ total: sql`count(*)::int` }).from(schema_exports.jobSources).where(
+    and(
+      eq(schema_exports.jobSources.enabled, true),
+      onlySourceIds === void 0 ? void 0 : inArray(schema_exports.jobSources.sourceId, [...onlySourceIds])
+    )
+  );
+  return row?.total ?? 0;
+}
+async function listDue(db2, limit, onlySourceIds) {
+  if (onlySourceIds !== void 0 && onlySourceIds.length === 0) return [];
+  return db2.select().from(schema_exports.jobSources).where(
+    and(
+      eq(schema_exports.jobSources.enabled, true),
+      onlySourceIds === void 0 ? void 0 : inArray(schema_exports.jobSources.sourceId, [...onlySourceIds])
+    )
+  ).orderBy(
+    sql`${schema_exports.jobSources.lastFetchedAt} ASC NULLS FIRST`,
+    asc(schema_exports.jobSources.createdAt),
+    asc(schema_exports.jobSources.sourceId)
+  ).limit(limit);
+}
+async function upsert(db2, input2) {
+  const [result] = await db2.insert(schema_exports.jobSources).values({
+    provider: input2.provider,
+    boardToken: input2.boardToken,
+    companyName: input2.companyName,
+    ...input2.enabled === void 0 ? {} : { enabled: input2.enabled }
+  }).onConflictDoUpdate({
+    target: [schema_exports.jobSources.provider, schema_exports.jobSources.boardToken],
+    set: {
+      companyName: input2.companyName,
+      ...input2.enabled === void 0 ? {} : { enabled: input2.enabled }
+    }
+  }).returning({ ...getTableColumns(schema_exports.jobSources), created: sql`(xmax = 0)` });
+  if (!result) throw new Error("upsert: job source upsert returned no row");
+  const { created, ...row } = result;
+  return { row, created };
+}
+async function recordRun(db2, sourceId, run) {
+  await db2.update(schema_exports.jobSources).set({
+    lastFetchedAt: sql`now()`,
+    lastStatus: run.status,
+    lastError: run.error,
+    ...run.jobCount === void 0 ? {} : { lastJobCount: run.jobCount }
+  }).where(eq(schema_exports.jobSources.sourceId, sourceId));
+}
+async function databaseNow(db2) {
+  const rows = await db2.execute(sql`select now()::text as now`);
+  const first = rows[0];
+  if (!first) throw new Error("databaseNow: no row returned");
+  return first.now;
+}
+
+// services/jobs/src/lib/run-sources.ts
+var DEFAULT_SOURCE_CONCURRENCY = 3;
+var POSTING_CONCURRENCY = 3;
+var MIN_WINDOW_TO_START_SOURCE_MS = 1500;
+var DEFAULT_SOURCE_LIMIT = 50;
+var MAX_LAST_ERROR_LENGTH = 200;
+var SHARP_DROP_RATIO = 0.2;
+var SHARP_DROP_MIN_PREVIOUS = 10;
+function decideDeactivation(input2) {
+  if (input2.listed === 0) return { apply: false, reason: "empty_result" };
+  if (!input2.complete) return { apply: false, reason: "incomplete_run" };
+  if (input2.rejected > 0) return { apply: false, reason: "rejected_postings" };
+  if (input2.previousListed !== null && input2.previousListed >= SHARP_DROP_MIN_PREVIOUS && input2.listed < input2.previousListed * SHARP_DROP_RATIO) {
+    return { apply: false, reason: "sharp_drop" };
+  }
+  return { apply: true };
+}
+async function forEachLimited(items, limit, worker, shouldStop) {
+  let next = 0;
+  let stopped = false;
+  const lanes = Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, async () => {
+    for (; ; ) {
+      const index2 = next;
+      if (index2 >= items.length) return;
+      if (shouldStop()) {
+        stopped = true;
+        return;
+      }
+      next += 1;
+      await worker(items[index2], index2);
+    }
+  });
+  await Promise.all(lanes);
+  return !stopped;
+}
+function shorten(message2) {
+  return message2.length > MAX_LAST_ERROR_LENGTH ? `${message2.slice(0, MAX_LAST_ERROR_LENGTH - 1)}\u2026` : message2;
+}
+function emptyResult(source) {
+  return {
+    source_id: source.sourceId,
+    provider: source.provider,
+    board_token: source.boardToken,
+    status: "error",
+    fetched: 0,
+    skipped: 0,
+    inserted: 0,
+    updated: 0,
+    duplicates: 0,
+    rejected: 0,
+    deactivated: 0,
+    deactivation_skipped: null,
+    duration_ms: 0,
+    error: null
+  };
+}
+async function record2(context2, source, run) {
+  try {
+    await recordRun(context2.deps.db, source.sourceId, run);
+  } catch (error62) {
+    context2.deps.logger.error({ err: error62, source_id: source.sourceId }, "could not record job source status");
+  }
+}
+async function storePostings(context2, source, postings, result) {
+  const { db: db2, broker: broker2, logger: logger2 } = context2.deps;
+  const sweepBefore = await databaseNow(db2);
+  const company = await findOrCreateByName(db2, source.companyName, null);
+  const hashed = postings.map((posting) => ({ posting, jobHash: hashPosting(posting) }));
+  const known = await findJobIdsByHashes(db2, hashed.map((entry) => entry.jobHash));
+  await touchSeenMany(db2, [...known.values()]);
+  const fresh = hashed.filter((entry) => !known.has(entry.jobHash));
+  result.duplicates += hashed.length - fresh.length;
+  const complete = await forEachLimited(
+    fresh,
+    context2.postingConcurrency,
+    async ({ posting }) => {
+      try {
+        const outcome = await ingestPosting(
+          {
+            db: db2,
+            broker: broker2,
+            newTrace: () => newTraceContext(),
+            company,
+            updateChangedListings: true
+          },
+          posting
+        );
+        if (outcome.kind === "inserted") result.inserted += 1;
+        else if (outcome.kind === "updated") result.updated += 1;
+        else result.duplicates += 1;
+      } catch (cause) {
+        result.rejected += 1;
+        if (result.rejected <= 3) {
+          logger2.error({ err: cause, source_id: source.sourceId, external_id: posting.external_id }, "failed to store a job posting");
+        }
+      }
+    },
+    () => context2.now() >= context2.deadline
+  );
+  return { complete, sweepBefore, companyId: company.companyId };
+}
+async function ingestSource(context2, source) {
+  const { logger: logger2 } = context2.deps;
+  const startedAt = context2.now();
+  const result = emptyResult(source);
+  const finish = () => {
+    result.duration_ms = context2.now() - startedAt;
+    return result;
+  };
+  const fail = async (message2) => {
+    result.status = "error";
+    result.error = shorten(message2);
+    await record2(context2, source, { status: "error", error: result.error });
+    return finish();
+  };
+  let mapped;
+  try {
+    mapped = await fetchSourcePostings(
+      { provider: source.provider, boardToken: source.boardToken, companyName: source.companyName },
+      {
+        fetch: context2.deps.fetch,
+        userAgent: context2.deps.userAgent,
+        // Never longer than what is left of the run, but long enough to be a real attempt.
+        timeoutMs: Math.max(1e3, Math.min(context2.sourceTimeoutMs, context2.deadline - context2.now())),
+        maxBytes: context2.maxResponseBytes
+      }
+    );
+  } catch (error62) {
+    if (error62 instanceof SourceFetchError) {
+      logger2.warn({ source_id: source.sourceId, provider: source.provider, board_token: source.boardToken, code: error62.code }, "job source could not be read");
+      return fail(error62.message);
+    }
+    logger2.error({ err: error62, source_id: source.sourceId }, "unexpected failure reading a job source");
+    return fail("unexpected error while reading the source");
+  }
+  result.fetched = mapped.postings.length;
+  result.skipped = mapped.skipped;
+  try {
+    const stored = await storePostings(context2, source, mapped.postings, result);
+    const decision = decideDeactivation({
+      listed: mapped.postings.length,
+      previousListed: source.lastJobCount,
+      rejected: result.rejected,
+      complete: stored.complete
+    });
+    if (decision.apply) {
+      result.deactivated = await deactivateUnseenSince(
+        context2.deps.db,
+        { source: source.provider, companyId: stored.companyId },
+        stored.sweepBefore
+      );
+    } else {
+      result.deactivation_skipped = decision.reason;
+      if (decision.reason === "sharp_drop") {
+        logger2.warn(
+          { source_id: source.sourceId, listed: mapped.postings.length, previous: source.lastJobCount },
+          "job source listing shrank sharply; not deactivating until the next run confirms it"
+        );
+      }
+    }
+    const problems = [];
+    if (!stored.complete) problems.push("time budget ran out before every posting was processed");
+    if (result.rejected > 0) problems.push(`${result.rejected} posting(s) could not be stored`);
+    const status = problems.length === 0 ? "ok" : "partial";
+    result.status = status;
+    result.error = problems.length === 0 ? null : shorten(problems.join("; "));
+    await record2(context2, source, { status, error: result.error, jobCount: mapped.postings.length });
+    return finish();
+  } catch (error62) {
+    logger2.error({ err: error62, source_id: source.sourceId }, "database failure while storing job postings");
+    return fail("database error while storing postings");
+  }
+}
+async function runSourceIngestion(deps, options) {
+  const now = options.now ?? Date.now;
+  const startedAt = now();
+  const context2 = {
+    deps,
+    now,
+    deadline: startedAt + options.budgetMs,
+    postingConcurrency: options.postingConcurrency ?? POSTING_CONCURRENCY,
+    sourceTimeoutMs: options.sourceTimeoutMs ?? DEFAULT_SOURCE_TIMEOUT_MS,
+    maxResponseBytes: options.maxResponseBytes ?? DEFAULT_MAX_RESPONSE_BYTES
+  };
+  const due = await listDue(deps.db, options.limit ?? DEFAULT_SOURCE_LIMIT, options.sourceIds);
+  const sourcesTotal = await countEnabled(deps.db, options.sourceIds);
+  const results = new Array(due.length).fill(void 0);
+  await forEachLimited(
+    due,
+    options.sourceConcurrency ?? DEFAULT_SOURCE_CONCURRENCY,
+    async (source, index2) => {
+      results[index2] = await ingestSource(context2, source);
+    },
+    () => context2.deadline - now() < MIN_WINDOW_TO_START_SOURCE_MS
+  );
+  const sources = results.filter((entry) => entry !== void 0);
+  const sum = (pick2) => sources.reduce((total, entry) => total + pick2(entry), 0);
+  const report = {
+    sources_total: sourcesTotal,
+    attempted: sources.length,
+    succeeded: sources.filter((entry) => entry.status !== "error").length,
+    failed: sources.filter((entry) => entry.status === "error").length,
+    not_attempted: Math.max(0, sourcesTotal - sources.length),
+    inserted: sum((entry) => entry.inserted),
+    updated: sum((entry) => entry.updated),
+    duplicates: sum((entry) => entry.duplicates),
+    rejected: sum((entry) => entry.rejected),
+    deactivated: sum((entry) => entry.deactivated),
+    duration_ms: now() - startedAt,
+    sources
+  };
+  deps.logger.info({ ...report, sources: void 0 }, "job source ingestion finished");
+  return report;
+}
+
+// services/jobs/src/http/routes/ingest-sources.ts
+var DEFAULT_BUDGET_MS = 2e4;
+var MAX_BUDGET_MS = 25e3;
+var INGEST_SOURCES_PATH = "/internal/jobs/ingest-sources";
+var ingestSourcesQuerySchema = external_exports.object({
+  limit: external_exports.coerce.number().int().min(1).max(200).default(DEFAULT_SOURCE_LIMIT),
+  budget_ms: external_exports.coerce.number().int().min(100).max(MAX_BUDGET_MS).default(DEFAULT_BUDGET_MS),
+  /** Run only this (enabled) source: to try a board straight after adding it. */
+  source_id: external_exports.uuid().optional()
+});
+function ingestSourcesRoute(app2, deps) {
+  const handle = async (request, reply) => {
+    const secret = deps.env.CRON_SECRET;
+    if (secret === void 0) {
+      throw new AppError("UPSTREAM_UNAVAILABLE", "Job source ingestion is not configured");
+    }
+    if (!isAuthorizedDrainRequest(request.headers.authorization, secret)) {
+      reply.header("www-authenticate", "Bearer");
+      throw new AppError("UNAUTHENTICATED", "Missing or invalid credentials");
+    }
+    const query = ingestSourcesQuerySchema.parse(request.query);
+    const report = await runSourceIngestion(
+      {
+        db: deps.db,
+        broker: deps.broker,
+        logger: deps.logger,
+        // Resolved per call, so a replaced global (tests) or injected client is honoured.
+        fetch: deps.fetch ?? globalThis.fetch,
+        userAgent: buildUserAgent(deps.env.JOB_SOURCE_CONTACT)
+      },
+      {
+        budgetMs: query.budget_ms,
+        limit: query.limit,
+        ...query.source_id === void 0 ? {} : { sourceIds: [query.source_id] }
+      }
+    );
+    reply.status(200).send(report);
+  };
+  app2.get(INGEST_SOURCES_PATH, handle);
+  app2.post(INGEST_SOURCES_PATH, handle);
 }
 
 // services/jobs/src/http/routes/list-jobs.ts
@@ -86466,7 +87564,14 @@ function listJobsRoute(app2, deps) {
       { location: query.location, remoteType: query.remote_type, isActive: query.is_active },
       query
     );
-    const response = { items: items.map(toJob), next_cursor: nextCursor };
+    const companyNames = await companyNamesByIds(
+      deps.db,
+      items.map((row) => row.companyId)
+    );
+    const response = {
+      items: items.map((row) => toJob(row, companyNames.get(row.companyId) ?? null)),
+      next_cursor: nextCursor
+    };
     reply.status(200).send(response);
   });
 }
@@ -86476,7 +87581,7 @@ async function listForUser(db2, userId, filters, pagination) {
   const cursorValue = pagination.cursor ? decodeCursor(pagination.cursor) : null;
   const cursorScore = typeof cursorValue?.score === "number" ? cursorValue.score : null;
   const cursorId = typeof cursorValue?.id === "string" ? cursorValue.id : null;
-  const conditions = [eq(schema_exports.jobScores.userId, userId)];
+  const conditions = [eq(schema_exports.jobScores.userId, userId), eq(schema_exports.jobs.isActive, true)];
   if (filters.remoteType) conditions.push(eq(schema_exports.jobs.remoteType, filters.remoteType));
   if (filters.location) conditions.push(ilike(schema_exports.jobs.location, `%${filters.location}%`));
   if (cursorScore !== null && cursorId) {
@@ -86486,11 +87591,11 @@ async function listForUser(db2, userId, filters, pagination) {
     );
     if (tieBreak) conditions.push(tieBreak);
   }
-  const rows = await db2.select({ score: schema_exports.jobScores, job: schema_exports.jobs }).from(schema_exports.jobScores).innerJoin(schema_exports.jobs, eq(schema_exports.jobScores.jobId, schema_exports.jobs.jobId)).where(and(...conditions)).orderBy(desc(schema_exports.jobScores.score), desc(schema_exports.jobScores.jobId)).limit(pagination.limit + 1);
+  const rows = await db2.select({ score: schema_exports.jobScores, job: schema_exports.jobs, companyName: schema_exports.companies.name }).from(schema_exports.jobScores).innerJoin(schema_exports.jobs, eq(schema_exports.jobScores.jobId, schema_exports.jobs.jobId)).leftJoin(schema_exports.companies, eq(schema_exports.jobs.companyId, schema_exports.companies.companyId)).where(and(...conditions)).orderBy(desc(schema_exports.jobScores.score), desc(schema_exports.jobScores.jobId)).limit(pagination.limit + 1);
   const hasMore = rows.length > pagination.limit;
   const page = hasMore ? rows.slice(0, pagination.limit) : rows;
   const items = page.map((row) => ({
-    job: toJob(row.job),
+    job: toJob(row.job, row.companyName),
     score: row.score.score,
     reasons: row.score.reasons
   }));
@@ -86534,6 +87639,40 @@ function recommendationsRoute(app2, deps) {
   });
 }
 
+// services/jobs/src/http/routes/sources.ts
+function sourcesRoutes(app2, deps) {
+  const authenticate = requireAuth(deps.tokenVerifier);
+  app2.get("/v1/jobs/sources", { preHandler: authenticate }, async (request, reply) => {
+    requirePlatformAdmin(getActor(request), deps.env.PLATFORM_ADMIN_USER_IDS, "Only platform administrators can list job sources");
+    const rows = await listAll(deps.db);
+    const body = { items: rows.map(toJobBoardSource) };
+    reply.status(200).send(body);
+  });
+  app2.post("/v1/jobs/sources", { preHandler: authenticate }, async (request, reply) => {
+    requirePlatformAdmin(getActor(request), deps.env.PLATFORM_ADMIN_USER_IDS, "Only platform administrators can manage job sources");
+    const input2 = upsertJobBoardSourceRequestSchema.parse(request.body);
+    const wanted = normalizeCompanyName(input2.company_name);
+    const sameProvider = await listByProvider(deps.db, input2.provider);
+    const clash = sameProvider.find(
+      (other) => other.boardToken !== input2.board_token && normalizeCompanyName(other.companyName) === wanted
+    );
+    if (clash) {
+      throw new AppError(
+        "CONFLICT",
+        `Another ${input2.provider} board (${clash.boardToken}) already uses this company name; give this board a distinct name`
+      );
+    }
+    const { row, created } = await upsert(deps.db, {
+      provider: input2.provider,
+      boardToken: input2.board_token,
+      companyName: input2.company_name,
+      enabled: input2.enabled
+    });
+    const body = toJobBoardSource(row);
+    reply.status(created ? 201 : 200).send(body);
+  });
+}
+
 // services/jobs/src/app.ts
 var STATUS_TO_CODE = {
   400: "VALIDATION_ERROR",
@@ -86554,6 +87693,7 @@ function buildApp(deps) {
   void app2.register(import_cors.default, { origin: parseCorsOrigins(deps.env.CORS_ORIGINS) });
   const metrics2 = createMetricsRegistry("jobs-service");
   registerHttpMetrics(app2, metrics2);
+  registerIsoTimestamps(app2);
   app2.setErrorHandler((error62, request, reply) => {
     if (error62 instanceof ZodError) {
       reply.status(400).send({
@@ -86592,6 +87732,7 @@ function buildApp(deps) {
   });
   healthRoute(app2, deps);
   metricsRoute(app2, metrics2);
+  ingestSourcesRoute(app2, deps);
   registerRateLimitedRoutes(
     app2,
     {
@@ -86600,6 +87741,7 @@ function buildApp(deps) {
     },
     (api) => {
       ingestRoute(api, deps);
+      sourcesRoutes(api, deps);
       listJobsRoute(api, deps);
       getJobRoute(api, deps);
       recommendationsRoute(api, deps);
@@ -86620,7 +87762,19 @@ var jobsServiceEnvSchema = external_exports.object({
    * shared jobs catalog (see `requirePlatformAdmin` in @atlas/auth-kit).
    * Empty/unset means nobody.
    */
-  PLATFORM_ADMIN_USER_IDS: external_exports.string().default("")
+  PLATFORM_ADMIN_USER_IDS: external_exports.string().default(""),
+  /**
+   * Bearer secret for `/internal/jobs/ingest-sources`, the scheduled job-board
+   * ingestion (a scheduler sends `Authorization: Bearer $CRON_SECRET`). Unset,
+   * the route answers 503 and never runs.
+   */
+  CRON_SECRET: external_exports.string().min(16, "CRON_SECRET must be at least 16 characters").optional(),
+  /**
+   * An email address or URL where the operator of a job board can reach whoever
+   * runs this reader, appended to the User-Agent it sends. Printable ASCII only
+   * (it goes into a header). Optional.
+   */
+  JOB_SOURCE_CONTACT: external_exports.string().max(200).regex(/^[\x20-\x7e]*$/, "JOB_SOURCE_CONTACT must be printable ASCII").optional()
 });
 function loadJobsServiceEnv(source = process.env) {
   const normalized = { ...source, PORT: source.PORT ?? source.JOBS_SERVICE_PORT };

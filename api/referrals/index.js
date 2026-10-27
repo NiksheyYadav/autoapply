@@ -74729,6 +74729,12 @@ var salaryRangeSchema = external_exports.object({
 var jobSchema = external_exports.object({
   job_id: uuidSchema,
   company_id: uuidSchema,
+  /**
+   * The employer's display name, filled in by the jobs service on every read so
+   * a client can show who is hiring without a second lookup. `null` if the
+   * company row is gone; absent where the job comes from another service.
+   */
+  company_name: external_exports.string().min(1).max(300).nullable().optional(),
   title: external_exports.string().min(1).max(300),
   description: external_exports.string().nullable(),
   salary_min: external_exports.number().int().min(0).nullable(),
@@ -74771,6 +74777,40 @@ var jobRecommendationSchema = external_exports.object({
   job: jobSchema,
   score: external_exports.number().min(0).max(1),
   reasons: external_exports.array(external_exports.string()).max(20)
+});
+
+// packages/types/src/job-source.ts
+var JOB_BOARD_PROVIDERS = ["greenhouse", "lever", "ashby"];
+var jobBoardProviderSchema = external_exports.enum(JOB_BOARD_PROVIDERS);
+var BOARD_TOKEN_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$/;
+var jobBoardTokenSchema = external_exports.string().regex(BOARD_TOKEN_PATTERN, 'board_token must be 1-100 letters, digits, "-" or "_" and start with a letter or digit');
+var companyNameSchema = external_exports.string().trim().min(1).max(300).refine((value) => !/[\u0000-\u001f\u007f]/.test(value), "company_name must not contain control characters");
+var upsertJobBoardSourceRequestSchema = external_exports.object({
+  provider: jobBoardProviderSchema,
+  board_token: jobBoardTokenSchema,
+  /** The employer the board's postings are attributed to (list endpoints do not all report one). */
+  company_name: companyNameSchema,
+  /** Omitted: a new source starts enabled, an existing one keeps its current state. */
+  enabled: external_exports.boolean().optional()
+});
+var JOB_BOARD_SOURCE_STATUSES = ["ok", "partial", "error"];
+var jobBoardSourceStatusSchema = external_exports.enum(JOB_BOARD_SOURCE_STATUSES);
+var jobBoardSourceSchema = external_exports.object({
+  source_id: uuidSchema,
+  provider: jobBoardProviderSchema,
+  board_token: jobBoardTokenSchema,
+  company_name: external_exports.string(),
+  enabled: external_exports.boolean(),
+  last_fetched_at: isoTimestampSchema.nullable(),
+  /** `ok` | `partial` | `error`; null until the first attempt. */
+  last_status: external_exports.string().nullable(),
+  /** Short and scrubbed: never a raw driver or upstream message. */
+  last_error: external_exports.string().nullable(),
+  last_job_count: external_exports.number().int().nullable(),
+  created_at: isoTimestampSchema
+});
+var listJobBoardSourcesResponseSchema = external_exports.object({
+  items: external_exports.array(jobBoardSourceSchema)
 });
 
 // packages/types/src/application.ts
@@ -77863,6 +77903,9 @@ function iife(fn, ...args) {
 }
 
 // node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_postgres@3.4.9/node_modules/drizzle-orm/pg-core/unique-constraint.js
+function unique(name) {
+  return new UniqueOnConstraintBuilder(name);
+}
 function uniqueKeyName(table2, columns) {
   return `${table2[TableName]}_${columns.join("_")}_unique`;
 }
@@ -80531,8 +80574,8 @@ function check2(name, value) {
 
 // node_modules/.pnpm/drizzle-orm@0.45.2_@opentelemetry+api@1.9.1_postgres@3.4.9/node_modules/drizzle-orm/pg-core/indexes.js
 var IndexBuilderOn = class {
-  constructor(unique, name) {
-    this.unique = unique;
+  constructor(unique2, name) {
+    this.unique = unique2;
     this.name = name;
   }
   static [entityKind] = "PgIndexBuilderOn";
@@ -80601,11 +80644,11 @@ var IndexBuilder = class {
   static [entityKind] = "PgIndexBuilder";
   /** @internal */
   config;
-  constructor(columns, unique, only, name, method = "btree") {
+  constructor(columns, unique2, only, name, method = "btree") {
     this.config = {
       name,
       columns,
-      unique,
+      unique: unique2,
       only,
       method
     };
@@ -84629,8 +84672,10 @@ __export(schema_exports, {
   eventDeliveries: () => eventDeliveries,
   eventOutbox: () => eventOutbox,
   idempotencyKeys: () => idempotencyKeys,
+  jobBoardProviderEnum: () => jobBoardProviderEnum,
   jobScores: () => jobScores,
   jobSourceEnum: () => jobSourceEnum,
+  jobSources: () => jobSources,
   jobs: () => jobs,
   jobsRelations: () => jobsRelations,
   memberRoleEnum: () => memberRoleEnum,
@@ -84669,6 +84714,7 @@ var messageChannelEnum = pgEnum("message_channel", MESSAGE_CHANNELS);
 var messageStatusEnum = pgEnum("message_status", MESSAGE_STATUSES);
 var taskStatusEnum = pgEnum("task_status", TASK_STATUSES);
 var jobSourceEnum = pgEnum("job_source", JOB_SOURCES);
+var jobBoardProviderEnum = pgEnum("job_board_provider", JOB_BOARD_PROVIDERS);
 
 // packages/db/src/schema/identity.ts
 var timestamps = {
@@ -84922,6 +84968,42 @@ var jobsRelations = relations(jobs, ({ one, many }) => ({
 var companiesRelations = relations(companies, ({ many }) => ({
   jobs: many(jobs)
 }));
+
+// packages/db/src/schema/job-sources.ts
+var jobSources = pgTable(
+  "job_sources",
+  {
+    sourceId: uuid3("source_id").primaryKey().defaultRandom(),
+    provider: jobBoardProviderEnum("provider").notNull(),
+    /**
+     * The board's identifier in the provider's URL (Greenhouse `board_token`,
+     * Lever site name, Ashby job board name). It is the only caller-supplied
+     * part of the outbound request URL, hence the charset check below.
+     */
+    boardToken: text("board_token").notNull(),
+    /** The employer the board's postings are attributed to. */
+    companyName: text("company_name").notNull(),
+    enabled: boolean4("enabled").notNull().default(true),
+    /** Last attempt, successful or not, so a failing source cannot starve the others. */
+    lastFetchedAt: timestamp("last_fetched_at", { withTimezone: true, mode: "string" }),
+    /** `ok` | `partial` | `error`. */
+    lastStatus: text("last_status"),
+    /** Short and scrubbed: never a raw driver or upstream message. */
+    lastError: text("last_error"),
+    /** Postings the last successful fetch listed. */
+    lastJobCount: integer2("last_job_count"),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "string" }).notNull().defaultNow()
+  },
+  (table2) => [
+    unique("job_sources_provider_board_token_key").on(table2.provider, table2.boardToken),
+    // Defense in depth for rows that bypass the API (SQL seeds, the dashboard):
+    // the fetch layer re-validates before building a URL, and so does the route.
+    check2(
+      "job_sources_board_token_check",
+      sql`${table2.boardToken} ~ '^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$'`
+    )
+  ]
+);
 
 // packages/db/src/schema/applications.ts
 var applications = pgTable(

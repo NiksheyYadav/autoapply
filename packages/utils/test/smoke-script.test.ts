@@ -1,6 +1,7 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 // The post-deploy smoke script lives in scripts/; its decision logic is pure and tested here.
-import { AUTH_PROBES, DRAIN_SERVICES, classifyAuthProbe, classifyDrainProbe, serviceOrigin } from '../../../scripts/smoke.mjs';
+import { AUTH_PROBES, DRAIN_SERVICES, PROTECTED_JOB_ROUTES, classifyAuthProbe, classifyDrainProbe, serviceOrigin } from '../../../scripts/smoke.mjs';
 
 describe('smoke script: origin resolution', () => {
   it('prefers a per-service origin over the shared base URL and trims trailing slashes', () => {
@@ -18,6 +19,12 @@ describe('smoke script: origin resolution', () => {
       ['admin', 'analytics', 'applications', 'auth', 'jobs', 'learning', 'outreach', 'profile', 'referrals'].sort(),
     );
     expect([...DRAIN_SERVICES].sort()).toEqual(['analytics', 'learning', 'matching', 'referrals']);
+  });
+
+  it('checks that the job-board ingest route is protected, without ever authenticating to it', () => {
+    expect(PROTECTED_JOB_ROUTES).toEqual([{ service: 'jobs', path: '/internal/jobs/ingest-sources' }]);
+    // The route is reachable through the single-project layout only if vercel.json rewrites it.
+    expect(readFileSync(new URL('../../../vercel.json', import.meta.url), 'utf8')).toContain('"/internal/jobs/:path*"');
   });
 });
 

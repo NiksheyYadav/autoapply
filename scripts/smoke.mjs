@@ -19,7 +19,9 @@
  *
  * Optional: CRON_SECRET makes the drain probes authenticate and actually run a
  * drain (it processes queued events, which is safe and idempotent). Without
- * it the probes only check that the route is protected.
+ * it the probes only check that the route is protected. The job-board ingest
+ * route is only ever probed without credentials, because a real call fetches
+ * third-party sites.
  *
  * Exit code is 1 if any check FAILS; WARN means "works, but not fully
  * configured yet" and does not fail the run.
@@ -43,6 +45,12 @@ export const AUTH_PROBES = [
 
 /** Services that consume events and expose a CRON_SECRET-protected drain route. */
 export const DRAIN_SERVICES = ['matching', 'referrals', 'learning', 'analytics'];
+
+/**
+ * Scheduled-job routes that are protected by CRON_SECRET but do real work when called with it
+ * (the job-board reader fetches third-party sites). They are only ever probed WITHOUT credentials.
+ */
+export const PROTECTED_JOB_ROUTES = [{ service: 'jobs', path: '/internal/jobs/ingest-sources' }];
 
 export const WEB_PATHS = ['/', '/login', '/register', '/forgot-password', '/privacy'];
 
@@ -126,6 +134,23 @@ async function run(env) {
         const authedVerdict = classifyDrainProbe({ status: authed.status, authenticated: true });
         add(`${check} (CRON_SECRET)`, authedVerdict.result, authedVerdict.note);
       }
+    } catch (cause) {
+      add(check, 'fail', `request failed: ${cause instanceof Error ? cause.message : String(cause)}`);
+    }
+  }
+
+  for (const route of PROTECTED_JOB_ROUTES) {
+    const origin = serviceOrigin(route.service, env);
+    const check = `${route.service}: POST ${route.path} (no credentials)`;
+    if (!origin) {
+      add(check, 'skip', `set ATLAS_API_BASE_URL or ATLAS_${route.service.toUpperCase()}_URL`);
+      continue;
+    }
+    try {
+      // Never authenticated: a successful call would start fetching third-party job boards.
+      const anonymous = await request(`${origin}${route.path}`, { method: 'POST' });
+      const verdict = classifyDrainProbe({ status: anonymous.status, authenticated: false });
+      add(check, verdict.result, verdict.note);
     } catch (cause) {
       add(check, 'fail', `request failed: ${cause instanceof Error ? cause.message : String(cause)}`);
     }

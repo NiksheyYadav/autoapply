@@ -12,6 +12,7 @@ Target: **2026-11-17**, individuals plus one university pilot.
 |----------|---------------------------|
 | **Assisted apply, not auto-submit.** Greenhouse's application endpoint needs the *employer's* Job Board API key, and Lever's apply API needs a key that a Super Admin of the *employer's* account generates. A candidate-side platform has neither, and driving employers' public forms with a browser bot breaks their terms and trips CAPTCHAs. | `POST /v1/applications` accepts `mode: "manual"` only; `mode: "auto"` answers 400 unless `APPLICATIONS_AUTO_MODE_ENABLED=true` (leave it unset). The UI opens the employer's page and lets the user mark the application as submitted. Auto-submit is only realistic later, per employer or university partner that hands over credentials. |
 | **No fake email sending.** There is no email provider, so Atlas must not say a message was sent. | Outreach is drafts only (copy, open in the user's mail app, "I sent this"). `OUTREACH_DELIVERY_ENABLED` stays unset. Real delivery needs a provider, a sending domain (SPF/DKIM/DMARC), unsubscribe and consent rules: a separate decision. |
+| **Job catalog comes from public employer job boards.** The jobs service reads the public Greenhouse, Lever and Ashby board endpoints that employers publish for embedding, on a schedule. | The catalog is only as good as the boards you add (section 4). Candidates are always sent to the employer's own page to apply. |
 | **Organizations are created by operators**, never from signup metadata (that was a privilege-escalation hole). | A university pilot org is created with SQL by you (section 4). Platform-wide actions (job ingestion, contacts, cross-tenant metrics) require your user id in `PLATFORM_ADMIN_USER_IDS`. |
 
 ## 1. Supabase
@@ -89,13 +90,14 @@ Environment variables (set per project; never commit values):
 | `DATABASE_URL` | every backend service | pooled (port 6543) connection string |
 | `SUPABASE_URL` | every backend service | `https://<ref>.supabase.co` |
 | `CORS_ORIGINS` | every backend service | the web (and admin) origins, comma separated; never `*` in production |
-| `CRON_SECRET` | matching, referrals, learning, analytics (and jobs once source ingestion is enabled) | 16+ random characters; the same value goes in the GitHub secret below |
+| `CRON_SECRET` | matching, referrals, learning, analytics, **jobs** (job-board ingestion) | 16+ random characters; the same value goes in the GitHub secret below. Without it on `jobs`, scheduled ingestion answers 503 and the catalog never fills |
+| `JOB_SOURCE_CONTACT` | jobs, optional | an email or URL appended to the job-board reader's `User-Agent`, so a board operator can reach you |
 | `MESSAGING_DRIVER` | optional | defaults to `postgres` on Vercel; do not set `memory` |
 | `PLATFORM_ADMIN_USER_IDS` | jobs, referrals, learning | comma-separated `auth.users` ids (yours). Empty means nobody |
-| `STORAGE_DRIVER=supabase`, `SUPABASE_SECRET_KEY`, `SUPABASE_STORAGE_BUCKET` | profile (and auth once account deletion ships) | without these, uploads fall back to ephemeral temp storage and the service logs a warning |
+| `STORAGE_DRIVER=supabase`, `SUPABASE_SECRET_KEY`, `SUPABASE_STORAGE_BUCKET` | profile **and auth** (account deletion removes the user's resume files) | without these, uploads fall back to ephemeral temp storage and the service logs a warning; deleting an account would then leave its files behind |
 | `APPLICATIONS_AUTO_MODE_ENABLED` | applications | leave **unset** |
 | `OUTREACH_DELIVERY_ENABLED` | outreach | leave **unset** |
-| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_SITE_URL` | web, admin | publishable key only |
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_SITE_URL` | web, admin | publishable key only. The admin (university staff) console needs the same three plus `NEXT_PUBLIC_API_BASE_URL`, and its origin must be in `CORS_ORIGINS` |
 | `NEXT_PUBLIC_API_BASE_URL` (single project) **or** `NEXT_PUBLIC_<SERVICE>_SERVICE_URL` (per service) | web, admin | |
 
 Vercel Hobby cannot run sub-daily cron jobs and `vercel.json` deliberately has no `crons`
@@ -109,9 +111,11 @@ Actions instead (section 3).
 | `CRON_SECRET` | secret | the same value as on Vercel |
 | `ATLAS_API_BASE_URL` | variable | single-project origin, no trailing slash |
 | `ATLAS_MATCHING_URL`, `ATLAS_REFERRALS_URL`, `ATLAS_LEARNING_URL`, `ATLAS_ANALYTICS_URL` | variables | per-service origins (instead of `ATLAS_API_BASE_URL`) |
+| `ATLAS_JOBS_URL` | variable | the jobs service's own origin, only if it is a separate project (job-board ingestion falls back to `ATLAS_API_BASE_URL`) |
 
-`.github/workflows/drain-events.yml` runs every five minutes and does nothing until these
-exist. Without draining, events are queued but never delivered: no job scores, no
+`.github/workflows/drain-events.yml` runs every five minutes and `.github/workflows/ingest-jobs.yml`
+reads the job boards every hour; both do nothing until these exist (the ingest workflow also
+has a manual *Run workflow* button that takes an optional `source_id`, for trying one board). Without draining, events are queued but never delivered: no job scores, no
 recommendations, no analytics. GitHub only runs `schedule` on the default branch, so
 **merge to the default branch** for it to start, and it disables schedules after 60 days
 without repository activity.
@@ -142,8 +146,15 @@ without repository activity.
    with their institutional email first, then staff import the CSV, and staff re-import
    later to pick up students who registered afterwards (re-imports are idempotent).
    There is no invitation email; the university has to tell its students to sign up.
-3. Job catalog: until the automated source ingestion is enabled, jobs only exist if a
-   platform admin calls `POST /v1/jobs/ingest`.
+3. Job catalog. Add the employer boards to read, as a platform admin, with
+   `POST /v1/jobs/sources` (`{"provider":"greenhouse","board_token":"figma","company_name":"Figma"}`;
+   providers are `greenhouse`, `lever`, `ashby`) or by editing and running
+   `packages/db/seed/job-sources.example.sql`. Trim the example first: the larger boards list
+   several hundred postings each and the first fill of a big board can take more than one hourly
+   run (it resumes). Then press *Run workflow* on **Ingest job sources** (or wait up to an hour)
+   and check `GET /v1/jobs/sources` for each board's last status. Postings a board stops
+   listing are deactivated and stop being recommended. `POST /v1/jobs/ingest` still works for
+   one-off manual postings.
 
 ## 5. Legal and policy (owner / counsel, not code)
 
@@ -154,6 +165,9 @@ without repository activity.
 - University pilot: a data-sharing agreement with the institution, a lawful basis for the
   roster import, and a decision on who is controller and who is processor. Student records
   are regulated in many jurisdictions (for example FERPA in the US, GDPR in the EU/UK).
+- Account data: users can download everything held about them and delete their account
+  (`/dashboard/settings`). Make sure the privacy policy says so, and confirm backup and log
+  retention against what it promises.
 - Outreach: if email delivery is ever added, consent, unsubscribe and anti-spam rules apply.
 - Job data: ingestion uses the public board endpoints employers publish for embedding.
   Keep the attribution/apply-link behaviour (candidates are always sent to the employer's
@@ -170,7 +184,8 @@ node scripts/smoke.mjs
 
 It checks, without credentials and without writing anything: every backend function boots
 and answers `401` from the service itself, the drain endpoints are protected (and run when
-`CRON_SECRET` is supplied), the web pages render, and CORS allows the web origin. Per-service
+`CRON_SECRET` is supplied), the job-board ingest route is protected (probed without credentials
+only, since a real call fetches third-party sites), the web pages render, and CORS allows the web origin. Per-service
 layouts set `ATLAS_<SERVICE>_URL` instead. A `WARN` on a drain probe means `CRON_SECRET` is
 not set on that service.
 
@@ -178,11 +193,15 @@ Then walk the product once by hand:
 
 1. Register -> confirm email -> sign in. Request a password reset and complete it.
 2. Upload a resume (PDF and DOCX) -> it reaches `parsed` with an ATS score.
-3. A platform admin ingests or a source fetch adds jobs -> within a few drain cycles the
-   job matches page lists scored jobs for that resume.
+3. A platform admin adds a job-board source (or ingests postings) and runs **Ingest job
+   sources** -> within a few drain cycles the job matches page lists scored jobs, each with its
+   employer, for that resume.
 4. Open a job -> check the resume against it -> start an application -> open the employer
    page -> mark it submitted -> it appears on the applications page with the job title.
-5. University pilot: a student registers, staff imports a roster CSV containing that
+5. Outreach: open Messages, copy a draft, press *I sent this*; nothing is sent by Atlas.
+6. Your data (`/dashboard/settings`): download the export; delete a throwaway account and check
+   that signing in with it fails and its resume files are gone from the bucket.
+7. University pilot: a student registers, staff imports a roster CSV containing that
    student's email (the import result shows it linked rather than `noPlatformAccount`), the
    funnel moves as the student applies, and the CSV export downloads. A signed-in user who is
    not a member of the organization gets 404.
@@ -195,6 +214,16 @@ Then walk the product once by hand:
   warm instances; there is no shared store yet.
 - **Drain latency**: events are delivered at most every five minutes, so matches appear
   minutes after a resume upload, not instantly.
+- **Account deletion is untested against real Supabase.** It runs `delete from auth.users` in
+  one transaction through `DATABASE_URL`: the role needs DELETE on `auth.users`, and
+  `storage.objects.owner` may block removing a user who owns files. Try it on a staging project
+  before launch (see `docs/09_security_model.md`). Access tokens already issued stay valid until
+  they expire, and there is no step-up re-authentication before deleting yet.
+- **University staff can move students' applications.** Staff with the `admin`/`owner` role in the
+  organization a student's application is filed under can append status events to it. Decide
+  whether that is what the pilot agreement says.
+- **Job data quality.** Boards change; a board that closes every role keeps its stale postings,
+  description-only edits are not refreshed, and the Lever EU endpoint is not read.
 - **No LLM is wired anywhere.** Matching, resume advice and drafting are deterministic
   heuristics; copy must not promise AI-written content.
 - **Support and incident response**: no error-tracking vendor is configured; failures are in
