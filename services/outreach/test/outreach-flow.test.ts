@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, InjectOptions } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createTokenVerifierConfig } from '@atlas/auth-kit';
 import { createBroker, derivedEventId, type MemoryBroker } from '@atlas/messaging';
@@ -147,8 +147,11 @@ describe.skipIf(!testDatabaseUrl)('outreach-service HTTP flow', () => {
     await dbHandle.db.update(schema.messages).set({ status, scheduledFor }).where(eq(schema.messages.messageId, messageId));
   }
 
-  const markSent = (target: FastifyInstance, messageId: string, as: string, payload?: unknown) =>
-    target.inject({ method: 'POST', url: `/v1/messages/${messageId}/mark-sent`, headers: bearer(as), ...(payload === undefined ? {} : { payload }) });
+  const markSent = (target: FastifyInstance, messageId: string, as: string, payload?: Record<string, unknown>) => {
+    const options: InjectOptions = { method: 'POST', url: `/v1/messages/${messageId}/mark-sent`, headers: bearer(as) };
+    if (payload !== undefined) options.payload = payload;
+    return target.inject(options);
+  };
 
   const sentEventsFor = (theBroker: MemoryBroker, messageId: string) =>
     theBroker.publishedOf('outreach.sent').filter((e) => e.payload.message_id === messageId);
