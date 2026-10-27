@@ -1,0 +1,114 @@
+[
+  {
+    "additional": "",
+    "additionalPlain": "",
+    "categories": {
+      "commitment": "Regular Full Time (Salary)",
+      "department": "Customer Success",
+      "location": "Atlanta, Georgia",
+      "team": "Customer Success Team",
+      "allLocations": ["Atlanta, Georgia"]
+    },
+    "createdAt": 1788199939703,
+    "descriptionPlain": "This is a test job - created by Alex Haugan, for testing candidate insights.\n \nJoin a scaling, tight-knit team that’s working directly with innovative talent acquisition teams and thought leaders across various industries and geographies to make hiring a strategic advantage for their organizations.\n \nAs a Customer Success Manager on the Customer Advocacy team, you will be our customers biggest champion and make their voice heard in everything we do.\n",
+    "description": "This is a test job - created by Alex Haugan, for testing candidate insights.\n \nJoin a scaling, tight-knit team that’s working directly with innovative talent acquisition teams and thought leaders across various industries and geographies to make hiring a strategic advantage for their organizations.",
+    "id": "ad208490-4052-4f91-a57e-433f2d1e484b",
+    "lists": [
+      {
+        "text": "Skill Set:",
+        "content": "\n3+ years of customer relationship or account management experience working in software as a service (SaaS)\nSolutions and results-oriented mindset\nHighly organized with strong project management and time management skills\n"
+      },
+      {
+        "text": "Within 1 Month You'll:",
+        "content": "\nMaster Lever’s various product training demo frameworks, customized for various customer stakeholders, demonstrated by hosting sessions independently\n"
+      }
+    ],
+    "salaryRange": {
+      "min": 85000,
+      "max": 175000,
+      "currency": "USD",
+      "interval": "per-year-salary"
+    },
+    "text": "Customer Success Manager",
+    "country": "US",
+    "workplaceType": "hybrid",
+    "opening": "",
+    "openingPlain": "",
+    "descriptionBody": "This is a test job - created by Alex Haugan, for testing candidate insights.",
+    "descriptionBodyPlain": "This is a test job - created by Alex Haugan, for testing candidate insights.",
+    "hostedUrl": "https://jobs.lever.co/leverdemo/ad208490-4052-4f91-a57e-433f2d1e484b",
+    "applyUrl": "https://jobs.lever.co/leverdemo/ad208490-4052-4f91-a57e-433f2d1e484b/apply"
+  },
+  {
+    "additional": "",
+    "additionalPlain": "",
+    "categories": {
+      "commitment": "Regular Full Time (Salary)",
+      "department": "People (HR)",
+      "location": "Houston, TX",
+      "team": "People",
+      "allLocations": ["Houston, TX"]
+    },
+    "createdAt": 1787600587936,
+    "description": "",
+    "descriptionPlain": "",
+    "id": "120b5976-ee4e-4dc5-b31b-2b1ca124460c",
+    "lists": [
+      {
+        "text": "Key Responsibilities",
+        "content": "\n\nPerform comprehensive dental examinations, evaluations, and treatment planning.\nDiagnose oral health conditions and develop individualized treatment plans.\nEducate patients on oral hygiene, preventive care, and treatment options.\n\n"
+      },
+      {
+        "text": "Qualifications",
+        "content": "\n\nDoctor of Dental Surgery (DDS) or Doctor of Dental Medicine (DMD) degree from an accredited dental school.\nActive and unrestricted state dental license.\n\n"
+      }
+    ],
+    "salaryRange": {
+      "min": 150000,
+      "max": 185000,
+      "currency": "USD",
+      "interval": "per-year-salary"
+    },
+    "text": "Dentist",
+    "country": "US",
+    "workplaceType": "onsite",
+    "opening": "",
+    "openingPlain": "",
+    "descriptionBody": "",
+    "descriptionBodyPlain": "",
+    "hostedUrl": "https://jobs.lever.co/leverdemo/120b5976-ee4e-4dc5-b31b-2b1ca124460c",
+    "applyUrl": "https://jobs.lever.co/leverdemo/120b5976-ee4e-4dc5-b31b-2b1ca124460c/apply"
+  },
+  {
+    "additionalPlain": "The United States base range for this position is $87,069-$124,385 plus equity. The benefits available for this position include health insurance, six month paid parental leave, 401(k) retirement plan.\n",
+    "additional": "The United States base range for this position is $87,069-$124,385 plus equity. The benefits available for this position include health insurance, six month paid parental leave, 401(k) retirement plan.",
+    "categories": {
+      "commitment": "Permanent",
+      "department": "Operations and Business Support",
+      "location": "New York, NY",
+      "team": "Platform",
+      "allLocations": ["New York, NY"]
+    },
+    "createdAt": 1792767640768,
+    "descriptionPlain": "Spotify Technology is our business-to-business software team, helping organizations improve how they build and deliver software.\nAs an Account Executive on our Commercial team, you will drive new business for Spotify Technology.\n",
+    "description": "\nSpotify Technology is our business-to-business software team, helping organizations improve how they build and deliver software.\nAs an Account Executive on our Commercial team, you will drive new business for Spotify Technology.\n",
+    "id": "2a55d6c9-c564-443a-be3e-a3851db5a93b",
+    "lists": [
+      {
+        "text": "What You'll Do",
+        "content": "\n• Identify and pursue new business opportunities with companies of fewer than 1,000 employees.\n• Own the full sales cycle, from prospecting and discovery through demos, proposals, negotiations, and close.\n"
+      },
+      {
+        "text": "Where You'll Be",
+        "content": "\nThis role is based in New York City\nWe offer you the flexibility to work where you work best!\n"
+      }
+    ],
+    "text": "Account Executive - Commercial, Spotify Technology",
+    "country": "US",
+    "workplaceType": "hybrid",
+    "opening": "",
+    "openingPlain": "",
+    "hostedUrl": "https://jobs.lever.co/spotify/2a55d6c9-c564-443a-be3e-a3851db5a93b",
+    "applyUrl": "https://jobs.lever.co/spotify/2a55d6c9-c564-443a-be3e-a3851db5a93b/apply"
+  }
+]
