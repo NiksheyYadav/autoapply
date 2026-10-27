@@ -6,3 +6,4 @@ export * from './job.js';
 export * from './application.js';
 export * from './events.js';
 export * from './api.js';
+export * from './admin.js';
