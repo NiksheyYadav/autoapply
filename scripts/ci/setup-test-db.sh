@@ -17,6 +17,8 @@
 #   1. infra/ci/supabase-stub.sql      roles + auth.users stand-in
 #   2. pnpm db:migrate                 extensions + Drizzle migrations
 #   3. packages/db/supabase/auth-hooks.sql   FK + handle_new_user trigger + hook
+#   4. packages/db/supabase/rls.sql    RLS on every public table, no privileges for
+#                                      anon/authenticated (production's Data API posture)
 #
 # CI/test databases only. Step 1 refuses to run on a real Supabase database,
 # but point DATABASE_URL at a scratch database anyway, never at one you care
@@ -54,19 +56,25 @@ run_psql() {
   psql "$DATABASE_URL" -X -q -v ON_ERROR_STOP=1 "$@"
 }
 
-echo "==> [1/3] Supabase stand-in (roles, auth.users)"
+echo "==> [1/4] Supabase stand-in (roles, auth.users)"
 run_psql -f infra/ci/supabase-stub.sql
 
-echo "==> [2/3] Migrations (extensions + Drizzle)"
+echo "==> [2/4] Migrations (extensions + Drizzle)"
 # migrate.ts reads DATABASE_URL from the environment, which is already set.
 pnpm db:migrate
 
-echo "==> [3/3] Auth hooks (users FK, handle_new_user trigger, access-token hook)"
+echo "==> [3/4] Auth hooks (users FK, handle_new_user trigger, access-token hook)"
 # auth-hooks.sql does a plain `add constraint users_user_id_fkey`, which fails
 # on a second run. Dropping it first makes this step re-runnable; the rest of
 # the file is create-or-replace / drop-and-create already.
 run_psql -c 'alter table public.users drop constraint if exists users_user_id_fkey'
 run_psql -f packages/db/supabase/auth-hooks.sql
+
+echo "==> [4/4] Row Level Security (RLS on public tables, no anon/authenticated grants)"
+# Idempotent, and last so it sees every table the earlier steps created. The test
+# suites connect as a superuser and are unaffected by RLS; this makes the database
+# match production's Data API posture instead of leaving it wide open.
+run_psql -f packages/db/supabase/rls.sql
 
 echo "setup-test-db: done. Run the suites with:"
 echo "  ATLAS_TEST_DATABASE_URL=<same url> pnpm test"
