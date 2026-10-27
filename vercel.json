@@ -27,6 +27,7 @@
     { "source": "/v1/learning/:path*", "destination": "/api/learning" },
     { "source": "/v1/analytics/:path*", "destination": "/api/analytics" },
     { "source": "/v1/admin/:path*", "destination": "/api/admin" },
+    { "source": "/internal/jobs/:path*", "destination": "/api/jobs" },
     { "source": "/internal/matching/:path*", "destination": "/api/matching" },
     { "source": "/internal/referrals/:path*", "destination": "/api/referrals" },
     { "source": "/internal/learning/:path*", "destination": "/api/learning" },
