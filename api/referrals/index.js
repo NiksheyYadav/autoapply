@@ -75245,6 +75245,22 @@ function getActor(request) {
   return request.actor;
 }
 
+// packages/auth-kit/src/platform-admin.ts
+function parsePlatformAdminIds(raw) {
+  if (!raw) return /* @__PURE__ */ new Set();
+  return new Set(
+    raw.split(",").map((id) => id.trim().toLowerCase()).filter((id) => id.length > 0)
+  );
+}
+function isPlatformAdmin(actor, allowlist) {
+  return parsePlatformAdminIds(allowlist).has(actor.user_id.toLowerCase());
+}
+function requirePlatformAdmin(actor, allowlist, message2 = "Only platform administrators can perform this action") {
+  if (!isPlatformAdmin(actor, allowlist)) {
+    throw new AppError("FORBIDDEN", message2);
+  }
+}
+
 // node_modules/.pnpm/postgres@3.4.9/node_modules/postgres/src/index.js
 import os from "os";
 import fs from "fs";
@@ -86112,8 +86128,13 @@ function scoreContactRelevance(title) {
 // services/referrals/src/http/routes/create-contact.ts
 var UNIQUE_VIOLATION = "23505";
 function createContactRoute(app2, deps) {
-  app2.post("/v1/contacts", { preHandler: requireAuth(deps.tokenVerifier) }, async (_request, reply) => {
-    const body = createContactRequestSchema.parse(_request.body);
+  app2.post("/v1/contacts", { preHandler: requireAuth(deps.tokenVerifier) }, async (request, reply) => {
+    requirePlatformAdmin(
+      getActor(request),
+      deps.env.PLATFORM_ADMIN_USER_IDS,
+      "Only platform administrators can add contacts"
+    );
+    const body = createContactRequestSchema.parse(request.body);
     const company = await findCompanyById(deps.db, body.company_id);
     if (!company) {
       throw new AppError("NOT_FOUND", "Company not found");
@@ -86355,7 +86376,13 @@ var referralsServiceEnvSchema = external_exports.object({
    * `Authorization: Bearer $CRON_SECRET` when this variable is set. Unset, the
    * route answers 503 and never runs a drain.
    */
-  CRON_SECRET: external_exports.string().min(16, "CRON_SECRET must be at least 16 characters").optional()
+  CRON_SECRET: external_exports.string().min(16, "CRON_SECRET must be at least 16 characters").optional(),
+  /**
+   * Comma-separated `auth.users` ids allowed to write to the shared contacts
+   * directory (see `requirePlatformAdmin` in @atlas/auth-kit). Empty/unset
+   * means nobody.
+   */
+  PLATFORM_ADMIN_USER_IDS: external_exports.string().default("")
 });
 function loadReferralsServiceEnv(source = process.env) {
   const normalized = { ...source, PORT: source.PORT ?? source.REFERRALS_SERVICE_PORT };

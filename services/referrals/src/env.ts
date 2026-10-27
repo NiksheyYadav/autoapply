@@ -13,6 +13,12 @@ export const referralsServiceEnvSchema = z.object({
    * route answers 503 and never runs a drain.
    */
   CRON_SECRET: z.string().min(16, 'CRON_SECRET must be at least 16 characters').optional(),
+  /**
+   * Comma-separated `auth.users` ids allowed to write to the shared contacts
+   * directory (see `requirePlatformAdmin` in @atlas/auth-kit). Empty/unset
+   * means nobody.
+   */
+  PLATFORM_ADMIN_USER_IDS: z.string().default(''),
 });
 
 export type ReferralsServiceEnv = z.infer<typeof referralsServiceEnvSchema>;
