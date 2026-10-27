@@ -89,6 +89,27 @@ jobs:
       - name: Test (backend, including DB-backed integration suites)
         run: pnpm test
 
+      # api/*/index.js are committed esbuild bundles (see the header of
+      # scripts/bundle-backend.mjs): Vercel deploys what is in git, not what a
+      # build step would produce. Rebuild here and fail if the result differs,
+      # so a source or packages/* change cannot ship with stale bundles.
+      - name: Check committed api/ bundles are up to date
+        run: |
+          node scripts/bundle-backend.mjs
+          # Mark brand-new bundles (untracked) as intent-to-add so git diff
+          # sees them too, not just modified ones.
+          git add --intent-to-add --all -- api
+          if ! git diff --exit-code --stat -- api; then
+            echo "::error title=Stale api/ bundles::The committed api/*/index.js bundles do not match the current sources."
+            echo ""
+            echo "The committed Vercel bundles are out of date with the code in this change."
+            echo "Fix: run   node scripts/bundle-backend.mjs   locally, then commit the updated api/ files."
+            echo ""
+            echo "First 200 lines of the difference:"
+            git --no-pager diff -- api | head -n 200
+            exit 1
+          fi
+
   frontend:
     name: Frontend (typecheck, build)
     runs-on: ubuntu-latest
