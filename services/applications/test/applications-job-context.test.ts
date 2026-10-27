@@ -510,6 +510,50 @@ describe.skipIf(!testDatabaseUrl)('applications-service job context', () => {
     });
   });
 
+  describe('filtering the own list by job_id', () => {
+    let token: string;
+    let otherToken: string;
+    let jobA: string;
+    let jobB: string;
+    let applicationA: string;
+
+    beforeAll(async () => {
+      const user = await seedUser('filter-owner');
+      const other = await seedUser('filter-other');
+      token = await signTestToken({ sub: user.id, sid: randomUUID(), org: null, role: null, email: user.email });
+      otherToken = await signTestToken({ sub: other.id, sid: randomUUID(), org: null, role: null, email: other.email });
+      const resumeId = await seedResume(user.id);
+      const otherResumeId = await seedResume(other.id);
+      const company = await seedCompany();
+      jobA = (await seedJob(company.companyId, { title: 'Filter Role A' })).jobId;
+      jobB = (await seedJob(company.companyId, { title: 'Filter Role B' })).jobId;
+      applicationA = (await seedApplication(user.id, jobA, resumeId)).applicationId;
+      await seedApplication(user.id, jobB, resumeId);
+      await seedApplication(other.id, jobA, otherResumeId);
+    });
+
+    it('returns only the caller\'s application for that job, with its job context', async () => {
+      const res = await app.inject({ method: 'GET', url: `/v1/applications?job_id=${jobA}`, headers: auth(token) });
+      expect(res.statusCode).toBe(200);
+      const items = res.json().items as Array<{ application_id: string; job_id: string; job: ApplicationJobSummary | null }>;
+      expect(items.map((item) => item.application_id)).toEqual([applicationA]);
+      expect(items[0]?.job?.title).toBe('Filter Role A');
+    });
+
+    it('never reveals another user\'s application to the same job', async () => {
+      const res = await app.inject({ method: 'GET', url: `/v1/applications?job_id=${jobB}`, headers: auth(otherToken) });
+      expect(res.statusCode).toBe(200);
+      expect(res.json().items).toEqual([]);
+    });
+
+    it('is unchanged without the filter, and rejects a malformed id', async () => {
+      const all = await app.inject({ method: 'GET', url: '/v1/applications', headers: auth(token) });
+      expect(all.json().items).toHaveLength(2);
+      const bad = await app.inject({ method: 'GET', url: '/v1/applications?job_id=not-a-uuid', headers: auth(token) });
+      expect(bad.statusCode).toBe(400);
+    });
+  });
+
   describe('organization staff never get job or employer details', () => {
     let organizationId: string;
     let studentId: string;
@@ -637,6 +681,15 @@ describe.skipIf(!testDatabaseUrl)('applications-service job context', () => {
 
       const get = await app.inject({ method: 'GET', url: `/v1/applications/${studentApplicationId}`, headers: auth(studentAsAdminToken) });
       expect(get.json().application.job).toMatchObject({ title: jobTitle, company_name: companyName });
+    });
+
+    it('rejects a job_id filter on the organization view, so staff cannot probe applications per job', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: `/v1/applications?scope=organization&job_id=${randomUUID()}`,
+        headers: auth(staffToken),
+      });
+      expect(res.statusCode).toBe(400);
     });
 
     it('still rejects scope=organization for a non-staff member of the organization', async () => {

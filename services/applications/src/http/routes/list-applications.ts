@@ -16,6 +16,11 @@ export function listApplicationsRoute(app: FastifyInstance, deps: AppDeps): void
 
     let response: ListApplicationsResponse;
     if (scope === 'organization') {
+      // A per-job filter would let staff ask "did anyone apply to job X?", which is
+      // exactly the job-level detail staff are not allowed to see.
+      if (query.job_id !== undefined) {
+        throw new AppError('VALIDATION_ERROR', 'job_id cannot be combined with scope=organization');
+      }
       // Org-wide visibility for admin/owner staff (apps/admin), not a
       // per-user default — everyone else keeps seeing only their own.
       if (actor.role !== 'admin' && actor.role !== 'owner') {
@@ -32,7 +37,7 @@ export function listApplicationsRoute(app: FastifyInstance, deps: AppDeps): void
       const result = await listForOrganization(deps.db, actor.organization_id, query);
       response = { items: result.items.map(toApplication), next_cursor: result.nextCursor };
     } else {
-      const result = await listForUser(deps.db, actor.user_id, query);
+      const result = await listForUser(deps.db, actor.user_id, query, { jobId: query.job_id });
       response = {
         items: result.items.map(({ application, job }) => toApplicationWithJob(application, job)),
         next_cursor: result.nextCursor,

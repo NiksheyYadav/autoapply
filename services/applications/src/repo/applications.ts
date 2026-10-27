@@ -158,17 +158,27 @@ function toPage<T>(
  * ordering, `limit + 1` page detection and cursor all behave exactly as they do
  * for the plain table.
  */
+export interface ListForUserFilter {
+  /** Restrict to applications for one job (the caller's own, so this reveals nothing new). */
+  jobId?: string | undefined;
+}
+
 export async function listForUser(
   db: Database,
   userId: string,
   pagination: PaginationQuery,
+  filter: ListForUserFilter = {},
 ): Promise<ListForUserResult> {
+  const scopeCondition =
+    filter.jobId === undefined
+      ? eq(schema.applications.userId, userId)
+      : (and(eq(schema.applications.userId, userId), eq(schema.applications.jobId, filter.jobId)) as SQL);
   const rows = await db
     .select({ application: schema.applications, job: jobSummaryColumns })
     .from(schema.applications)
     .leftJoin(schema.jobs, eq(schema.jobs.jobId, schema.applications.jobId))
     .leftJoin(schema.companies, eq(schema.companies.companyId, schema.jobs.companyId))
-    .where(pageCondition(eq(schema.applications.userId, userId), pagination))
+    .where(pageCondition(scopeCondition, pagination))
     .orderBy(desc(schema.applications.createdAt), desc(schema.applications.applicationId))
     .limit(pagination.limit + 1);
 

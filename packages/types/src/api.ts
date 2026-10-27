@@ -155,7 +155,10 @@ export const applicationResponseSchema = z.object({
 
 export type ApplicationResponse = z.infer<typeof applicationResponseSchema>;
 
-export const listApplicationsQuerySchema = paginationQuerySchema;
+export const listApplicationsQuerySchema = paginationQuerySchema.extend({
+  /** Only the caller's applications to this job (own list only; rejected for scope=organization). */
+  job_id: uuidSchema.optional(),
+});
 export type ListApplicationsQuery = z.infer<typeof listApplicationsQuerySchema>;
 
 export const listApplicationsResponseSchema = z.object({
