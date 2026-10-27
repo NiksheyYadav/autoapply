@@ -4,12 +4,14 @@ import { getActor, requireAuth } from '@atlas/auth-kit';
 import { scheduleMessageRequestSchema, uuidSchema, type MessageResponse } from '@atlas/types';
 import { AppError } from '@atlas/utils';
 import type { AppDeps } from '../../app.js';
+import { requireDeliveryEnabled } from '../../lib/delivery.js';
 import { findById, setScheduled, toMessage } from '../../repo/messages.js';
 
 const paramsSchema = z.object({ id: uuidSchema });
 
 export function scheduleMessageRoute(app: FastifyInstance, deps: AppDeps): void {
-  app.post('/v1/messages/:id/schedule', { preHandler: requireAuth(deps.tokenVerifier) }, async (request, reply) => {
+  // Scheduling is a promise that Atlas will deliver later, so it is refused whenever delivery is.
+  app.post('/v1/messages/:id/schedule', { preHandler: [requireAuth(deps.tokenVerifier), requireDeliveryEnabled(deps.env)] }, async (request, reply) => {
     const actor = getActor(request);
     const { id } = paramsSchema.parse(request.params);
     const body = scheduleMessageRequestSchema.parse(request.body);

@@ -20,6 +20,7 @@ import { createMessageRoute } from './http/routes/create-message.js';
 import { getMessageRoute } from './http/routes/get-message.js';
 import { healthRoute } from './http/routes/health.js';
 import { listMessagesRoute } from './http/routes/list-messages.js';
+import { markMessageSentRoute } from './http/routes/mark-message-sent.js';
 import { scheduleMessageRoute } from './http/routes/schedule-message.js';
 import { sendMessageRoute } from './http/routes/send-message.js';
 import type { OutreachTransport } from './lib/transport.js';
@@ -126,6 +127,7 @@ export function buildApp(deps: AppDeps): FastifyInstance {
       getMessageRoute(api, deps);
       scheduleMessageRoute(api, deps);
       sendMessageRoute(api, deps);
+      markMessageSentRoute(api, deps);
     },
   );
 

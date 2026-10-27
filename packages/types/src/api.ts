@@ -233,6 +233,20 @@ export const scheduleMessageRequestSchema = z.object({
 
 export type ScheduleMessageRequest = z.infer<typeof scheduleMessageRequestSchema>;
 
+/**
+ * `POST /v1/messages/:id/mark-sent`: the user records that they sent the
+ * message themselves (copy-paste, their own mail app). The body is optional.
+ *
+ * `note` is accepted so clients can send one, but it is NOT stored: `messages`
+ * has no column for it and the audit trail deliberately takes no free text.
+ * Persisting it needs a migration (see docs/04_api_design.md).
+ */
+export const markMessageSentRequestSchema = z.object({
+  note: z.string().trim().max(500).optional(),
+});
+
+export type MarkMessageSentRequest = z.infer<typeof markMessageSentRequestSchema>;
+
 export const messageResponseSchema = z.object({ message: messageSchema });
 export type MessageResponse = z.infer<typeof messageResponseSchema>;
 
