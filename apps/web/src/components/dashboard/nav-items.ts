@@ -1,4 +1,4 @@
-import { FileText, LayoutDashboard, MailPlus, Plug, Search, SendHorizontal, Users, type LucideIcon } from 'lucide-react';
+import { FileText, LayoutDashboard, MailPlus, Plug, Search, SendHorizontal, ShieldCheck, Users, type LucideIcon } from 'lucide-react';
 
 export interface DashboardNavItem {
   href: string;
@@ -15,4 +15,5 @@ export const DASHBOARD_NAV_ITEMS: DashboardNavItem[] = [
   { href: '/dashboard/referrals', label: 'Referrals', icon: Users },
   { href: '/dashboard/messages', label: 'Messages', icon: MailPlus },
   { href: '/dashboard/connectors', label: 'Connectors', icon: Plug },
+  { href: '/dashboard/settings', label: 'Your data', icon: ShieldCheck },
 ];
