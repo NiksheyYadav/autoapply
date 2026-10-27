@@ -645,4 +645,120 @@ describe.skipIf(!testDatabaseUrl)('applications-service job context', () => {
       expectNoJobDetails(res.json());
     });
   });
+
+  describe('assisted apply: record that you opened / submitted on the employer site', () => {
+    let ownerToken: string;
+    let strangerToken: string;
+    let staffToken: string;
+    let organizationId: string;
+    let applicationId: string;
+    let jobTitle: string;
+
+    async function trail(): Promise<Array<{ from: string | null; to: string; note: string | null }>> {
+      const rows = await dbHandle.db
+        .select()
+        .from(schema.applicationEvents)
+        .where(eq(schema.applicationEvents.applicationId, applicationId))
+        .orderBy(schema.applicationEvents.createdAt);
+      return rows.map((r) => ({ from: r.fromStatus, to: r.toStatus, note: r.note }));
+    }
+
+    function postEvent(token: string, payload: Record<string, unknown>) {
+      return app.inject({ method: 'POST', url: `/v1/applications/${applicationId}/events`, headers: auth(token), payload });
+    }
+
+    beforeAll(async () => {
+      organizationId = randomUUID();
+      await dbHandle.db.insert(schema.organizations).values({ organizationId, name: `Assist Org ${organizationId.slice(0, 8)}`, type: 'university' });
+      organizationIds.push(organizationId);
+
+      const owner = await seedUser('assist-owner');
+      const stranger = await seedUser('assist-stranger');
+      const staff = await seedUser('assist-staff');
+      ownerToken = await signTestToken({ sub: owner.id, sid: randomUUID(), org: organizationId, role: 'student', email: owner.email });
+      strangerToken = await signTestToken({ sub: stranger.id, sid: randomUUID(), org: null, role: null, email: stranger.email });
+      staffToken = await signTestToken({ sub: staff.id, sid: randomUUID(), org: organizationId, role: 'admin', email: staff.email });
+
+      const resumeId = await seedResume(owner.id);
+      const company = await seedCompany();
+      jobTitle = 'Assisted Apply Role';
+      const job = await seedJob(company.companyId, { title: jobTitle, applyUrl: 'https://careers.jobctx.example/assisted' });
+      const res = await app.inject({
+        method: 'POST',
+        url: '/v1/applications',
+        headers: { ...auth(ownerToken), 'idempotency-key': 'assisted-apply-1' },
+        payload: { job_id: job.jobId, resume_id: resumeId, mode: 'manual' },
+      });
+      expect(res.statusCode).toBe(201);
+      applicationId = res.json().application.application_id;
+    });
+
+    it('lets the owner note that they opened the apply link, without changing status', async () => {
+      const before = (await dbHandle.db.select().from(schema.applications).where(eq(schema.applications.applicationId, applicationId)))[0]!;
+
+      const res = await postEvent(ownerToken, { to_status: 'draft', note: 'opened_apply_link' });
+      expect(res.statusCode).toBe(200);
+      expect(res.json().application.status).toBe('draft');
+      expect(res.json().application.submitted_at).toBeNull();
+      // The owner's response carries the job, so a client can drop it straight into its list.
+      expect(res.json().application.job).toMatchObject({ title: jobTitle, apply_url: 'https://careers.jobctx.example/assisted' });
+
+      const after = (await dbHandle.db.select().from(schema.applications).where(eq(schema.applications.applicationId, applicationId)))[0]!;
+      expect(Date.parse(after.lastEventAt)).toBeGreaterThanOrEqual(Date.parse(before.lastEventAt));
+      expect(await trail()).toEqual([{ from: 'draft', to: 'draft', note: 'opened_apply_link' }]);
+    });
+
+    it('does not let org staff (or a stranger) record the marker on the owner\'s behalf', async () => {
+      const staff = await postEvent(staffToken, { to_status: 'draft', note: 'opened_apply_link' });
+      expect(staff.statusCode).toBe(400);
+      expect(staff.json().error.code).toBe('VALIDATION_ERROR');
+
+      const stranger = await postEvent(strangerToken, { to_status: 'draft', note: 'opened_apply_link' });
+      expect(stranger.statusCode).toBe(404);
+
+      expect(await trail()).toHaveLength(1);
+    });
+
+    it('rejects any other same-status event: no note, or a different note', async () => {
+      for (const payload of [{ to_status: 'draft' }, { to_status: 'draft', note: 'clicked something' }, { to_status: 'draft', note: 'OPENED_APPLY_LINK' }]) {
+        const res = await postEvent(ownerToken, payload);
+        expect(res.statusCode).toBe(400);
+        expect(res.json().error.code).toBe('VALIDATION_ERROR');
+      }
+      expect(await trail()).toHaveLength(1);
+    });
+
+    it('lets the owner report the application as submitted straight from draft, with a note', async () => {
+      const res = await postEvent(ownerToken, { to_status: 'submitted', note: 'Applied on the employer site' });
+      expect(res.statusCode).toBe(200);
+      expect(res.json().application.status).toBe('submitted');
+      expect(res.json().application.submitted_at).not.toBeNull();
+      expect(res.json().application.job).toMatchObject({ title: jobTitle });
+
+      expect(await trail()).toEqual([
+        { from: 'draft', to: 'draft', note: 'opened_apply_link' },
+        { from: 'draft', to: 'submitted', note: 'Applied on the employer site' },
+      ]);
+
+      const get = await app.inject({ method: 'GET', url: `/v1/applications/${applicationId}`, headers: auth(ownerToken) });
+      expect(get.json().application).toMatchObject({ status: 'submitted' });
+    });
+
+    it('only accepts the marker while the application is still a draft', async () => {
+      const res = await postEvent(ownerToken, { to_status: 'submitted', note: 'opened_apply_link' });
+      expect(res.statusCode).toBe(400);
+      const same = await postEvent(ownerToken, { to_status: 'submitted' });
+      expect(same.statusCode).toBe(400);
+      expect(await trail()).toHaveLength(2);
+    });
+
+    it('keeps the rest of the lifecycle intact after a self-reported submission', async () => {
+      const res = await postEvent(ownerToken, { to_status: 'interviewing', note: 'phone screen booked' });
+      expect(res.statusCode).toBe(200);
+      expect(res.json().application.status).toBe('interviewing');
+
+      const back = await postEvent(ownerToken, { to_status: 'draft' });
+      expect(back.statusCode).toBe(400);
+    });
+  });
 });

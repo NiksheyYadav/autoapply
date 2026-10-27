@@ -6,7 +6,7 @@ import { appendApplicationEventRequestSchema, uuidSchema, type ApplicationRespon
 import { AppError, newTraceContext } from '@atlas/utils';
 import type { AppDeps } from '../../app.js';
 import { appendEvent, findByIdWithJob, toApplication, toApplicationWithJob } from '../../repo/applications.js';
-import { isValidTransition } from '../../lib/transitions.js';
+import { isOpenedApplyLinkMarker, isValidTransition } from '../../lib/transitions.js';
 
 const paramsSchema = z.object({ id: uuidSchema });
 
@@ -29,7 +29,10 @@ export function appendEventRoute(app: FastifyInstance, deps: AppDeps): void {
       throw new AppError('NOT_FOUND', 'Application not found');
     }
 
-    if (!isValidTransition(current.status, body.to_status)) {
+    // Assisted apply: the owner can note that they opened the employer's apply
+    // page without changing status. Staff can't speak for the user here.
+    const isApplyLinkMarker = isOwner && isOpenedApplyLinkMarker(current.status, body.to_status, body.note);
+    if (!isApplyLinkMarker && !isValidTransition(current.status, body.to_status)) {
       throw new AppError('VALIDATION_ERROR', `Cannot move an application from "${current.status}" to "${body.to_status}"`);
     }
 
