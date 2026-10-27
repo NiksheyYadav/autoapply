@@ -4,3 +4,4 @@ export * from './logger.js';
 export * from './redact.js';
 export * from './retry.js';
 export * from './trace.js';
+export * from './vercel.js';

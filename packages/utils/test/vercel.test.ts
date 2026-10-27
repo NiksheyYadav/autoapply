@@ -1,0 +1,103 @@
+import type { IncomingMessage, ServerResponse } from 'node:http';
+import { describe, expect, it, vi } from 'vitest';
+import {
+  SERVERLESS_PLACEHOLDER_PORT,
+  createVercelHandler,
+  withServerlessEnvDefaults,
+} from '../src/vercel.js';
+
+const req = { url: '/health' } as IncomingMessage;
+const res = {} as ServerResponse;
+
+function deferred<T = void>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason: unknown) => void;
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve;
+    reject = promiseReject;
+  });
+  return { promise, resolve, reject };
+}
+
+describe('createVercelHandler', () => {
+  it('boots eagerly but dispatches onto the server only once the app is ready', async () => {
+    const boot = deferred();
+    const emit = vi.fn(() => true);
+    const ready = vi.fn(() => boot.promise);
+    const handler = createVercelHandler({ ready, server: { emit } });
+
+    // Plugin boot overlaps cold-start init: it starts before any request arrives.
+    expect(ready).toHaveBeenCalledTimes(1);
+
+    const pending = handler(req, res);
+    await Promise.resolve();
+    expect(emit).not.toHaveBeenCalled();
+
+    boot.resolve();
+    await pending;
+    expect(emit).toHaveBeenCalledExactlyOnceWith('request', req, res);
+
+    // Later requests reuse the one boot rather than re-running it.
+    await handler(req, res);
+    expect(ready).toHaveBeenCalledTimes(1);
+    expect(emit).toHaveBeenCalledTimes(2);
+  });
+
+  it('surfaces a failed boot on every request without an unhandled rejection', async () => {
+    const unhandled = vi.fn();
+    process.on('unhandledRejection', unhandled);
+    try {
+      const emit = vi.fn(() => true);
+      const handler = createVercelHandler({
+        ready: () => Promise.reject(new Error('plugin boot failed')),
+        server: { emit },
+      });
+
+      // No request has attached to the boot promise yet: let a tick pass so a
+      // missing catch would show up as an unhandled rejection.
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      expect(unhandled).not.toHaveBeenCalled();
+
+      await expect(handler(req, res)).rejects.toThrow('plugin boot failed');
+      await expect(handler(req, res)).rejects.toThrow('plugin boot failed');
+      expect(emit).not.toHaveBeenCalled();
+    } finally {
+      process.off('unhandledRejection', unhandled);
+    }
+  });
+
+  it('accepts fastify-style thenables whose `ready()` resolves to undefined', async () => {
+    const emit = vi.fn(() => true);
+    const thenable: PromiseLike<undefined> = {
+      then: (onFulfilled) => Promise.resolve(undefined).then(onFulfilled),
+    };
+    const handler = createVercelHandler({ ready: () => thenable, server: { emit } });
+
+    await handler(req, res);
+    expect(emit).toHaveBeenCalledOnce();
+  });
+});
+
+describe('withServerlessEnvDefaults', () => {
+  it('leaves the source untouched outside Vercel so PORT stays required', () => {
+    const source = { DATABASE_URL: 'postgres://example' };
+    expect(withServerlessEnvDefaults(source)).toBe(source);
+    expect(withServerlessEnvDefaults(source)).not.toHaveProperty('PORT');
+  });
+
+  it('supplies a placeholder PORT on Vercel without mutating the source', () => {
+    const source = { VERCEL: '1', DATABASE_URL: 'postgres://example' };
+    const result = withServerlessEnvDefaults(source);
+    expect(result).toEqual({ ...source, PORT: SERVERLESS_PLACEHOLDER_PORT });
+    expect(source).not.toHaveProperty('PORT');
+  });
+
+  it('keeps an explicitly configured PORT on Vercel', () => {
+    expect(withServerlessEnvDefaults({ VERCEL: '1', PORT: '8080' }).PORT).toBe('8080');
+  });
+
+  it('does not invent any other configuration', () => {
+    const result = withServerlessEnvDefaults({ VERCEL: '1' });
+    expect(Object.keys(result).sort()).toEqual(['PORT', 'VERCEL']);
+  });
+});
