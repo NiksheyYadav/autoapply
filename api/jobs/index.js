@@ -19408,7 +19408,7 @@ var require_validation = __commonJS({
     "use strict";
     var {
       kSchemaHeaders: headersSchema,
-      kSchemaParams: paramsSchema,
+      kSchemaParams: paramsSchema2,
       kSchemaQuerystring: querystringSchema,
       kSchemaBody: bodySchema,
       kSchemaResponse: responseSchema
@@ -19624,7 +19624,7 @@ var require_validation = __commonJS({
         FSTWRN001("querystring", method, url2);
       }
       if (schema.params !== void 0) {
-        context2[paramsSchema] = compile2({ schema: schema.params, method, url: url2, httpPart: "params" });
+        context2[paramsSchema2] = compile2({ schema: schema.params, method, url: url2, httpPart: "params" });
       } else if (Object.hasOwn(schema, "params")) {
         FSTWRN001("params", method, url2);
       }
@@ -19664,11 +19664,11 @@ var require_validation = __commonJS({
     }
     function validate2(context2, request, execution) {
       const runExecution = execution === void 0;
-      if (runExecution && context2[paramsSchema] === void 0 && context2[bodySchema] === void 0 && context2[querystringSchema] === void 0 && context2[headersSchema] === void 0) {
+      if (runExecution && context2[paramsSchema2] === void 0 && context2[bodySchema] === void 0 && context2[querystringSchema] === void 0 && context2[headersSchema] === void 0) {
         return false;
       }
       if (runExecution || !execution.skipParams) {
-        const params = validateParam(context2[paramsSchema], request, "params");
+        const params = validateParam(context2[paramsSchema2], request, "params");
         if (params) {
           if (typeof params.then !== "function") {
             return wrapValidationError(params, "params", context2.schemaErrorFormatter);
@@ -19763,7 +19763,7 @@ var require_validation = __commonJS({
       return error62;
     }
     module.exports = {
-      symbols: { bodySchema, querystringSchema, responseSchema, paramsSchema, headersSchema },
+      symbols: { bodySchema, querystringSchema, responseSchema, paramsSchema: paramsSchema2, headersSchema },
       compileSchemasForValidation,
       compileSchemasForSerialization,
       validate: validate2
@@ -74792,6 +74792,24 @@ var applicationSchema = external_exports.object({
   failure_reason: external_exports.string().nullable(),
   created_at: isoTimestampSchema
 });
+var applicationJobSummarySchema = external_exports.object({
+  job_id: uuidSchema,
+  title: external_exports.string().min(1).max(300),
+  company_id: uuidSchema,
+  company_name: external_exports.string().min(1).max(300),
+  location: external_exports.string().max(300).nullable(),
+  remote_type: remoteTypeSchema,
+  employment_type: employmentTypeSchema,
+  /**
+   * Safe to use as a link target: the service only ever returns http(s) URLs
+   * (anything else a connector stored becomes null).
+   */
+  apply_url: external_exports.url({ protocol: /^https?$/ }).nullable(),
+  is_active: external_exports.boolean()
+});
+var applicationWithJobSchema = applicationSchema.extend({
+  job: applicationJobSummarySchema.nullable()
+});
 var contactSchema = external_exports.object({
   contact_id: uuidSchema,
   company_id: uuidSchema,
@@ -74979,13 +74997,20 @@ var ingestJobsRequestSchema = external_exports.object({
 var createApplicationRequestSchema = external_exports.object({
   job_id: uuidSchema,
   resume_id: uuidSchema,
+  /**
+   * `manual` / `review` start as an editable draft; the owner applies on the
+   * employer's site and records the outcome. `auto` is rejected (400
+   * VALIDATION_ERROR) unless the service runs with
+   * APPLICATIONS_AUTO_MODE_ENABLED=true — no submission worker exists yet.
+   */
   mode: applicationModeSchema.default("manual")
 });
+var applicationViewSchema = applicationWithJobSchema.partial({ job: true });
 var applicationResponseSchema = external_exports.object({
-  application: applicationSchema
+  application: applicationViewSchema
 });
 var listApplicationsResponseSchema = external_exports.object({
-  items: external_exports.array(applicationSchema),
+  items: external_exports.array(applicationViewSchema),
   next_cursor: external_exports.string().nullable()
 });
 var appendApplicationEventRequestSchema = external_exports.object({
@@ -75221,6 +75246,22 @@ function getActor(request) {
     throw new AppError("UNAUTHENTICATED", "Request is missing a resolved actor");
   }
   return request.actor;
+}
+
+// packages/auth-kit/src/platform-admin.ts
+function parsePlatformAdminIds(raw) {
+  if (!raw) return /* @__PURE__ */ new Set();
+  return new Set(
+    raw.split(",").map((id) => id.trim().toLowerCase()).filter((id) => id.length > 0)
+  );
+}
+function isPlatformAdmin(actor, allowlist) {
+  return parsePlatformAdminIds(allowlist).has(actor.user_id.toLowerCase());
+}
+function requirePlatformAdmin(actor, allowlist, message2 = "Only platform administrators can perform this action") {
+  if (!isPlatformAdmin(actor, allowlist)) {
+    throw new AppError("FORBIDDEN", message2);
+  }
 }
 
 // node_modules/.pnpm/postgres@3.4.9/node_modules/postgres/src/index.js
@@ -85823,6 +85864,43 @@ function metricsRoute(app2, metrics2) {
   });
 }
 
+// packages/observability/src/rate-limit.ts
+function registerRateLimitedRoutes(app2, options, declareRoutes) {
+  const routeLimits = options.routeLimits ?? {};
+  const unmatched = new Set(Object.keys(routeLimits));
+  if (unmatched.size > 0) {
+    app2.addHook("onRoute", (route) => {
+      const methods = Array.isArray(route.method) ? route.method : [route.method];
+      for (const method of methods) {
+        const key = `${method} ${route.url}`;
+        const limit = routeLimits[key];
+        if (limit === void 0) continue;
+        unmatched.delete(key);
+        if (route.config?.rateLimit === void 0) {
+          route.config = { ...route.config, rateLimit: { ...limit } };
+        }
+      }
+    });
+    app2.addHook("onReady", async () => {
+      if (unmatched.size > 0) {
+        throw new Error(
+          `Rate limit configured for routes that do not exist: ${[...unmatched].join(", ")}`
+        );
+      }
+    });
+  }
+  void app2.register(options.plugin, options.settings);
+  let limitUnmatched;
+  app2.addHook("onRequest", async (request, reply) => {
+    if (!request.is404) return;
+    limitUnmatched ??= app2.rateLimit();
+    await limitUnmatched(request, reply);
+  });
+  void app2.register(async (scope) => {
+    declareRoutes(scope);
+  });
+}
+
 // services/jobs/src/repo/jobs.ts
 function toJob(row) {
   return {
@@ -85892,9 +85970,10 @@ async function listActive(db2, filters, pagination) {
 }
 
 // services/jobs/src/http/routes/get-job.ts
+var paramsSchema = external_exports.object({ id: uuidSchema });
 function getJobRoute(app2, deps) {
   app2.get("/v1/jobs/:id", { preHandler: requireAuth(deps.tokenVerifier) }, async (request, reply) => {
-    const { id } = request.params;
+    const { id } = paramsSchema.parse(request.params);
     const job = await findById(deps.db, id);
     if (!job) {
       throw new AppError("JOB_NOT_FOUND", "Job not found");
@@ -86044,17 +86123,26 @@ function coerceEmploymentType(raw) {
   if (lower.includes("full")) return "full_time";
   return "unknown";
 }
-function normalizeApplyUrl(raw) {
+function normalizeHttpUrl(raw) {
   if (!raw) return null;
   try {
-    return new URL(raw).toString();
+    const url2 = new URL(raw.trim());
+    if (url2.protocol !== "http:" && url2.protocol !== "https:") return null;
+    if (url2.username !== "" || url2.password !== "") return null;
+    return url2.toString();
   } catch {
     return null;
   }
 }
+function normalizeApplyUrl(raw) {
+  return normalizeHttpUrl(raw);
+}
+function normalizeWebsiteUrl(raw) {
+  return normalizeHttpUrl(raw);
+}
 function estimateSpamScore(posting) {
   let score = 0;
-  if (!posting.apply_url) score += 0.4;
+  if (!normalizeApplyUrl(posting.apply_url)) score += 0.4;
   if (posting.title.trim().length < 4) score += 0.3;
   if (!posting.description || posting.description.trim().length < 40) score += 0.3;
   return Math.min(1, score);
@@ -86089,9 +86177,7 @@ function parsePostedAt(raw) {
 function ingestRoute(app2, deps) {
   app2.post("/v1/jobs/ingest", { preHandler: requireAuth(deps.tokenVerifier) }, async (request, reply) => {
     const actor = getActor(request);
-    if (actor.role !== "admin" && actor.role !== "owner") {
-      throw new AppError("FORBIDDEN", "Only org admins/owners can ingest job postings");
-    }
+    requirePlatformAdmin(actor, deps.env.PLATFORM_ADMIN_USER_IDS, "Only platform administrators can ingest job postings");
     const { postings } = ingestJobsRequestSchema.parse(request.body);
     const firstSource = postings[0]?.source ?? "manual";
     const report = {
@@ -86102,11 +86188,15 @@ function ingestRoute(app2, deps) {
       rejected: 0,
       errors: []
     };
-    for (const posting of postings) {
+    for (const [index2, posting] of postings.entries()) {
       const remoteType = coerceRemoteType(posting.remote_type);
       const jobHash = computeJobHash(posting.company_name, posting.title, posting.location ?? null, remoteType);
       try {
-        const company = await findOrCreateByName(deps.db, posting.company_name, posting.company_website);
+        const company = await findOrCreateByName(
+          deps.db,
+          posting.company_name,
+          normalizeWebsiteUrl(posting.company_website)
+        );
         const existing = await findByHash(deps.db, jobHash);
         if (existing) {
           await touchSeen(deps.db, existing.jobId);
@@ -86149,7 +86239,8 @@ function ingestRoute(app2, deps) {
           }
         }
         report.rejected += 1;
-        report.errors.push(cause instanceof Error ? cause.message : String(cause));
+        request.log.error({ err: cause, posting_index: index2 }, "failed to ingest job posting");
+        report.errors.push(`postings[${index2}]: could not be processed`);
       }
     }
     reply.status(200).send(report);
@@ -86256,10 +86347,6 @@ function buildApp(deps) {
     genReqId: () => newUuid()
   });
   void app2.register(import_cors.default, { origin: parseCorsOrigins(deps.env.CORS_ORIGINS) });
-  void app2.register(import_rate_limit.default, {
-    max: deps.env.RATE_LIMIT_MAX,
-    timeWindow: deps.env.RATE_LIMIT_WINDOW
-  });
   const metrics2 = createMetricsRegistry("jobs-service");
   registerHttpMetrics(app2, metrics2);
   app2.setErrorHandler((error62, request, reply) => {
@@ -86300,10 +86387,19 @@ function buildApp(deps) {
   });
   healthRoute(app2, deps);
   metricsRoute(app2, metrics2);
-  ingestRoute(app2, deps);
-  listJobsRoute(app2, deps);
-  getJobRoute(app2, deps);
-  recommendationsRoute(app2, deps);
+  registerRateLimitedRoutes(
+    app2,
+    {
+      plugin: import_rate_limit.default,
+      settings: { max: deps.env.RATE_LIMIT_MAX, timeWindow: deps.env.RATE_LIMIT_WINDOW }
+    },
+    (api) => {
+      ingestRoute(api, deps);
+      listJobsRoute(api, deps);
+      getJobRoute(api, deps);
+      recommendationsRoute(api, deps);
+    }
+  );
   return app2;
 }
 
@@ -86313,7 +86409,13 @@ var jobsServiceEnvSchema = external_exports.object({
   ...databaseEnvSchema.shape,
   ...httpEnvSchema.shape,
   ...messagingEnvSchema.shape,
-  ...supabaseAuthEnvSchema.shape
+  ...supabaseAuthEnvSchema.shape,
+  /**
+   * Comma-separated `auth.users` ids allowed to act on GLOBAL data such as the
+   * shared jobs catalog (see `requirePlatformAdmin` in @atlas/auth-kit).
+   * Empty/unset means nobody.
+   */
+  PLATFORM_ADMIN_USER_IDS: external_exports.string().default("")
 });
 function loadJobsServiceEnv(source = process.env) {
   const normalized = { ...source, PORT: source.PORT ?? source.JOBS_SERVICE_PORT };

@@ -12130,7 +12130,7 @@ var require_channel_model = __commonJS({
   "node_modules/.pnpm/amqplib@0.10.9/node_modules/amqplib/lib/channel_model.js"(exports2, module2) {
     "use strict";
     var EventEmitter = __require("events");
-    var promisify = __require("util").promisify;
+    var promisify2 = __require("util").promisify;
     var defs = require_defs();
     var { BaseChannel } = require_channel();
     var { acceptMessage } = require_channel();
@@ -12145,10 +12145,10 @@ var require_channel_model = __commonJS({
         });
       }
       close() {
-        return promisify(this.connection.close.bind(this.connection))();
+        return promisify2(this.connection.close.bind(this.connection))();
       }
       updateSecret(newSecret, reason) {
-        return promisify(this.connection._updateSecret.bind(this.connection))(newSecret, reason);
+        return promisify2(this.connection._updateSecret.bind(this.connection))(newSecret, reason);
       }
       async createChannel(options) {
         const channel = new Channel(this.connection);
@@ -12174,7 +12174,7 @@ var require_channel_model = __commonJS({
       // response's fields; this is intended to be suitable for implementing
       // API procedures.
       async rpc(method, fields, expect) {
-        const f = await promisify((cb2) => {
+        const f = await promisify2((cb2) => {
           return this._rpc(method, fields, expect, cb2);
         })();
         return f.fields;
@@ -12189,7 +12189,7 @@ var require_channel_model = __commonJS({
         );
       }
       close() {
-        return promisify((cb2) => {
+        return promisify2((cb2) => {
           return this.closeBecause(
             "Goodbye",
             defs.constants.REPLY_SUCCESS,
@@ -12296,7 +12296,7 @@ var require_channel_model = __commonJS({
         });
       }
       async cancel(consumerTag) {
-        const ok = await promisify((cb2) => {
+        const ok = await promisify2((cb2) => {
           this._rpc(
             defs.BasicCancel,
             Args.cancel(consumerTag),
@@ -12417,9 +12417,9 @@ var require_channel_api = __commonJS({
   "node_modules/.pnpm/amqplib@0.10.9/node_modules/amqplib/channel_api.js"(exports2, module2) {
     var raw_connect = require_connect().connect;
     var ChannelModel = require_channel_model().ChannelModel;
-    var promisify = __require("util").promisify;
+    var promisify2 = __require("util").promisify;
     function connect(url2, connOptions) {
-      return promisify(function(cb2) {
+      return promisify2(function(cb2) {
         return raw_connect(url2, connOptions, cb2);
       })().then(function(conn) {
         return new ChannelModel(conn);
@@ -22546,7 +22546,7 @@ var require_validation = __commonJS({
     "use strict";
     var {
       kSchemaHeaders: headersSchema,
-      kSchemaParams: paramsSchema2,
+      kSchemaParams: paramsSchema3,
       kSchemaQuerystring: querystringSchema,
       kSchemaBody: bodySchema,
       kSchemaResponse: responseSchema
@@ -22762,7 +22762,7 @@ var require_validation = __commonJS({
         FSTWRN001("querystring", method, url2);
       }
       if (schema.params !== void 0) {
-        context2[paramsSchema2] = compile2({ schema: schema.params, method, url: url2, httpPart: "params" });
+        context2[paramsSchema3] = compile2({ schema: schema.params, method, url: url2, httpPart: "params" });
       } else if (Object.hasOwn(schema, "params")) {
         FSTWRN001("params", method, url2);
       }
@@ -22802,11 +22802,11 @@ var require_validation = __commonJS({
     }
     function validate2(context2, request, execution) {
       const runExecution = execution === void 0;
-      if (runExecution && context2[paramsSchema2] === void 0 && context2[bodySchema] === void 0 && context2[querystringSchema] === void 0 && context2[headersSchema] === void 0) {
+      if (runExecution && context2[paramsSchema3] === void 0 && context2[bodySchema] === void 0 && context2[querystringSchema] === void 0 && context2[headersSchema] === void 0) {
         return false;
       }
       if (runExecution || !execution.skipParams) {
-        const params = validateParam(context2[paramsSchema2], request, "params");
+        const params = validateParam(context2[paramsSchema3], request, "params");
         if (params) {
           if (typeof params.then !== "function") {
             return wrapValidationError(params, "params", context2.schemaErrorFormatter);
@@ -22901,7 +22901,7 @@ var require_validation = __commonJS({
       return error62;
     }
     module2.exports = {
-      symbols: { bodySchema, querystringSchema, responseSchema, paramsSchema: paramsSchema2, headersSchema },
+      symbols: { bodySchema, querystringSchema, responseSchema, paramsSchema: paramsSchema3, headersSchema },
       compileSchemasForValidation,
       compileSchemasForSerialization,
       validate: validate2
@@ -63688,7 +63688,7 @@ var require_promisify = __commonJS({
         util.toFastProperties(obj2);
         return obj2;
       }
-      function promisify(callback, receiver, multiArgs) {
+      function promisify2(callback, receiver, multiArgs) {
         return makeNodePromisified(
           callback,
           receiver,
@@ -63708,7 +63708,7 @@ var require_promisify = __commonJS({
         options = Object(options);
         var receiver = options.context === void 0 ? THIS : options.context;
         var multiArgs = !!options.multiArgs;
-        var ret2 = promisify(fn, receiver, multiArgs);
+        var ret2 = promisify2(fn, receiver, multiArgs);
         util.copyDescriptors(fn, ret2, propsFilter);
         return ret2;
       };
@@ -73597,14 +73597,14 @@ var require_inflate2 = __commonJS({
       }
       return inflator.result;
     }
-    function inflateRaw(input2, options) {
+    function inflateRaw2(input2, options) {
       options = options || {};
       options.raw = true;
       return inflate(input2, options);
     }
     exports2.Inflate = Inflate;
     exports2.inflate = inflate;
-    exports2.inflateRaw = inflateRaw;
+    exports2.inflateRaw = inflateRaw2;
     exports2.ungzip = inflate;
   }
 });
@@ -87237,7 +87237,7 @@ var require_document_matchers = __commonJS({
     exports2.pageBreak = new BreakMatcher({ breakType: "page" });
     exports2.columnBreak = new BreakMatcher({ breakType: "column" });
     exports2.equalTo = equalTo;
-    exports2.startsWith = startsWith;
+    exports2.startsWith = startsWith2;
     function paragraph(options) {
       return new Matcher("paragraph", options);
     }
@@ -87286,7 +87286,7 @@ var require_document_matchers = __commonJS({
         operand: value
       };
     }
-    function startsWith(value) {
+    function startsWith2(value) {
       return {
         operator: operatorStartsWith,
         operand: value
@@ -108862,6 +108862,24 @@ var applicationSchema = external_exports.object({
   failure_reason: external_exports.string().nullable(),
   created_at: isoTimestampSchema
 });
+var applicationJobSummarySchema = external_exports.object({
+  job_id: uuidSchema,
+  title: external_exports.string().min(1).max(300),
+  company_id: uuidSchema,
+  company_name: external_exports.string().min(1).max(300),
+  location: external_exports.string().max(300).nullable(),
+  remote_type: remoteTypeSchema,
+  employment_type: employmentTypeSchema,
+  /**
+   * Safe to use as a link target: the service only ever returns http(s) URLs
+   * (anything else a connector stored becomes null).
+   */
+  apply_url: external_exports.url({ protocol: /^https?$/ }).nullable(),
+  is_active: external_exports.boolean()
+});
+var applicationWithJobSchema = applicationSchema.extend({
+  job: applicationJobSummarySchema.nullable()
+});
 var contactSchema = external_exports.object({
   contact_id: uuidSchema,
   company_id: uuidSchema,
@@ -109049,13 +109067,20 @@ var ingestJobsRequestSchema = external_exports.object({
 var createApplicationRequestSchema = external_exports.object({
   job_id: uuidSchema,
   resume_id: uuidSchema,
+  /**
+   * `manual` / `review` start as an editable draft; the owner applies on the
+   * employer's site and records the outcome. `auto` is rejected (400
+   * VALIDATION_ERROR) unless the service runs with
+   * APPLICATIONS_AUTO_MODE_ENABLED=true — no submission worker exists yet.
+   */
   mode: applicationModeSchema.default("manual")
 });
+var applicationViewSchema = applicationWithJobSchema.partial({ job: true });
 var applicationResponseSchema = external_exports.object({
-  application: applicationSchema
+  application: applicationViewSchema
 });
 var listApplicationsResponseSchema = external_exports.object({
-  items: external_exports.array(applicationSchema),
+  items: external_exports.array(applicationViewSchema),
   next_cursor: external_exports.string().nullable()
 });
 var appendApplicationEventRequestSchema = external_exports.object({
@@ -119953,6 +119978,43 @@ function metricsRoute(app2, metrics2) {
   });
 }
 
+// packages/observability/src/rate-limit.ts
+function registerRateLimitedRoutes(app2, options, declareRoutes) {
+  const routeLimits = options.routeLimits ?? {};
+  const unmatched = new Set(Object.keys(routeLimits));
+  if (unmatched.size > 0) {
+    app2.addHook("onRoute", (route) => {
+      const methods = Array.isArray(route.method) ? route.method : [route.method];
+      for (const method of methods) {
+        const key = `${method} ${route.url}`;
+        const limit = routeLimits[key];
+        if (limit === void 0) continue;
+        unmatched.delete(key);
+        if (route.config?.rateLimit === void 0) {
+          route.config = { ...route.config, rateLimit: { ...limit } };
+        }
+      }
+    });
+    app2.addHook("onReady", async () => {
+      if (unmatched.size > 0) {
+        throw new Error(
+          `Rate limit configured for routes that do not exist: ${[...unmatched].join(", ")}`
+        );
+      }
+    });
+  }
+  void app2.register(options.plugin, options.settings);
+  let limitUnmatched;
+  app2.addHook("onRequest", async (request, reply) => {
+    if (!request.is404) return;
+    limitUnmatched ??= app2.rateLimit();
+    await limitUnmatched(request, reply);
+  });
+  void app2.register(async (scope) => {
+    declareRoutes(scope);
+  });
+}
+
 // services/profile/src/repo/resumes.ts
 function toResume(row) {
   return {
@@ -120026,10 +120088,11 @@ async function listForUser(db2, userId, pagination) {
 }
 
 // services/profile/src/http/routes/get-resume.ts
+var paramsSchema = external_exports.object({ id: uuidSchema });
 function getResumeRoute(app2, deps) {
   app2.get("/v1/resumes/:id", { preHandler: requireAuth(deps.tokenVerifier) }, async (request, reply) => {
     const actor = getActor(request);
-    const { id } = request.params;
+    const { id } = paramsSchema.parse(request.params);
     const resume = await findById(deps.db, id);
     if (!resume || resume.userId !== actor.user_id) {
       throw new AppError("RESUME_NOT_FOUND", "Resume not found");
@@ -120525,11 +120588,11 @@ async function findOptimizationTarget(db2, jobId) {
 }
 
 // services/profile/src/http/routes/optimize-resume.ts
-var paramsSchema = external_exports.object({ id: uuidSchema });
+var paramsSchema2 = external_exports.object({ id: uuidSchema });
 function optimizeResumeRoute(app2, deps) {
   app2.post("/v1/resumes/:id/optimize", { preHandler: requireAuth(deps.tokenVerifier) }, async (request, reply) => {
     const actor = getActor(request);
-    const { id } = paramsSchema.parse(request.params);
+    const { id } = paramsSchema2.parse(request.params);
     const body = optimizeResumeRequestSchema.parse(request.body);
     const resume = await findById(deps.db, id);
     if (!resume || resume.userId !== actor.user_id) {
@@ -120553,6 +120616,8 @@ function optimizeResumeRoute(app2, deps) {
 
 // services/profile/src/lib/extract-text.ts
 var import_mammoth = __toESM(require_lib7(), 1);
+import { inflateRaw } from "node:zlib";
+import { promisify } from "node:util";
 
 // node_modules/.pnpm/pdfjs-dist@5.4.296/node_modules/pdfjs-dist/legacy/build/pdf.mjs
 var pdf_exports = {};
@@ -152523,32 +152588,206 @@ ${pageNumber}
 };
 
 // services/profile/src/lib/extract-text.ts
+var inflateRawAsync = promisify(inflateRaw);
+var PDF_MIME = "application/pdf";
 var DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+var TEXT_MIME = "text/plain";
 var LEGACY_DOC_MIME = "application/msword";
-async function extractText(buffer2, contentType) {
-  if (contentType === "application/pdf") {
-    const parser = new PDFParse({ data: buffer2 });
-    try {
-      const result2 = await parser.getText();
-      return result2.text;
-    } finally {
-      await parser.destroy();
+var MAX_EXTRACTED_TEXT_CHARS = 2e5;
+var MAX_PDF_PAGES = 30;
+var MAX_DOCX_ENTRIES = 1e3;
+var MAX_DOCX_UNCOMPRESSED_BYTES = 30 * 1024 * 1024;
+var FORMAT_BY_MIME = {
+  [PDF_MIME]: "pdf",
+  [DOCX_MIME]: "docx",
+  [TEXT_MIME]: "text"
+};
+var MIME_BY_FORMAT = {
+  pdf: PDF_MIME,
+  docx: DOCX_MIME,
+  text: TEXT_MIME
+};
+function normalizeMime(contentType) {
+  return (contentType.split(";")[0] ?? "").trim().toLowerCase();
+}
+var PDF_HEADER_WINDOW = 1024;
+function startsWith(buffer2, signature) {
+  return buffer2.length >= signature.length && signature.every((byte, index2) => buffer2[index2] === byte);
+}
+function hasPdfHeader(buffer2) {
+  return buffer2.subarray(0, PDF_HEADER_WINDOW).includes("%PDF-", 0, "latin1");
+}
+function hasZipHeader(buffer2) {
+  return startsWith(buffer2, [80, 75, 3, 4]);
+}
+var BINARY_SIGNATURES = [
+  [37, 80, 68, 70, 45],
+  // %PDF-
+  [80, 75, 3, 4],
+  // zip / docx / xlsx / jar
+  [80, 75, 5, 6],
+  // empty zip
+  [208, 207, 17, 224],
+  // OLE2 (legacy .doc / .xls)
+  [137, 80, 78, 71],
+  // PNG
+  [255, 216, 255],
+  // JPEG
+  [71, 73, 70, 56],
+  // GIF
+  [31, 139],
+  // gzip
+  [127, 69, 76, 70],
+  // ELF
+  [77, 90]
+  // MZ (Windows executables)
+];
+function isBinaryControl(byte) {
+  return byte < 32 ? byte !== 9 && byte !== 10 && byte !== 12 && byte !== 13 : byte === 127;
+}
+function looksLikeText(buffer2) {
+  if (BINARY_SIGNATURES.some((signature) => startsWith(buffer2, signature))) return false;
+  let controls = 0;
+  for (const byte of buffer2) {
+    if (byte === 0) return false;
+    if (isBinaryControl(byte)) controls += 1;
+  }
+  return controls <= buffer2.length * 0.01;
+}
+var EOCD_SIGNATURE = 101010256;
+var CENTRAL_HEADER_SIGNATURE = 33639248;
+var LOCAL_HEADER_SIGNATURE = 67324752;
+var EOCD_MIN_SIZE = 22;
+var CENTRAL_HEADER_SIZE = 46;
+var LOCAL_HEADER_SIZE = 30;
+var ZIP32_MAX = 4294967295;
+var verifiedArchives = /* @__PURE__ */ new WeakSet();
+function malformedArchive() {
+  return new AppError("UNSUPPORTED_MEDIA_TYPE", "The uploaded file is not a valid DOCX document.");
+}
+function archiveTooLarge() {
+  return new AppError("PAYLOAD_TOO_LARGE", "The uploaded document is too large or complex to process.");
+}
+function findEndOfCentralDirectory(buffer2) {
+  const lowest = Math.max(0, buffer2.length - EOCD_MIN_SIZE - 65535);
+  for (let offset = buffer2.length - EOCD_MIN_SIZE; offset >= lowest; offset -= 1) {
+    if (buffer2.readUInt32LE(offset) === EOCD_SIGNATURE) return offset;
+  }
+  throw malformedArchive();
+}
+async function assertSafeDocxArchive(buffer2) {
+  if (verifiedArchives.has(buffer2)) return;
+  const eocd = findEndOfCentralDirectory(buffer2);
+  const entryCount = buffer2.readUInt16LE(eocd + 10);
+  const directorySize = buffer2.readUInt32LE(eocd + 12);
+  const directoryOffset = buffer2.readUInt32LE(eocd + 16);
+  if (entryCount === 65535 || directorySize === ZIP32_MAX || directoryOffset === ZIP32_MAX) throw archiveTooLarge();
+  if (entryCount === 0) throw malformedArchive();
+  if (entryCount > MAX_DOCX_ENTRIES) throw archiveTooLarge();
+  if (directoryOffset + directorySize !== eocd) throw malformedArchive();
+  const entries = [];
+  let declaredTotal = 0;
+  let cursor = directoryOffset;
+  for (let index2 = 0; index2 < entryCount; index2 += 1) {
+    if (cursor + CENTRAL_HEADER_SIZE > eocd || buffer2.readUInt32LE(cursor) !== CENTRAL_HEADER_SIGNATURE) {
+      throw malformedArchive();
     }
+    const flags = buffer2.readUInt16LE(cursor + 8);
+    const method = buffer2.readUInt16LE(cursor + 10);
+    const compressedSize = buffer2.readUInt32LE(cursor + 20);
+    const uncompressedSize = buffer2.readUInt32LE(cursor + 24);
+    const nameLength = buffer2.readUInt16LE(cursor + 28);
+    const extraLength = buffer2.readUInt16LE(cursor + 30);
+    const commentLength = buffer2.readUInt16LE(cursor + 32);
+    const localOffset = buffer2.readUInt32LE(cursor + 42);
+    if ((flags & 1) !== 0) throw malformedArchive();
+    if (compressedSize === ZIP32_MAX || uncompressedSize === ZIP32_MAX || localOffset === ZIP32_MAX) {
+      throw archiveTooLarge();
+    }
+    declaredTotal += uncompressedSize;
+    if (declaredTotal > MAX_DOCX_UNCOMPRESSED_BYTES) throw archiveTooLarge();
+    entries.push({ method, compressedSize, uncompressedSize, localOffset });
+    cursor += CENTRAL_HEADER_SIZE + nameLength + extraLength + commentLength;
   }
-  if (contentType === DOCX_MIME) {
-    const result2 = await import_mammoth.default.extractRawText({ buffer: buffer2 });
-    return result2.value;
+  if (cursor !== eocd) throw malformedArchive();
+  let actualTotal = 0;
+  for (const entry of entries) {
+    if (entry.localOffset + LOCAL_HEADER_SIZE > buffer2.length || buffer2.readUInt32LE(entry.localOffset) !== LOCAL_HEADER_SIGNATURE) {
+      throw malformedArchive();
+    }
+    const dataStart = entry.localOffset + LOCAL_HEADER_SIZE + buffer2.readUInt16LE(entry.localOffset + 26) + buffer2.readUInt16LE(entry.localOffset + 28);
+    const dataEnd = dataStart + entry.compressedSize;
+    if (dataEnd > directoryOffset) throw malformedArchive();
+    const data = buffer2.subarray(dataStart, dataEnd);
+    let actualSize;
+    if (entry.method === 0) {
+      actualSize = data.length;
+    } else if (entry.method === 8) {
+      try {
+        actualSize = (await inflateRawAsync(data, { maxOutputLength: Math.max(entry.uncompressedSize, 1) })).length;
+      } catch (cause) {
+        const code = cause.code;
+        throw code === "ERR_BUFFER_TOO_LARGE" ? archiveTooLarge() : malformedArchive();
+      }
+    } else {
+      throw malformedArchive();
+    }
+    if (actualSize !== entry.uncompressedSize) throw malformedArchive();
+    actualTotal += actualSize;
+    if (actualTotal > MAX_DOCX_UNCOMPRESSED_BYTES) throw archiveTooLarge();
   }
-  if (contentType === "text/plain") {
-    return buffer2.toString("utf8");
-  }
-  if (contentType === LEGACY_DOC_MIME) {
+  verifiedArchives.add(buffer2);
+}
+async function verifyResumeUpload(buffer2, declaredContentType) {
+  const mime = normalizeMime(declaredContentType);
+  if (mime === LEGACY_DOC_MIME) {
     throw new AppError(
       "UNSUPPORTED_MEDIA_TYPE",
       "Legacy .doc files are not supported yet \u2014 please upload a PDF, DOCX, or plain-text resume."
     );
   }
-  throw new AppError("UNSUPPORTED_MEDIA_TYPE", `Unsupported resume content type: "${contentType}"`);
+  const format = FORMAT_BY_MIME[mime];
+  if (!format) {
+    throw new AppError("UNSUPPORTED_MEDIA_TYPE", "Unsupported resume file type \u2014 please upload a PDF, DOCX, or plain-text resume.");
+  }
+  const matches = format === "pdf" ? hasPdfHeader(buffer2) : format === "docx" ? hasZipHeader(buffer2) : looksLikeText(buffer2);
+  if (!matches) {
+    throw new AppError("UNSUPPORTED_MEDIA_TYPE", "The uploaded file does not match its declared type.");
+  }
+  if (format === "docx") await assertSafeDocxArchive(buffer2);
+  return MIME_BY_FORMAT[format];
+}
+function finalizeText(text2) {
+  const clean = text2.includes("\0") ? text2.replaceAll("\0", "") : text2;
+  return clean.length > MAX_EXTRACTED_TEXT_CHARS ? clean.slice(0, MAX_EXTRACTED_TEXT_CHARS) : clean;
+}
+async function extractText(buffer2, contentType) {
+  const mime = await verifyResumeUpload(buffer2, contentType);
+  if (mime === PDF_MIME) {
+    const parser = new PDFParse({ data: buffer2 });
+    try {
+      const result2 = await parser.getText({ first: MAX_PDF_PAGES });
+      return finalizeText(result2.text);
+    } finally {
+      await parser.destroy();
+    }
+  }
+  if (mime === DOCX_MIME) {
+    const result2 = await import_mammoth.default.extractRawText({ buffer: buffer2 });
+    return finalizeText(result2.value);
+  }
+  return finalizeText(buffer2.toString("utf8"));
+}
+var RESUME_FAILURE_REASONS = {
+  unsupported: "This file type is not supported. Please upload a PDF, DOCX, or plain-text resume.",
+  tooComplex: "This file is too large or complex to process. Please upload a smaller resume.",
+  unreadable: "We could not read this file. Please try exporting it again as a text-based PDF, DOCX, or plain-text resume."
+};
+function resumeFailureReason(cause) {
+  const code = cause instanceof AppError ? cause.code : void 0;
+  if (code === "UNSUPPORTED_MEDIA_TYPE") return RESUME_FAILURE_REASONS.unsupported;
+  if (code === "PAYLOAD_TOO_LARGE") return RESUME_FAILURE_REASONS.tooComplex;
+  return RESUME_FAILURE_REASONS.unreadable;
 }
 
 // services/profile/src/lib/hash.ts
@@ -152574,6 +152813,7 @@ function uploadResumeRoute(app2, deps) {
       const rawSource = sourceField && !Array.isArray(sourceField) && sourceField.type === "field" ? sourceField.value : void 0;
       sourceSchema.parse(rawSource);
       const buffer2 = await data.toBuffer();
+      const contentType = await verifyResumeUpload(buffer2, data.mimetype);
       const contentHash = sha256HexBuffer(buffer2);
       const existing = await findByUserAndHash(deps.db, actor.user_id, contentHash);
       if (existing) {
@@ -152582,14 +152822,14 @@ function uploadResumeRoute(app2, deps) {
         return;
       }
       const storageKey = `resumes/${actor.user_id}/${contentHash}`;
-      await deps.storage.put(storageKey, buffer2, { contentType: data.mimetype });
+      await deps.storage.put(storageKey, buffer2, { contentType });
       let resumeId;
       try {
         const resume = await insertPending(deps.db, {
           userId: actor.user_id,
           storageUrl: storageKey,
           originalFilename: data.filename,
-          contentType: data.mimetype,
+          contentType,
           byteSize: buffer2.length,
           contentHash
         });
@@ -152607,7 +152847,7 @@ function uploadResumeRoute(app2, deps) {
       }
       let parsed = null;
       try {
-        const text2 = await extractText(buffer2, data.mimetype);
+        const text2 = await extractText(buffer2, contentType);
         const profile = parseResumeText(text2);
         const report = scoreResume(profile, text2);
         await markParsed(deps.db, resumeId, {
@@ -152618,8 +152858,8 @@ function uploadResumeRoute(app2, deps) {
         });
         parsed = { profile, report };
       } catch (cause) {
-        const reason = cause instanceof Error ? cause.message : String(cause);
-        await markFailed(deps.db, resumeId, reason);
+        request.log.warn({ err: cause, resumeId }, "resume parsing failed");
+        await markFailed(deps.db, resumeId, resumeFailureReason(cause));
         const response2 = { resume_id: resumeId, status: "failed" };
         reply.status(201).send(response2);
         return;
@@ -152665,10 +152905,6 @@ function buildApp(deps) {
     genReqId: () => newUuid()
   });
   void app2.register(import_cors.default, { origin: parseCorsOrigins(deps.env.CORS_ORIGINS) });
-  void app2.register(import_rate_limit.default, {
-    max: deps.env.RATE_LIMIT_MAX,
-    timeWindow: deps.env.RATE_LIMIT_WINDOW
-  });
   void app2.register(import_multipart.default, {
     limits: { fileSize: deps.env.BODY_LIMIT_BYTES, files: 1 }
   });
@@ -152712,10 +152948,19 @@ function buildApp(deps) {
   });
   healthRoute(app2, deps);
   metricsRoute(app2, metrics2);
-  uploadResumeRoute(app2, deps);
-  getResumeRoute(app2, deps);
-  listResumesRoute(app2, deps);
-  optimizeResumeRoute(app2, deps);
+  registerRateLimitedRoutes(
+    app2,
+    {
+      plugin: import_rate_limit.default,
+      settings: { max: deps.env.RATE_LIMIT_MAX, timeWindow: deps.env.RATE_LIMIT_WINDOW }
+    },
+    (api) => {
+      uploadResumeRoute(api, deps);
+      getResumeRoute(api, deps);
+      listResumesRoute(api, deps);
+      optimizeResumeRoute(api, deps);
+    }
+  );
   return app2;
 }
 

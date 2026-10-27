@@ -74790,6 +74790,24 @@ var applicationSchema = external_exports.object({
   failure_reason: external_exports.string().nullable(),
   created_at: isoTimestampSchema
 });
+var applicationJobSummarySchema = external_exports.object({
+  job_id: uuidSchema,
+  title: external_exports.string().min(1).max(300),
+  company_id: uuidSchema,
+  company_name: external_exports.string().min(1).max(300),
+  location: external_exports.string().max(300).nullable(),
+  remote_type: remoteTypeSchema,
+  employment_type: employmentTypeSchema,
+  /**
+   * Safe to use as a link target: the service only ever returns http(s) URLs
+   * (anything else a connector stored becomes null).
+   */
+  apply_url: external_exports.url({ protocol: /^https?$/ }).nullable(),
+  is_active: external_exports.boolean()
+});
+var applicationWithJobSchema = applicationSchema.extend({
+  job: applicationJobSummarySchema.nullable()
+});
 var contactSchema = external_exports.object({
   contact_id: uuidSchema,
   company_id: uuidSchema,
@@ -74977,14 +74995,21 @@ var ingestJobsRequestSchema = external_exports.object({
 var createApplicationRequestSchema = external_exports.object({
   job_id: uuidSchema,
   resume_id: uuidSchema,
+  /**
+   * `manual` / `review` start as an editable draft; the owner applies on the
+   * employer's site and records the outcome. `auto` is rejected (400
+   * VALIDATION_ERROR) unless the service runs with
+   * APPLICATIONS_AUTO_MODE_ENABLED=true — no submission worker exists yet.
+   */
   mode: applicationModeSchema.default("manual")
 });
+var applicationViewSchema = applicationWithJobSchema.partial({ job: true });
 var applicationResponseSchema = external_exports.object({
-  application: applicationSchema
+  application: applicationViewSchema
 });
 var listApplicationsQuerySchema = paginationQuerySchema;
 var listApplicationsResponseSchema = external_exports.object({
-  items: external_exports.array(applicationSchema),
+  items: external_exports.array(applicationViewSchema),
   next_cursor: external_exports.string().nullable()
 });
 var appendApplicationEventRequestSchema = external_exports.object({
@@ -85822,6 +85847,100 @@ function metricsRoute(app2, metrics2) {
   });
 }
 
+// packages/observability/src/rate-limit.ts
+function registerRateLimitedRoutes(app2, options, declareRoutes) {
+  const routeLimits = options.routeLimits ?? {};
+  const unmatched = new Set(Object.keys(routeLimits));
+  if (unmatched.size > 0) {
+    app2.addHook("onRoute", (route) => {
+      const methods = Array.isArray(route.method) ? route.method : [route.method];
+      for (const method of methods) {
+        const key = `${method} ${route.url}`;
+        const limit = routeLimits[key];
+        if (limit === void 0) continue;
+        unmatched.delete(key);
+        if (route.config?.rateLimit === void 0) {
+          route.config = { ...route.config, rateLimit: { ...limit } };
+        }
+      }
+    });
+    app2.addHook("onReady", async () => {
+      if (unmatched.size > 0) {
+        throw new Error(
+          `Rate limit configured for routes that do not exist: ${[...unmatched].join(", ")}`
+        );
+      }
+    });
+  }
+  void app2.register(options.plugin, options.settings);
+  let limitUnmatched;
+  app2.addHook("onRequest", async (request, reply) => {
+    if (!request.is404) return;
+    limitUnmatched ??= app2.rateLimit();
+    await limitUnmatched(request, reply);
+  });
+  void app2.register(async (scope) => {
+    declareRoutes(scope);
+  });
+}
+
+// services/applications/src/lib/apply-url.ts
+function toSafeApplyUrl(raw) {
+  if (!raw) return null;
+  let parsed;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    return null;
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+  if (parsed.username !== "" || parsed.password !== "") return null;
+  return parsed.href;
+}
+
+// services/applications/src/repo/lookups.ts
+var jobSummaryColumns = {
+  jobId: schema_exports.jobs.jobId,
+  title: schema_exports.jobs.title,
+  companyId: schema_exports.jobs.companyId,
+  companyName: schema_exports.companies.name,
+  location: schema_exports.jobs.location,
+  remoteType: schema_exports.jobs.remoteType,
+  employmentType: schema_exports.jobs.employmentType,
+  applyUrl: schema_exports.jobs.applyUrl,
+  isActive: schema_exports.jobs.isActive
+};
+function toJobSummary(row) {
+  if (row.jobId === null || row.title === null || row.companyId === null || row.companyName === null || row.remoteType === null || row.employmentType === null || row.isActive === null) {
+    return null;
+  }
+  return {
+    job_id: row.jobId,
+    title: row.title,
+    company_id: row.companyId,
+    company_name: row.companyName,
+    location: row.location,
+    remote_type: row.remoteType,
+    employment_type: row.employmentType,
+    apply_url: toSafeApplyUrl(row.applyUrl),
+    is_active: row.isActive
+  };
+}
+async function findJobSummary(db2, jobId) {
+  const [row] = await db2.select(jobSummaryColumns).from(schema_exports.jobs).innerJoin(schema_exports.companies, eq(schema_exports.companies.companyId, schema_exports.jobs.companyId)).where(eq(schema_exports.jobs.jobId, jobId)).limit(1);
+  return row ? toJobSummary(row) : null;
+}
+async function findParsedResumeOwnedBy(db2, resumeId, userId) {
+  const [row] = await db2.select({ resumeId: schema_exports.resumes.resumeId }).from(schema_exports.resumes).where(
+    and(
+      eq(schema_exports.resumes.resumeId, resumeId),
+      eq(schema_exports.resumes.userId, userId),
+      eq(schema_exports.resumes.status, "parsed")
+    )
+  ).limit(1);
+  return row ?? null;
+}
+
 // services/applications/src/repo/applications.ts
 function toApplication(row) {
   return {
@@ -85839,9 +85958,12 @@ function toApplication(row) {
     created_at: row.createdAt
   };
 }
-async function findById(db2, applicationId) {
-  const [row] = await db2.select().from(schema_exports.applications).where(eq(schema_exports.applications.applicationId, applicationId)).limit(1);
-  return row ?? null;
+function toApplicationWithJob(row, job) {
+  return { ...toApplication(row), job };
+}
+async function findByIdWithJob(db2, applicationId) {
+  const [row] = await db2.select({ application: schema_exports.applications, job: jobSummaryColumns }).from(schema_exports.applications).leftJoin(schema_exports.jobs, eq(schema_exports.jobs.jobId, schema_exports.applications.jobId)).leftJoin(schema_exports.companies, eq(schema_exports.companies.companyId, schema_exports.jobs.companyId)).where(eq(schema_exports.applications.applicationId, applicationId)).limit(1);
+  return row ? { application: row.application, job: toJobSummary(row.job) } : null;
 }
 async function findByUserAndJob(db2, userId, jobId) {
   const [row] = await db2.select().from(schema_exports.applications).where(and(eq(schema_exports.applications.userId, userId), eq(schema_exports.applications.jobId, jobId))).limit(1);
@@ -85856,7 +85978,7 @@ async function insertApplication(db2, input2) {
   if (!row) throw new Error("insertApplication: insert returned no row");
   return row;
 }
-async function listByCondition(db2, scopeCondition, pagination) {
+function pageCondition(scopeCondition, pagination) {
   const cursorValue = pagination.cursor ? decodeCursor(pagination.cursor) : null;
   const cursorCreatedAt = typeof cursorValue?.createdAt === "string" ? cursorValue.createdAt : null;
   const cursorId = typeof cursorValue?.id === "string" ? cursorValue.id : null;
@@ -85868,20 +85990,29 @@ async function listByCondition(db2, scopeCondition, pagination) {
     );
     if (tieBreak) conditions.push(tieBreak);
   }
-  const rows = await db2.select().from(schema_exports.applications).where(and(...conditions)).orderBy(desc(schema_exports.applications.createdAt), desc(schema_exports.applications.applicationId)).limit(pagination.limit + 1);
-  const hasMore = rows.length > pagination.limit;
-  const items = hasMore ? rows.slice(0, pagination.limit) : rows;
+  return and(...conditions);
+}
+function toPage(rows, limit, applicationOf) {
+  const hasMore = rows.length > limit;
+  const items = hasMore ? rows.slice(0, limit) : rows;
   const last = items[items.length - 1];
+  const lastApplication = last === void 0 ? null : applicationOf(last);
   return {
     items,
-    nextCursor: hasMore && last ? encodeCursor({ createdAt: last.createdAt, id: last.applicationId }) : null
+    nextCursor: hasMore && lastApplication ? encodeCursor({ createdAt: lastApplication.createdAt, id: lastApplication.applicationId }) : null
   };
 }
 async function listForUser(db2, userId, pagination) {
-  return listByCondition(db2, eq(schema_exports.applications.userId, userId), pagination);
+  const rows = await db2.select({ application: schema_exports.applications, job: jobSummaryColumns }).from(schema_exports.applications).leftJoin(schema_exports.jobs, eq(schema_exports.jobs.jobId, schema_exports.applications.jobId)).leftJoin(schema_exports.companies, eq(schema_exports.companies.companyId, schema_exports.jobs.companyId)).where(pageCondition(eq(schema_exports.applications.userId, userId), pagination)).orderBy(desc(schema_exports.applications.createdAt), desc(schema_exports.applications.applicationId)).limit(pagination.limit + 1);
+  const page = toPage(rows, pagination.limit, (item) => item.application);
+  return {
+    items: page.items.map((item) => ({ application: item.application, job: toJobSummary(item.job) })),
+    nextCursor: page.nextCursor
+  };
 }
 async function listForOrganization(db2, organizationId, pagination) {
-  return listByCondition(db2, eq(schema_exports.applications.organizationId, organizationId), pagination);
+  const rows = await db2.select().from(schema_exports.applications).where(pageCondition(eq(schema_exports.applications.organizationId, organizationId), pagination)).orderBy(desc(schema_exports.applications.createdAt), desc(schema_exports.applications.applicationId)).limit(pagination.limit + 1);
+  return toPage(rows, pagination.limit, (item) => item);
 }
 async function appendEvent(db2, input2) {
   return db2.transaction(async (tx) => {
@@ -85904,7 +86035,11 @@ async function appendEvent(db2, input2) {
 
 // services/applications/src/lib/transitions.ts
 var ALLOWED_TRANSITIONS = {
-  draft: ["queued", "withdrawn"],
+  // `draft -> submitted` is the assisted-apply path: the user applied on the
+  // employer's own site and reports it. Without it a manual application would
+  // have to be walked through `queued` and `submitting`, which are states a
+  // submission worker owns and which nothing consumes today.
+  draft: ["queued", "submitted", "withdrawn"],
   queued: ["submitting", "withdrawn", "failed"],
   submitting: ["submitted", "failed"],
   // A failed submission is usually a worker/connector hiccup — requeue it.
@@ -85919,6 +86054,10 @@ var ALLOWED_TRANSITIONS = {
 function isValidTransition(from, to) {
   return ALLOWED_TRANSITIONS[from].includes(to);
 }
+var OPENED_APPLY_LINK_NOTE = "opened_apply_link";
+function isOpenedApplyLinkMarker(from, to, note) {
+  return from === "draft" && to === "draft" && note === OPENED_APPLY_LINK_NOTE;
+}
 
 // services/applications/src/http/routes/append-event.ts
 var paramsSchema = external_exports.object({ id: uuidSchema });
@@ -85927,13 +86066,15 @@ function appendEventRoute(app2, deps) {
     const actor = getActor(request);
     const { id } = paramsSchema.parse(request.params);
     const body = appendApplicationEventRequestSchema.parse(request.body);
-    const current = await findById(deps.db, id);
+    const found = await findByIdWithJob(deps.db, id);
+    const current = found?.application ?? null;
     const isOwner = current?.userId === actor.user_id;
     const isOrgStaff = current !== null && (actor.role === "admin" || actor.role === "owner") && current.organizationId !== null && current.organizationId === actor.organization_id;
-    if (!current || !(isOwner || isOrgStaff)) {
+    if (!found || !current || !(isOwner || isOrgStaff)) {
       throw new AppError("NOT_FOUND", "Application not found");
     }
-    if (!isValidTransition(current.status, body.to_status)) {
+    const isApplyLinkMarker = isOwner && isOpenedApplyLinkMarker(current.status, body.to_status, body.note);
+    if (!isApplyLinkMarker && !isValidTransition(current.status, body.to_status)) {
       throw new AppError("VALIDATION_ERROR", `Cannot move an application from "${current.status}" to "${body.to_status}"`);
     }
     const updated = await appendEvent(deps.db, {
@@ -85951,31 +86092,22 @@ function appendEventRoute(app2, deps) {
         )
       );
     }
-    const response = { application: toApplication(updated) };
+    const response = {
+      application: isOwner ? toApplicationWithJob(updated, found.job) : toApplication(updated)
+    };
     reply.status(200).send(response);
   });
-}
-
-// services/applications/src/repo/lookups.ts
-async function findActiveJob(db2, jobId) {
-  const [row] = await db2.select({ jobId: schema_exports.jobs.jobId, isActive: schema_exports.jobs.isActive }).from(schema_exports.jobs).where(eq(schema_exports.jobs.jobId, jobId)).limit(1);
-  return row ?? null;
-}
-async function findParsedResumeOwnedBy(db2, resumeId, userId) {
-  const [row] = await db2.select({ resumeId: schema_exports.resumes.resumeId }).from(schema_exports.resumes).where(
-    and(
-      eq(schema_exports.resumes.resumeId, resumeId),
-      eq(schema_exports.resumes.userId, userId),
-      eq(schema_exports.resumes.status, "parsed")
-    )
-  ).limit(1);
-  return row ?? null;
 }
 
 // services/applications/src/http/routes/create-application.ts
 var UNIQUE_VIOLATION = "23505";
 var idempotencyKeySchema = external_exports.string().min(8).max(200);
+var AUTO_MODE_UNAVAILABLE_MESSAGE = 'Mode "auto" cannot be used: automatic submission is not available yet. Use "manual" or "review" instead.';
 function createApplicationRoute(app2, deps) {
+  async function ownerView(row, knownJob) {
+    const job = knownJob === void 0 ? await findJobSummary(deps.db, row.jobId) : knownJob;
+    return { application: toApplicationWithJob(row, job) };
+  }
   app2.post("/v1/applications", { preHandler: requireAuth(deps.tokenVerifier) }, async (request, reply) => {
     const actor = getActor(request);
     const rawKey2 = request.headers[IDEMPOTENCY_HEADER];
@@ -85984,18 +86116,22 @@ function createApplicationRoute(app2, deps) {
     }
     const idempotencyKey = idempotencyKeySchema.parse(rawKey2);
     const body = createApplicationRequestSchema.parse(request.body);
+    if (body.mode === "auto" && !deps.env.APPLICATIONS_AUTO_MODE_ENABLED) {
+      throw new AppError("VALIDATION_ERROR", AUTO_MODE_UNAVAILABLE_MESSAGE, {
+        details: [{ path: "mode", message: AUTO_MODE_UNAVAILABLE_MESSAGE }]
+      });
+    }
     const existingByKey = await findByUserAndIdempotencyKey(deps.db, actor.user_id, idempotencyKey);
     if (existingByKey) {
       const sameRequest = existingByKey.jobId === body.job_id && existingByKey.resumeId === body.resume_id && existingByKey.mode === body.mode;
       if (!sameRequest) {
         throw new AppError("IDEMPOTENCY_KEY_REUSED", "This idempotency key was already used for a different request");
       }
-      const response = { application: toApplication(existingByKey) };
-      reply.status(200).send(response);
+      reply.status(200).send(await ownerView(existingByKey));
       return;
     }
-    const job = await findActiveJob(deps.db, body.job_id);
-    if (!job || !job.isActive) {
+    const job = await findJobSummary(deps.db, body.job_id);
+    if (!job || !job.is_active) {
       throw new AppError("JOB_NOT_FOUND", "Job is unavailable");
     }
     const resume = await findParsedResumeOwnedBy(deps.db, body.resume_id, actor.user_id);
@@ -86016,7 +86152,8 @@ function createApplicationRoute(app2, deps) {
         organizationId: actor.organization_id,
         mode: body.mode,
         // `auto` has nothing manual left to do before it's eligible for
-        // submission; everything else starts as an editable draft.
+        // submission; everything else starts as an editable draft. Only
+        // reachable with APPLICATIONS_AUTO_MODE_ENABLED — see the note above.
         status: body.mode === "auto" ? "queued" : "draft",
         idempotencyKey
       });
@@ -86027,14 +86164,12 @@ function createApplicationRoute(app2, deps) {
           newTraceContext({ organization_id: actor.organization_id, user_id: actor.user_id })
         )
       );
-      const response = { application: toApplication(created) };
-      reply.status(201).send(response);
+      reply.status(201).send(await ownerView(created, job));
     } catch (cause) {
       if (pgErrorCode(cause) === UNIQUE_VIOLATION) {
         const racedByKey = await findByUserAndIdempotencyKey(deps.db, actor.user_id, idempotencyKey);
         if (racedByKey) {
-          const response = { application: toApplication(racedByKey) };
-          reply.status(200).send(response);
+          reply.status(200).send(await ownerView(racedByKey));
           return;
         }
         const racedByJob = await findByUserAndJob(deps.db, actor.user_id, body.job_id);
@@ -86055,13 +86190,15 @@ function getApplicationRoute(app2, deps) {
   app2.get("/v1/applications/:id", { preHandler: requireAuth(deps.tokenVerifier) }, async (request, reply) => {
     const actor = getActor(request);
     const { id } = paramsSchema2.parse(request.params);
-    const row = await findById(deps.db, id);
-    const isOwner = row?.userId === actor.user_id;
-    const isOrgStaff = row !== null && (actor.role === "admin" || actor.role === "owner") && row.organizationId !== null && row.organizationId === actor.organization_id;
-    if (!row || !(isOwner || isOrgStaff)) {
+    const found = await findByIdWithJob(deps.db, id);
+    const isOwner = found?.application.userId === actor.user_id;
+    const isOrgStaff = found !== null && (actor.role === "admin" || actor.role === "owner") && found.application.organizationId !== null && found.application.organizationId === actor.organization_id;
+    if (!found || !(isOwner || isOrgStaff)) {
       throw new AppError("NOT_FOUND", "Application not found");
     }
-    const response = { application: toApplication(row) };
+    const response = {
+      application: isOwner ? toApplicationWithJob(found.application, found.job) : toApplication(found.application)
+    };
     reply.status(200).send(response);
   });
 }
@@ -86088,7 +86225,7 @@ function listApplicationsRoute(app2, deps) {
     const actor = getActor(request);
     const query = listApplicationsQuerySchema.parse(request.query);
     const scope = scopeSchema.parse(request.query.scope);
-    let result;
+    let response;
     if (scope === "organization") {
       if (actor.role !== "admin" && actor.role !== "owner") {
         throw new AppError("FORBIDDEN", "Only org admins/owners can list organization-wide applications");
@@ -86096,11 +86233,15 @@ function listApplicationsRoute(app2, deps) {
       if (!actor.organization_id) {
         throw new AppError("VALIDATION_ERROR", "This account is not attached to an organization");
       }
-      result = await listForOrganization(deps.db, actor.organization_id, query);
+      const result = await listForOrganization(deps.db, actor.organization_id, query);
+      response = { items: result.items.map(toApplication), next_cursor: result.nextCursor };
     } else {
-      result = await listForUser(deps.db, actor.user_id, query);
+      const result = await listForUser(deps.db, actor.user_id, query);
+      response = {
+        items: result.items.map(({ application, job }) => toApplicationWithJob(application, job)),
+        next_cursor: result.nextCursor
+      };
     }
-    const response = { items: result.items.map(toApplication), next_cursor: result.nextCursor };
     reply.status(200).send(response);
   });
 }
@@ -86111,6 +86252,9 @@ var STATUS_TO_CODE = {
   413: "PAYLOAD_TOO_LARGE",
   415: "UNSUPPORTED_MEDIA_TYPE",
   429: "RATE_LIMITED"
+};
+var ROUTE_LIMITS = {
+  "POST /v1/applications": { max: 30, timeWindow: "1 minute" }
 };
 function buildApp(deps) {
   const app2 = (0, import_fastify.default)({
@@ -86123,10 +86267,6 @@ function buildApp(deps) {
     genReqId: () => newUuid()
   });
   void app2.register(import_cors.default, { origin: parseCorsOrigins(deps.env.CORS_ORIGINS) });
-  void app2.register(import_rate_limit.default, {
-    max: deps.env.RATE_LIMIT_MAX,
-    timeWindow: deps.env.RATE_LIMIT_WINDOW
-  });
   const metrics2 = createMetricsRegistry("applications-service");
   registerHttpMetrics(app2, metrics2);
   app2.setErrorHandler((error62, request, reply) => {
@@ -86167,10 +86307,20 @@ function buildApp(deps) {
   });
   healthRoute(app2, deps);
   metricsRoute(app2, metrics2);
-  createApplicationRoute(app2, deps);
-  listApplicationsRoute(app2, deps);
-  getApplicationRoute(app2, deps);
-  appendEventRoute(app2, deps);
+  registerRateLimitedRoutes(
+    app2,
+    {
+      plugin: import_rate_limit.default,
+      settings: { max: deps.env.RATE_LIMIT_MAX, timeWindow: deps.env.RATE_LIMIT_WINDOW },
+      routeLimits: ROUTE_LIMITS
+    },
+    (api) => {
+      createApplicationRoute(api, deps);
+      listApplicationsRoute(api, deps);
+      getApplicationRoute(api, deps);
+      appendEventRoute(api, deps);
+    }
+  );
   return app2;
 }
 
@@ -86180,7 +86330,13 @@ var applicationsServiceEnvSchema = external_exports.object({
   ...databaseEnvSchema.shape,
   ...httpEnvSchema.shape,
   ...messagingEnvSchema.shape,
-  ...supabaseAuthEnvSchema.shape
+  ...supabaseAuthEnvSchema.shape,
+  /**
+   * No worker consumes `queued` applications yet, so `mode: "auto"` would leave
+   * the user stuck in `queued` forever. Until a submission worker ships,
+   * POST /v1/applications rejects `auto` unless this is explicitly turned on.
+   */
+  APPLICATIONS_AUTO_MODE_ENABLED: external_exports.stringbool().default(false)
 });
 function loadApplicationsServiceEnv(source = process.env) {
   const normalized = { ...source, PORT: source.PORT ?? source.APPLICATIONS_SERVICE_PORT };

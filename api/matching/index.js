@@ -83081,6 +83081,24 @@ var applicationSchema = external_exports.object({
   failure_reason: external_exports.string().nullable(),
   created_at: isoTimestampSchema
 });
+var applicationJobSummarySchema = external_exports.object({
+  job_id: uuidSchema,
+  title: external_exports.string().min(1).max(300),
+  company_id: uuidSchema,
+  company_name: external_exports.string().min(1).max(300),
+  location: external_exports.string().max(300).nullable(),
+  remote_type: remoteTypeSchema,
+  employment_type: employmentTypeSchema,
+  /**
+   * Safe to use as a link target: the service only ever returns http(s) URLs
+   * (anything else a connector stored becomes null).
+   */
+  apply_url: external_exports.url({ protocol: /^https?$/ }).nullable(),
+  is_active: external_exports.boolean()
+});
+var applicationWithJobSchema = applicationSchema.extend({
+  job: applicationJobSummarySchema.nullable()
+});
 var contactSchema = external_exports.object({
   contact_id: uuidSchema,
   company_id: uuidSchema,
@@ -83268,13 +83286,20 @@ var ingestJobsRequestSchema = external_exports.object({
 var createApplicationRequestSchema = external_exports.object({
   job_id: uuidSchema,
   resume_id: uuidSchema,
+  /**
+   * `manual` / `review` start as an editable draft; the owner applies on the
+   * employer's site and records the outcome. `auto` is rejected (400
+   * VALIDATION_ERROR) unless the service runs with
+   * APPLICATIONS_AUTO_MODE_ENABLED=true — no submission worker exists yet.
+   */
   mode: applicationModeSchema.default("manual")
 });
+var applicationViewSchema = applicationWithJobSchema.partial({ job: true });
 var applicationResponseSchema = external_exports.object({
-  application: applicationSchema
+  application: applicationViewSchema
 });
 var listApplicationsResponseSchema = external_exports.object({
-  items: external_exports.array(applicationSchema),
+  items: external_exports.array(applicationViewSchema),
   next_cursor: external_exports.string().nullable()
 });
 var appendApplicationEventRequestSchema = external_exports.object({
@@ -85003,6 +85028,43 @@ function metricsRoute(app2, metrics2) {
   });
 }
 
+// packages/observability/src/rate-limit.ts
+function registerRateLimitedRoutes(app2, options, declareRoutes) {
+  const routeLimits = options.routeLimits ?? {};
+  const unmatched = new Set(Object.keys(routeLimits));
+  if (unmatched.size > 0) {
+    app2.addHook("onRoute", (route) => {
+      const methods = Array.isArray(route.method) ? route.method : [route.method];
+      for (const method of methods) {
+        const key = `${method} ${route.url}`;
+        const limit = routeLimits[key];
+        if (limit === void 0) continue;
+        unmatched.delete(key);
+        if (route.config?.rateLimit === void 0) {
+          route.config = { ...route.config, rateLimit: { ...limit } };
+        }
+      }
+    });
+    app2.addHook("onReady", async () => {
+      if (unmatched.size > 0) {
+        throw new Error(
+          `Rate limit configured for routes that do not exist: ${[...unmatched].join(", ")}`
+        );
+      }
+    });
+  }
+  void app2.register(options.plugin, options.settings);
+  let limitUnmatched;
+  app2.addHook("onRequest", async (request, reply) => {
+    if (!request.is404) return;
+    limitUnmatched ??= app2.rateLimit();
+    await limitUnmatched(request, reply);
+  });
+  void app2.register(async (scope) => {
+    declareRoutes(scope);
+  });
+}
+
 // services/matching/src/http/routes/drain.ts
 var DEFAULT_BUDGET_MS = 2e4;
 var MAX_BUDGET_MS = 25e3;
@@ -85073,10 +85135,6 @@ function buildApp(deps) {
     genReqId: () => newUuid()
   });
   void app2.register(import_cors.default, { origin: parseCorsOrigins(deps.env.CORS_ORIGINS) });
-  void app2.register(import_rate_limit.default, {
-    max: deps.env.RATE_LIMIT_MAX,
-    timeWindow: deps.env.RATE_LIMIT_WINDOW
-  });
   const metrics2 = createMetricsRegistry("matching-service");
   registerHttpMetrics(app2, metrics2);
   app2.setErrorHandler((error62, request, reply) => {
@@ -85118,6 +85176,15 @@ function buildApp(deps) {
   healthRoute(app2, deps);
   metricsRoute(app2, metrics2);
   drainRoute(app2, deps);
+  registerRateLimitedRoutes(
+    app2,
+    {
+      plugin: import_rate_limit.default,
+      settings: { max: deps.env.RATE_LIMIT_MAX, timeWindow: deps.env.RATE_LIMIT_WINDOW }
+    },
+    (_api) => {
+    }
+  );
   return app2;
 }
 
