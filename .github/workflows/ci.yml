@@ -146,3 +146,25 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: https://qkqllkfgxsmhjintkqfm.supabase.co
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_DGb1kAEeNl_w2Tbk9gT2rA_M75FcXhv
         run: pnpm --filter ${{ matrix.app }} run build
+
+  # Advisory only. Failing the build on every high-severity advisory in a
+  # transitive dependency would block unrelated changes (and launch) on
+  # upstream fixes we cannot ship ourselves, so this reports without gating.
+  # Read the log, and treat a finding in a direct dependency as a to-do.
+  # Reads only the lockfile, so no install is needed and it runs in parallel.
+  audit:
+    name: Dependency audit (non-blocking)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Audit production dependencies (high and above)
+        continue-on-error: true
+        run: pnpm audit --prod --audit-level=high
