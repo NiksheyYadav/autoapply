@@ -6,9 +6,9 @@ Verified 2026-10-27 by running the checks below, not by reading commit messages.
 ## Verified baseline
 
 - `pnpm typecheck`, `pnpm lint`: clean.
-- `pnpm test` with `ATLAS_TEST_DATABASE_URL` set: 28 files, 183 tests pass.
-- Without that variable the DB-backed suites self-skip (9 files, 51 tests before this change), and CI does not set it, so **CI does not exercise them**.
-- To run them locally: Postgres 16 with `vector`, `pgcrypto`, `pg_trgm`, a stand-in `auth.users` table, `pnpm db:migrate`, then `packages/db/supabase/auth-hooks.sql`.
+- `pnpm test` with `ATLAS_TEST_DATABASE_URL` set: 28 files, 183 tests pass, 0 skipped (re-run against a fresh database prepared by `scripts/ci/setup-test-db.sh`).
+- Without that variable the DB-backed suites self-skip (10 files, 58 tests). The CI backend job now starts a `pgvector/pgvector:pg17` service, prepares it with `scripts/ci/setup-test-db.sh` and sets the variable, so they are meant to run on every push and PR. **Pending first CI run:** rehearsed locally on Postgres 16, not yet observed in GitHub Actions.
+- To run them locally: `DATABASE_URL=<scratch db> scripts/ci/setup-test-db.sh` (stand-in roles and `auth.users` from `infra/ci/supabase-stub.sql`, then `pnpm db:migrate`, then `packages/db/supabase/auth-hooks.sql`), then `ATLAS_TEST_DATABASE_URL=<same url> pnpm test`.
 
 ## By priority (`CLAUDE.md`)
 
@@ -26,7 +26,7 @@ Verified 2026-10-27 by running the checks below, not by reading commit messages.
 - **Not in code at all:** GraphQL, WebSocket, Kafka, Redis client, OpenTelemetry (docs/01, 04, 14 describe them).
 - **Rate limiting** uses Fastify's default in-memory store, so limits are per instance, not shared. Needs a shared store before it means much on serverless.
 - **`connectors-service`** is built and tested but is not in `scripts/bundle-backend.mjs` or `vercel.json`, so it is not deployed. `apps/web` connectors page is a placeholder.
-- **CI** runs no DB-backed tests (no Postgres service in the workflow).
+- **CI** now runs the DB-backed tests (Postgres service in the backend job). It also checks that the committed `api/` bundles are fresh and runs an advisory, non-blocking `pnpm audit`, which currently reports advisories. All three are **pending first CI run**; none has been observed in GitHub Actions.
 - **Application agent** (form filling, submission) is not implemented; `applications-service` tracks lifecycle only.
 - Several web dashboard pages render `UnderConstruction`.
 

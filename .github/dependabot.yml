@@ -1,0 +1,49 @@
+# Automated dependency update PRs. Kept deliberately quiet: one weekly pass,
+# minor/patch bumps batched into a single PR per group, and a low cap on open
+# PRs so a backlog cannot bury review of real work.
+#
+# Major-version bumps are NOT grouped: each opens its own PR so its breaking
+# changes get reviewed on their own (and so one risky major cannot hold up a
+# batch of safe patches).
+#
+# Every Dependabot PR runs the normal CI gate (typecheck, lint, tests including
+# the DB-backed suites, bundle freshness). A dependency bump that changes a
+# service's bundled dependencies will fail the "api/ bundles are up to date"
+# check until `node scripts/bundle-backend.mjs` is re-run and committed.
+
+version: 2
+
+updates:
+  # pnpm workspace: Dependabot reads pnpm-lock.yaml and pnpm-workspace.yaml at
+  # the root and updates every package in the workspace from this one entry.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: 'chore(deps)'
+    groups:
+      production-dependencies:
+        dependency-type: production
+        update-types: [minor, patch]
+      development-dependencies:
+        dependency-type: development
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Etc/UTC
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: 'chore(ci)'
+    groups:
+      github-actions:
+        patterns: ['*']
