@@ -9,7 +9,12 @@ import type { Database } from '@atlas/db';
 import type { EventBroker } from '@atlas/messaging';
 import type { ErrorCode } from '@atlas/types';
 import { isAppError, newUuid, toAppError, type Logger } from '@atlas/utils';
-import { createMetricsRegistry, metricsRoute, registerHttpMetrics } from '@atlas/observability';
+import {
+  createMetricsRegistry,
+  metricsRoute,
+  registerHttpMetrics,
+  registerRateLimitedRoutes,
+} from '@atlas/observability';
 import type { LearningServiceEnv } from './env.js';
 import { drainRoute } from './http/routes/drain.js';
 import { getMetricsRoute } from './http/routes/get-metrics.js';
@@ -43,10 +48,6 @@ export function buildApp(deps: AppDeps): FastifyInstance {
   });
 
   void app.register(cors, { origin: parseCorsOrigins(deps.env.CORS_ORIGINS) });
-  void app.register(rateLimit, {
-    max: deps.env.RATE_LIMIT_MAX,
-    timeWindow: deps.env.RATE_LIMIT_WINDOW,
-  });
 
   const metrics = createMetricsRegistry('learning-service');
   registerHttpMetrics(app, metrics);
@@ -92,10 +93,24 @@ export function buildApp(deps: AppDeps): FastifyInstance {
     });
   });
 
+  // Probes are scraped by infrastructure and stay outside the rate limiter.
   healthRoute(app, deps);
   metricsRoute(app, metrics);
+  // Machine-authenticated (bearer secret) and called by the scheduler: never throttled.
   drainRoute(app, deps);
-  getMetricsRoute(app, deps);
+
+  // Everything else is declared inside the rate-limited scope: see registerRateLimitedRoutes for
+  // why routes declared on `app` right after registering the plugin would not be limited.
+  registerRateLimitedRoutes(
+    app,
+    {
+      plugin: rateLimit,
+      settings: { max: deps.env.RATE_LIMIT_MAX, timeWindow: deps.env.RATE_LIMIT_WINDOW },
+    },
+    (api) => {
+      getMetricsRoute(api, deps);
+    },
+  );
 
   return app;
 }
