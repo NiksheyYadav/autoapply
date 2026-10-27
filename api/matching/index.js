@@ -77749,6 +77749,29 @@ var atsReportSchema = external_exports.object({
     })
   )
 });
+var bulletIssueSchema = external_exports.enum(["weak_opening", "no_metric", "too_short", "too_long"]);
+var bulletFindingSchema = external_exports.object({
+  company: external_exports.string(),
+  title: external_exports.string(),
+  /** Position within that experience entry's `highlights`. */
+  bullet_index: external_exports.number().int().min(0),
+  bullet: external_exports.string(),
+  issues: external_exports.array(bulletIssueSchema).min(1),
+  suggestions: external_exports.array(external_exports.string()).min(1)
+});
+var resumeOptimizationReportSchema = external_exports.object({
+  keyword_match: external_exports.object({
+    /** 0–100 share of the job's keywords the resume covers; null when the job names none. */
+    score: external_exports.number().int().min(0).max(100).nullable(),
+    matched: external_exports.array(external_exports.string()),
+    missing: external_exports.array(external_exports.string())
+  }),
+  bullet_findings: external_exports.array(bulletFindingSchema).max(20),
+  /** The resume's job-independent ATS report, as computed at parse time. */
+  ats: atsReportSchema,
+  recommendations: external_exports.array(external_exports.string()).max(10),
+  truthfulness_note: external_exports.string()
+});
 
 // packages/types/src/job.ts
 var companySchema = external_exports.object({
@@ -77993,6 +78016,14 @@ var createResumeResponseSchema = external_exports.object({
 });
 var resumeResponseSchema = external_exports.object({
   resume: resumeSchema
+});
+var optimizeResumeRequestSchema = external_exports.object({
+  job_id: uuidSchema
+});
+var optimizeResumeResponseSchema = external_exports.object({
+  resume_id: uuidSchema,
+  job_id: uuidSchema,
+  report: resumeOptimizationReportSchema
 });
 var jobRecommendationsQuerySchema = paginationQuerySchema.extend({
   user_id: uuidSchema,

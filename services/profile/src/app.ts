@@ -16,6 +16,7 @@ import type { ProfileServiceEnv } from './env.js';
 import { getResumeRoute } from './http/routes/get-resume.js';
 import { healthRoute } from './http/routes/health.js';
 import { listResumesRoute } from './http/routes/list-resumes.js';
+import { optimizeResumeRoute } from './http/routes/optimize-resume.js';
 import { uploadResumeRoute } from './http/routes/upload-resume.js';
 
 export interface AppDeps {
@@ -104,6 +105,7 @@ export function buildApp(deps: AppDeps): FastifyInstance {
   uploadResumeRoute(app, deps);
   getResumeRoute(app, deps);
   listResumesRoute(app, deps);
+  optimizeResumeRoute(app, deps);
 
   return app;
 }

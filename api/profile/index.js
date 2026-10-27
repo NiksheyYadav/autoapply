@@ -22546,7 +22546,7 @@ var require_validation = __commonJS({
     "use strict";
     var {
       kSchemaHeaders: headersSchema,
-      kSchemaParams: paramsSchema,
+      kSchemaParams: paramsSchema2,
       kSchemaQuerystring: querystringSchema,
       kSchemaBody: bodySchema,
       kSchemaResponse: responseSchema
@@ -22762,7 +22762,7 @@ var require_validation = __commonJS({
         FSTWRN001("querystring", method, url2);
       }
       if (schema.params !== void 0) {
-        context2[paramsSchema] = compile({ schema: schema.params, method, url: url2, httpPart: "params" });
+        context2[paramsSchema2] = compile({ schema: schema.params, method, url: url2, httpPart: "params" });
       } else if (Object.hasOwn(schema, "params")) {
         FSTWRN001("params", method, url2);
       }
@@ -22802,11 +22802,11 @@ var require_validation = __commonJS({
     }
     function validate(context2, request, execution) {
       const runExecution = execution === void 0;
-      if (runExecution && context2[paramsSchema] === void 0 && context2[bodySchema] === void 0 && context2[querystringSchema] === void 0 && context2[headersSchema] === void 0) {
+      if (runExecution && context2[paramsSchema2] === void 0 && context2[bodySchema] === void 0 && context2[querystringSchema] === void 0 && context2[headersSchema] === void 0) {
         return false;
       }
       if (runExecution || !execution.skipParams) {
-        const params = validateParam(context2[paramsSchema], request, "params");
+        const params = validateParam(context2[paramsSchema2], request, "params");
         if (params) {
           if (typeof params.then !== "function") {
             return wrapValidationError(params, "params", context2.schemaErrorFormatter);
@@ -22901,7 +22901,7 @@ var require_validation = __commonJS({
       return error51;
     }
     module2.exports = {
-      symbols: { bodySchema, querystringSchema, responseSchema, paramsSchema, headersSchema },
+      symbols: { bodySchema, querystringSchema, responseSchema, paramsSchema: paramsSchema2, headersSchema },
       compileSchemasForValidation,
       compileSchemasForSerialization,
       validate
@@ -103540,6 +103540,29 @@ var atsReportSchema = external_exports.object({
     })
   )
 });
+var bulletIssueSchema = external_exports.enum(["weak_opening", "no_metric", "too_short", "too_long"]);
+var bulletFindingSchema = external_exports.object({
+  company: external_exports.string(),
+  title: external_exports.string(),
+  /** Position within that experience entry's `highlights`. */
+  bullet_index: external_exports.number().int().min(0),
+  bullet: external_exports.string(),
+  issues: external_exports.array(bulletIssueSchema).min(1),
+  suggestions: external_exports.array(external_exports.string()).min(1)
+});
+var resumeOptimizationReportSchema = external_exports.object({
+  keyword_match: external_exports.object({
+    /** 0–100 share of the job's keywords the resume covers; null when the job names none. */
+    score: external_exports.number().int().min(0).max(100).nullable(),
+    matched: external_exports.array(external_exports.string()),
+    missing: external_exports.array(external_exports.string())
+  }),
+  bullet_findings: external_exports.array(bulletFindingSchema).max(20),
+  /** The resume's job-independent ATS report, as computed at parse time. */
+  ats: atsReportSchema,
+  recommendations: external_exports.array(external_exports.string()).max(10),
+  truthfulness_note: external_exports.string()
+});
 
 // packages/types/src/job.ts
 var companySchema = external_exports.object({
@@ -103784,6 +103807,14 @@ var createResumeResponseSchema = external_exports.object({
 });
 var resumeResponseSchema = external_exports.object({
   resume: resumeSchema
+});
+var optimizeResumeRequestSchema = external_exports.object({
+  job_id: uuidSchema
+});
+var optimizeResumeResponseSchema = external_exports.object({
+  resume_id: uuidSchema,
+  job_id: uuidSchema,
+  report: resumeOptimizationReportSchema
 });
 var jobRecommendationsQuerySchema = paginationQuerySchema.extend({
   user_id: uuidSchema,
@@ -114283,12 +114314,123 @@ var CANONICAL_SKILLS = [
   "accounting",
   "bookkeeping"
 ];
+function containsKeyword(text2, keyword) {
+  const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(?<![a-z0-9])${escaped}(?![a-z0-9])`, "i").test(text2);
+}
 function extractSkillKeywords(text2) {
-  const lowerText = text2.toLowerCase();
-  return CANONICAL_SKILLS.filter((keyword) => {
-    const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    return new RegExp(`(?<![a-z0-9])${escaped}(?![a-z0-9])`, "i").test(lowerText);
-  });
+  return CANONICAL_SKILLS.filter((keyword) => containsKeyword(text2, keyword));
+}
+
+// packages/ai/src/resume-optimizer.ts
+var TRUTHFULNESS_NOTE = "These suggestions are advisory. Atlas never adds skills, employers, or numbers to your resume for you \u2014 only include a keyword or metric if it is true.";
+var MAX_BULLET_FINDINGS = 20;
+var MAX_RECOMMENDATIONS = 10;
+var MAX_KEYWORDS_IN_RECOMMENDATION = 5;
+var MAX_ATS_HINTS = 3;
+var MIN_BULLET_CHARS = 25;
+var MAX_BULLET_CHARS = 220;
+var HAS_DIGIT_OR_PERCENT2 = /\d|%/;
+var WEAK_OPENING = /^(?:i|responsible for|duties (?:included|include)|worked on|worked with|helped|helping|assisted|assisting|tasked with|involved in|in charge of|participated in)\b/i;
+var EXAMPLE_VERBS = "Built, Led, Reduced, Launched";
+function normalizeTerm(term) {
+  return term.trim().toLowerCase();
+}
+function collectJobKeywords(target) {
+  const keywords = /* @__PURE__ */ new Set();
+  for (const skill of target.skills) {
+    const term = normalizeTerm(skill);
+    if (term.length > 0) keywords.add(term);
+  }
+  for (const keyword of extractSkillKeywords(`${target.title}
+${target.description ?? ""}`)) {
+    keywords.add(keyword);
+  }
+  return [...keywords];
+}
+function analyzeBullet(bullet) {
+  const issues = [];
+  const suggestions = [];
+  const weakOpening = bullet.match(WEAK_OPENING);
+  if (weakOpening) {
+    issues.push("weak_opening");
+    suggestions.push(
+      `Open with a strong action verb (for example: ${EXAMPLE_VERBS}) instead of "${weakOpening[0]}" \u2014 lead with what you did.`
+    );
+  }
+  if (!HAS_DIGIT_OR_PERCENT2.test(bullet)) {
+    issues.push("no_metric");
+    suggestions.push(
+      "Add a measurable result (scale, percentage, time or cost saved) if you can back it up \u2014 without inventing one."
+    );
+  }
+  if (bullet.length < MIN_BULLET_CHARS) {
+    issues.push("too_short");
+    suggestions.push("Say what you did and what came of it \u2014 a bullet this brief gives recruiters and ATS little to match.");
+  } else if (bullet.length > MAX_BULLET_CHARS) {
+    issues.push("too_long");
+    suggestions.push("Trim this or split it into two bullets \u2014 long bullets are hard to scan.");
+  }
+  return { issues, suggestions };
+}
+function collectBulletFindings(profile) {
+  const findings = [];
+  for (const entry of profile.experience) {
+    entry.highlights.forEach((bullet, bulletIndex) => {
+      const { issues, suggestions } = analyzeBullet(bullet);
+      if (issues.length > 0) {
+        findings.push({ company: entry.company, title: entry.title, bullet_index: bulletIndex, bullet, issues, suggestions });
+      }
+    });
+  }
+  return findings.sort((a, b2) => b2.issues.length - a.issues.length);
+}
+function buildRecommendations(missing, atsHints, allFindings, keywordScore) {
+  const recommendations = [];
+  if (missing.length > 0) {
+    const shown = missing.slice(0, MAX_KEYWORDS_IN_RECOMMENDATION).join(", ");
+    recommendations.push(
+      `This posting mentions ${shown}, which your resume doesn't. If you genuinely have that experience, work it into a relevant bullet or your skills section.`
+    );
+  }
+  const missingMetric = allFindings.filter((f) => f.issues.includes("no_metric")).length;
+  if (missingMetric > 0) {
+    recommendations.push(`${missingMetric} bullet(s) have no measurable result \u2014 quantify the ones you can substantiate.`);
+  }
+  const weakOpenings = allFindings.filter((f) => f.issues.includes("weak_opening")).length;
+  if (weakOpenings > 0) {
+    recommendations.push(`${weakOpenings} bullet(s) open with a duty ("responsible for\u2026") rather than an action verb.`);
+  }
+  recommendations.push(...atsHints);
+  if (recommendations.length === 0) {
+    recommendations.push(
+      keywordScore === null ? "This posting lists no recognizable keywords, so there is nothing to tailor against \u2014 your resume reads cleanly." : "Your resume already covers what this posting asks for and reads cleanly."
+    );
+  }
+  return recommendations.slice(0, MAX_RECOMMENDATIONS);
+}
+function analyzeResumeForJob(profile, rawText, target) {
+  const profileTerms = /* @__PURE__ */ new Set([
+    ...profile.skills.map((skill) => normalizeTerm(skill.name)),
+    ...profile.keywords.map(normalizeTerm)
+  ]);
+  const jobKeywords = collectJobKeywords(target);
+  const matched = [];
+  const missing = [];
+  for (const keyword of jobKeywords) {
+    (profileTerms.has(keyword) || containsKeyword(rawText, keyword) ? matched : missing).push(keyword);
+  }
+  const keywordScore = jobKeywords.length === 0 ? null : Math.round(100 * matched.length / jobKeywords.length);
+  const ats = scoreResume(profile, rawText);
+  const failedHints = ats.checks.filter((check2) => !check2.passed).sort((a, b2) => b2.weight - a.weight).slice(0, MAX_ATS_HINTS).map((check2) => check2.hint);
+  const allFindings = collectBulletFindings(profile);
+  return {
+    keyword_match: { score: keywordScore, matched, missing },
+    bullet_findings: allFindings.slice(0, MAX_BULLET_FINDINGS),
+    ats,
+    recommendations: buildRecommendations(missing, failedHints, allFindings, keywordScore),
+    truthfulness_note: TRUTHFULNESS_NOTE
+  };
 }
 
 // packages/ai/src/resume-parser.ts
@@ -114474,6 +114616,39 @@ function parseResumeText(rawText) {
     keywords: Array.from(new Set(skills.map((s) => s.name))).slice(0, 400),
     total_months_experience: totalMonths
   };
+}
+
+// services/profile/src/repo/jobs.ts
+async function findOptimizationTarget(db, jobId) {
+  const [row] = await db.select({ title: schema_exports.jobs.title, description: schema_exports.jobs.description, skills: schema_exports.jobs.skills }).from(schema_exports.jobs).where(eq(schema_exports.jobs.jobId, jobId)).limit(1);
+  return row ?? null;
+}
+
+// services/profile/src/http/routes/optimize-resume.ts
+var paramsSchema = external_exports.object({ id: uuidSchema });
+function optimizeResumeRoute(app, deps) {
+  app.post("/v1/resumes/:id/optimize", { preHandler: requireAuth(deps.tokenVerifier) }, async (request, reply) => {
+    const actor = getActor(request);
+    const { id } = paramsSchema.parse(request.params);
+    const body = optimizeResumeRequestSchema.parse(request.body);
+    const resume = await findById(deps.db, id);
+    if (!resume || resume.userId !== actor.user_id) {
+      throw new AppError("RESUME_NOT_FOUND", "Resume not found");
+    }
+    if (resume.status !== "parsed" || !resume.parsedProfile || resume.parsedText === null) {
+      throw new AppError("CONFLICT", "Resume has not been parsed successfully, so it cannot be optimized yet");
+    }
+    const target = await findOptimizationTarget(deps.db, body.job_id);
+    if (!target) {
+      throw new AppError("JOB_NOT_FOUND", "Job is unavailable");
+    }
+    const response = {
+      resume_id: resume.resumeId,
+      job_id: body.job_id,
+      report: analyzeResumeForJob(resume.parsedProfile, resume.parsedText, target)
+    };
+    reply.status(200).send(response);
+  });
 }
 
 // services/profile/src/lib/extract-text.ts
@@ -146640,6 +146815,7 @@ function buildApp(deps) {
   uploadResumeRoute(app, deps);
   getResumeRoute(app, deps);
   listResumesRoute(app, deps);
+  optimizeResumeRoute(app, deps);
   return app;
 }
 

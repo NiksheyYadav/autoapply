@@ -4,7 +4,7 @@ import { applicationModeSchema, applicationStatusSchema, remoteTypeSchema } from
 import { publicUserSchema } from './identity.js';
 import { companySchema, jobRecommendationSchema, rawJobPostingSchema } from './job.js';
 import { applicationSchema, contactSchema, messageSchema } from './application.js';
-import { resumeSchema } from './profile.js';
+import { resumeOptimizationReportSchema, resumeSchema } from './profile.js';
 
 /**
  * Request/response contracts for the public REST surface (docs/04). Services
@@ -87,6 +87,20 @@ export const resumeResponseSchema = z.object({
 });
 
 export type ResumeResponse = z.infer<typeof resumeResponseSchema>;
+
+export const optimizeResumeRequestSchema = z.object({
+  job_id: uuidSchema,
+});
+
+export type OptimizeResumeRequest = z.infer<typeof optimizeResumeRequestSchema>;
+
+export const optimizeResumeResponseSchema = z.object({
+  resume_id: uuidSchema,
+  job_id: uuidSchema,
+  report: resumeOptimizationReportSchema,
+});
+
+export type OptimizeResumeResponse = z.infer<typeof optimizeResumeResponseSchema>;
 
 // --- jobs-service -----------------------------------------------------------
 

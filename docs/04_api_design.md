@@ -14,6 +14,29 @@ Response:
 { "resume_id": "uuid", "status": "parsed" }
 ```
 
+### POST /v1/resumes/{resume_id}/optimize
+Request:
+```json
+{ "job_id": "uuid" }
+```
+
+Response:
+```json
+{
+  "resume_id": "uuid",
+  "job_id": "uuid",
+  "report": {
+    "keyword_match": { "score": 67, "matched": ["typescript"], "missing": ["kubernetes"] },
+    "bullet_findings": [],
+    "ats": { "score": 85, "checks": [] },
+    "recommendations": [],
+    "truthfulness_note": "..."
+  }
+}
+```
+
+Advisory and stateless: it compares a parsed resume with one job and stores nothing. It never rewrites the resume or adds a skill or metric the candidate did not state. Returns `409 CONFLICT` if the resume has not parsed, and `404` for an unknown job or a resume the caller does not own.
+
 ### GET /v1/jobs/recommendations
 Query params:
 - user_id
