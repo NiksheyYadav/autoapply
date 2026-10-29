@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { requireAuth } from '@atlas/auth-kit';
+import { getActor, requireAuth, requirePlatformAdmin } from '@atlas/auth-kit';
 import { createContactRequestSchema, type ContactResponse } from '@atlas/types';
 import { AppError, pgErrorCode } from '@atlas/utils';
 import type { AppDeps } from '../../app.js';
@@ -11,8 +11,18 @@ import { scoreContactRelevance } from '../../lib/relevance.js';
 const UNIQUE_VIOLATION = '23505';
 
 export function createContactRoute(app: FastifyInstance, deps: AppDeps): void {
-  app.post('/v1/contacts', { preHandler: requireAuth(deps.tokenVerifier) }, async (_request, reply) => {
-    const body = createContactRequestSchema.parse(_request.body);
+  app.post('/v1/contacts', { preHandler: requireAuth(deps.tokenVerifier) }, async (request, reply) => {
+    // The contacts directory is one table shared by every user, and its rows
+    // are third parties' names and emails that outreach later targets. Letting
+    // any signed-in user write to it would let anyone seed the directory with
+    // arbitrary addresses for other users to be pointed at, so writes are a
+    // platform-level action (same allowlist as job ingestion).
+    requirePlatformAdmin(
+      getActor(request),
+      deps.env.PLATFORM_ADMIN_USER_IDS,
+      'Only platform administrators can add contacts',
+    );
+    const body = createContactRequestSchema.parse(request.body);
 
     const company = await findCompanyById(deps.db, body.company_id);
     if (!company) {

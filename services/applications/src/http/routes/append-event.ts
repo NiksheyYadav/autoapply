@@ -5,8 +5,8 @@ import { createEvent } from '@atlas/messaging';
 import { appendApplicationEventRequestSchema, uuidSchema, type ApplicationResponse } from '@atlas/types';
 import { AppError, newTraceContext } from '@atlas/utils';
 import type { AppDeps } from '../../app.js';
-import { appendEvent, findById, toApplication } from '../../repo/applications.js';
-import { isValidTransition } from '../../lib/transitions.js';
+import { appendEvent, findByIdWithJob, toApplication, toApplicationWithJob } from '../../repo/applications.js';
+import { isOpenedApplyLinkMarker, isValidTransition } from '../../lib/transitions.js';
 
 const paramsSchema = z.object({ id: uuidSchema });
 
@@ -16,7 +16,8 @@ export function appendEventRoute(app: FastifyInstance, deps: AppDeps): void {
     const { id } = paramsSchema.parse(request.params);
     const body = appendApplicationEventRequestSchema.parse(request.body);
 
-    const current = await findById(deps.db, id);
+    const found = await findByIdWithJob(deps.db, id);
+    const current = found?.application ?? null;
     const isOwner = current?.userId === actor.user_id;
     const isOrgStaff =
       current !== null &&
@@ -24,11 +25,14 @@ export function appendEventRoute(app: FastifyInstance, deps: AppDeps): void {
       current.organizationId !== null &&
       current.organizationId === actor.organization_id;
 
-    if (!current || !(isOwner || isOrgStaff)) {
+    if (!found || !current || !(isOwner || isOrgStaff)) {
       throw new AppError('NOT_FOUND', 'Application not found');
     }
 
-    if (!isValidTransition(current.status, body.to_status)) {
+    // Assisted apply: the owner can note that they opened the employer's apply
+    // page without changing status. Staff can't speak for the user here.
+    const isApplyLinkMarker = isOwner && isOpenedApplyLinkMarker(current.status, body.to_status, body.note);
+    if (!isApplyLinkMarker && !isValidTransition(current.status, body.to_status)) {
       throw new AppError('VALIDATION_ERROR', `Cannot move an application from "${current.status}" to "${body.to_status}"`);
     }
 
@@ -49,7 +53,11 @@ export function appendEventRoute(app: FastifyInstance, deps: AppDeps): void {
       );
     }
 
-    const response: ApplicationResponse = { application: toApplication(updated) };
+    // Same visibility rule as GET: the owner's view carries the job context (so
+    // a client can swap this response straight into its list), staff's never does.
+    const response: ApplicationResponse = {
+      application: isOwner ? toApplicationWithJob(updated, found.job) : toApplication(updated),
+    };
     reply.status(200).send(response);
   });
 }

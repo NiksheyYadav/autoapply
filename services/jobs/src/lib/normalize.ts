@@ -42,17 +42,38 @@ export function coerceEmploymentType(raw?: string | null): EmploymentType {
 }
 
 /**
- * `jobSchema.apply_url` requires a real URL, but `rawJobPostingSchema`
- * deliberately accepts any string a connector hands us — normalize instead
- * of storing (and later serving) something that fails the API contract.
+ * Only http(s) URLs are ever stored. `new URL()` happily parses `javascript:`,
+ * `data:`, `vbscript:`, `file:` and friends, and these values are rendered as
+ * `href`s by the web apps — storing one would be a stored-XSS vector. URLs
+ * carrying embedded credentials (`https://user:pass@host`) are rejected too:
+ * no genuine posting needs them, and they make a link look like it points
+ * somewhere it doesn't.
  */
-export function normalizeApplyUrl(raw?: string | null): string | null {
+function normalizeHttpUrl(raw?: string | null): string | null {
   if (!raw) return null;
   try {
-    return new URL(raw).toString();
+    const url = new URL(raw.trim());
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+    if (url.username !== '' || url.password !== '') return null;
+    return url.toString();
   } catch {
     return null;
   }
+}
+
+/**
+ * `jobSchema.apply_url` requires a real URL, but `rawJobPostingSchema`
+ * deliberately accepts any string a connector hands us — normalize instead
+ * of storing (and later serving) something that fails the API contract, or
+ * that is not a web link at all (see {@link normalizeHttpUrl}).
+ */
+export function normalizeApplyUrl(raw?: string | null): string | null {
+  return normalizeHttpUrl(raw);
+}
+
+/** Same rules as {@link normalizeApplyUrl}, for `companies.website` (also untrusted ingest input). */
+export function normalizeWebsiteUrl(raw?: string | null): string | null {
+  return normalizeHttpUrl(raw);
 }
 
 /**
@@ -62,7 +83,8 @@ export function normalizeApplyUrl(raw?: string | null): string | null {
  */
 export function estimateSpamScore(posting: RawJobPosting): number {
   let score = 0;
-  if (!posting.apply_url) score += 0.4;
+  // An apply_url we'd refuse to store (e.g. `javascript:`) is as good as none.
+  if (!normalizeApplyUrl(posting.apply_url)) score += 0.4;
   if (posting.title.trim().length < 4) score += 0.3;
   if (!posting.description || posting.description.trim().length < 40) score += 0.3;
   return Math.min(1, score);

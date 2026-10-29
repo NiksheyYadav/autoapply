@@ -1,0 +1,166 @@
+import cors from '@fastify/cors';
+import rateLimit from '@fastify/rate-limit';
+import Fastify, { type FastifyBaseLogger, type FastifyError, type FastifyInstance } from 'fastify';
+import type postgres from 'postgres';
+import { ZodError } from 'zod';
+import type { TokenVerifierConfig } from '@atlas/auth-kit';
+import { parseCorsOrigins } from '@atlas/config';
+import type { Database } from '@atlas/db';
+import type { ErrorCode } from '@atlas/types';
+import { isAppError, newUuid, toAppError, type Logger } from '@atlas/utils';
+import {
+  createMetricsRegistry,
+  metricsRoute,
+  registerHttpMetrics,
+  registerIsoTimestamps,
+} from '@atlas/observability';
+import type { AdminServiceEnv } from './env.js';
+import type { ServiceLimits } from './limits.js';
+import { exportStudentsRoute } from './http/routes/export-students.js';
+import { funnelRoute } from './http/routes/funnel.js';
+import { getStudentRoute } from './http/routes/get-student.js';
+import { healthRoute } from './http/routes/health.js';
+import { importStudentsRoute } from './http/routes/import-students.js';
+import { listStudentsRoute } from './http/routes/list-students.js';
+
+export interface AppDeps {
+  db: Database;
+  sql: postgres.Sql;
+  env: AdminServiceEnv;
+  logger: Logger;
+  tokenVerifier: TokenVerifierConfig;
+  /** Overrides for the service caps. Tests adjust them; production uses the defaults. */
+  limits?: ServiceLimits;
+}
+
+const STATUS_TO_CODE: Partial<Record<number, ErrorCode>> = {
+  400: 'VALIDATION_ERROR',
+  413: 'PAYLOAD_TOO_LARGE',
+  415: 'UNSUPPORTED_MEDIA_TYPE',
+  429: 'RATE_LIMITED',
+};
+
+/**
+ * Fastify's default `req` log serializer records the full URL. Here the query
+ * string carries search terms, which are often email addresses and names, so it
+ * is dropped before it can reach stdout or a log pipeline (docs/09 § Data
+ * protection). The path stays: it holds only organization and student UUIDs.
+ */
+export function serializeRequestForLog(request: {
+  method?: string;
+  url?: string;
+  host?: string;
+  ip?: string;
+  socket?: { remotePort?: number };
+}) {
+  const url = request.url ?? '';
+  const queryStart = url.indexOf('?');
+  return {
+    method: request.method,
+    url: queryStart === -1 ? url : `${url.slice(0, queryStart)}?[redacted]`,
+    host: request.host,
+    remoteAddress: request.ip,
+    remotePort: request.socket?.remotePort,
+  };
+}
+
+export function buildApp(deps: AppDeps): FastifyInstance {
+  const app = Fastify({
+    // See services/auth/src/app.ts for why this cast is needed: pino's Logger
+    // type and Fastify's FastifyBaseLogger disagree on a structural detail
+    // that doesn't matter at runtime.
+    loggerInstance: deps.logger.child(
+      {},
+      { serializers: { req: serializeRequestForLog } },
+    ) as unknown as FastifyBaseLogger,
+    bodyLimit: deps.env.BODY_LIMIT_BYTES,
+    trustProxy: true,
+    genReqId: () => newUuid(),
+    // A HEAD would run an export handler (and write its audit entry) for no body.
+    exposeHeadRoutes: false,
+  });
+
+  void app.register(cors, {
+    origin: parseCorsOrigins(deps.env.CORS_ORIGINS),
+    // Lets a browser client read the CSV file name and tell a replay from a first run.
+    exposedHeaders: ['content-disposition', 'idempotent-replayed'],
+  });
+  void app.register(rateLimit, {
+    max: deps.env.RATE_LIMIT_MAX,
+    timeWindow: deps.env.RATE_LIMIT_WINDOW,
+  });
+
+  const metrics = createMetricsRegistry('admin-service');
+  registerHttpMetrics(app, metrics);
+  // Postgres-style timestamps ('2026-10-27 12:59:21+00') become strict ISO 8601, which Safari can parse.
+  registerIsoTimestamps(app);
+
+  // Everything under /v1/admin is student personal data: never cacheable by a
+  // browser, proxy or CDN.
+  app.addHook('onSend', async (request, reply) => {
+    if (request.url.startsWith('/v1/')) reply.header('cache-control', 'no-store');
+  });
+
+  app.setErrorHandler((error: FastifyError | ZodError, request, reply) => {
+    if (error instanceof ZodError) {
+      reply.status(400).send({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Request failed validation',
+          request_id: request.id,
+          details: error.issues.map((issue) => ({
+            path: issue.path.join('.'),
+            message: issue.message,
+          })),
+        },
+      });
+      return;
+    }
+
+    if (isAppError(error)) {
+      reply.status(error.statusCode).send(error.toResponse(request.id));
+      return;
+    }
+
+    const fastifyStatus = (error as { statusCode?: number }).statusCode;
+    if (fastifyStatus !== undefined && fastifyStatus >= 400 && fastifyStatus < 500) {
+      reply.status(fastifyStatus).send({
+        error: {
+          code: STATUS_TO_CODE[fastifyStatus] ?? 'VALIDATION_ERROR',
+          message: error.message,
+          request_id: request.id,
+        },
+      });
+      return;
+    }
+
+    request.log.error({ err: error }, 'unhandled error');
+    const appError = toAppError(error);
+    reply.status(appError.statusCode).send(appError.toResponse(request.id));
+  });
+
+  app.setNotFoundHandler((request, reply) => {
+    reply.status(404).send({
+      error: { code: 'NOT_FOUND', message: 'Route not found', request_id: request.id },
+    });
+  });
+
+  // Probes are scraped by infrastructure and stay outside the rate limiter.
+  healthRoute(app, deps);
+  metricsRoute(app, metrics);
+
+  // The API routes are registered inside a child plugin on purpose. Rate
+  // limiting attaches to routes through an `onRoute` hook that only exists
+  // once the (asynchronously loaded) rate-limit plugin has finished loading, so
+  // a route declared directly on `app` right after `app.register(rateLimit)` is
+  // silently NOT limited. A child plugin is guaranteed to load afterwards.
+  void app.register(async (api) => {
+    listStudentsRoute(api, deps);
+    importStudentsRoute(api, deps);
+    getStudentRoute(api, deps);
+    funnelRoute(api, deps);
+    exportStudentsRoute(api, deps);
+  });
+
+  return app;
+}

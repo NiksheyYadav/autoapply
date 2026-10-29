@@ -6,8 +6,8 @@
 -- Two pieces:
 --   1. handle_new_user() — mirrors what services/auth's register.ts /
 --      oauth-callback.ts used to do by hand: create the public.users row
---      (and an org + owner membership, if an organization_name was passed as
---      signup metadata) whenever a row is inserted into auth.users.
+--      whenever a row is inserted into auth.users. It deliberately does NOT
+--      create organizations or memberships (see the note inside the function).
 --   2. custom_access_token_hook() — a Custom Access Token Auth Hook that
 --      injects this user's primary organization_id/role into
 --      app_metadata on every JWT Supabase issues, so packages/auth-kit can
@@ -15,8 +15,19 @@
 
 -- 1. Link public.users to its auth.users row and keep it in sync on signup --
 
-alter table public.users
-  add constraint users_user_id_fkey foreign key (user_id) references auth.users (id) on delete cascade;
+-- Guarded so the whole file can be re-applied (e.g. to ship a change to
+-- handle_new_user below) without failing on the already-existing constraint.
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+     where conname = 'users_user_id_fkey' and conrelid = 'public.users'::regclass
+  ) then
+    alter table public.users
+      add constraint users_user_id_fkey foreign key (user_id) references auth.users (id) on delete cascade;
+  end if;
+end
+$$;
 
 create or replace function public.handle_new_user()
 returns trigger
@@ -26,8 +37,6 @@ set search_path = public
 as $$
 declare
   v_provider text;
-  v_org_name text;
-  v_org_id uuid;
 begin
   v_provider := coalesce(new.raw_app_meta_data ->> 'provider', 'email');
 
@@ -57,14 +66,19 @@ begin
     new.email_confirmed_at is not null
   );
 
-  v_org_name := new.raw_user_meta_data ->> 'organization_name';
-  if v_org_name is not null and length(trim(v_org_name)) > 0 then
-    insert into public.organizations (name) values (v_org_name)
-    returning organization_id into v_org_id;
-
-    insert into public.organization_members (organization_id, user_id, role)
-    values (v_org_id, new.id, 'owner');
-  end if;
+  -- SECURITY: this function must never create an organization or an
+  -- organization_members row. It used to turn
+  -- raw_user_meta_data.organization_name into a new org plus an `owner`
+  -- membership, but raw_user_meta_data is CLIENT-CONTROLLED: anyone holding
+  -- the public (anon) Supabase key can call the signup endpoint with
+  -- arbitrary `data`, so that made "owner of a brand-new organization" (and
+  -- the org admin/owner role that ends up in their JWT through
+  -- custom_access_token_hook) something any visitor could grant themselves.
+  -- Organizations (e.g. for the university pilot) are created by platform
+  -- administrators, who add members explicitly. Only server-trusted input
+  -- (new.id, new.email, provider) may drive memberships; if self-serve orgs
+  -- are ever wanted, do it from an authenticated, rate-limited, audited
+  -- endpoint — not from signup metadata.
 
   return new;
 end;

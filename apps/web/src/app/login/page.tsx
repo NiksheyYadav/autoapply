@@ -20,8 +20,12 @@ function OAuthErrorNotice() {
   const providerError = searchParams.get('error_description');
   if (!ownError && !providerError) return null;
   return (
-    <p className="mb-5 rounded-[var(--radius-control)] border border-[var(--color-serious)]/25 bg-[var(--color-serious-soft)] px-4 py-3 text-sm text-[var(--color-serious)]">
-      {providerError?.replace(/\+/g, ' ') ?? 'Something went wrong finishing sign-in. Please try again.'}
+    <p
+      role="alert"
+      className="mb-5 rounded-[var(--radius-control)] border border-[var(--color-serious)]/25 bg-[var(--color-serious-soft)] px-4 py-3 text-sm text-[var(--color-serious)]"
+    >
+      {providerError?.replace(/\+/g, ' ') ??
+        "We couldn't finish signing you in. If you just confirmed your email, try signing in with your password below."}
     </p>
   );
 }
@@ -60,7 +64,14 @@ export default function LoginPage() {
           <Input id="email" type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
         </div>
         <div>
-          <Label htmlFor="password">Password</Label>
+          <div className="mb-1.5 flex items-center justify-between">
+            <Label htmlFor="password" className="mb-0">
+              Password
+            </Label>
+            <Link href="/forgot-password" className="text-xs text-[var(--color-ink-faint)] transition-colors hover:text-[var(--color-ink)]">
+              Forgot password?
+            </Link>
+          </div>
           <Input
             id="password"
             type="password"
@@ -70,7 +81,11 @@ export default function LoginPage() {
             onChange={(e) => setPassword(e.target.value)}
           />
         </div>
-        {error ? <p className="text-sm text-[var(--color-serious)]">{error}</p> : null}
+        {error ? (
+          <p role="alert" className="text-sm text-[var(--color-serious)]">
+            {error}
+          </p>
+        ) : null}
         <Button type="submit" size="lg" disabled={submitting} className="mt-2">
           {submitting ? 'Signing in…' : 'Sign in'}
         </Button>

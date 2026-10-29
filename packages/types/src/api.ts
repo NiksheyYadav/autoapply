@@ -3,8 +3,8 @@ import { paginationQuerySchema, uuidSchema } from './common.js';
 import { applicationModeSchema, applicationStatusSchema, remoteTypeSchema } from './enums.js';
 import { publicUserSchema } from './identity.js';
 import { companySchema, jobRecommendationSchema, rawJobPostingSchema } from './job.js';
-import { applicationSchema, contactSchema, messageSchema } from './application.js';
-import { resumeSchema } from './profile.js';
+import { applicationWithJobSchema, contactSchema, messageSchema } from './application.js';
+import { resumeOptimizationReportSchema, resumeSchema } from './profile.js';
 
 /**
  * Request/response contracts for the public REST surface (docs/04). Services
@@ -88,6 +88,20 @@ export const resumeResponseSchema = z.object({
 
 export type ResumeResponse = z.infer<typeof resumeResponseSchema>;
 
+export const optimizeResumeRequestSchema = z.object({
+  job_id: uuidSchema,
+});
+
+export type OptimizeResumeRequest = z.infer<typeof optimizeResumeRequestSchema>;
+
+export const optimizeResumeResponseSchema = z.object({
+  resume_id: uuidSchema,
+  job_id: uuidSchema,
+  report: resumeOptimizationReportSchema,
+});
+
+export type OptimizeResumeResponse = z.infer<typeof optimizeResumeResponseSchema>;
+
 // --- jobs-service -----------------------------------------------------------
 
 export const jobRecommendationsQuerySchema = paginationQuerySchema.extend({
@@ -116,22 +130,39 @@ export type IngestJobsRequest = z.infer<typeof ingestJobsRequestSchema>;
 export const createApplicationRequestSchema = z.object({
   job_id: uuidSchema,
   resume_id: uuidSchema,
+  /**
+   * `manual` / `review` start as an editable draft; the owner applies on the
+   * employer's site and records the outcome. `auto` is rejected (400
+   * VALIDATION_ERROR) unless the service runs with
+   * APPLICATIONS_AUTO_MODE_ENABLED=true — no submission worker exists yet.
+   */
   mode: applicationModeSchema.default('manual'),
 });
 
 export type CreateApplicationRequest = z.infer<typeof createApplicationRequestSchema>;
 
+/**
+ * What the applications API returns for one application. `job` is present on
+ * the owner's view (null if the job or its company is gone) and absent on the
+ * organization-staff view, which is applications counts/statuses only — no job
+ * or employer names (see applicationWithJobSchema).
+ */
+const applicationViewSchema = applicationWithJobSchema.partial({ job: true });
+
 export const applicationResponseSchema = z.object({
-  application: applicationSchema,
+  application: applicationViewSchema,
 });
 
 export type ApplicationResponse = z.infer<typeof applicationResponseSchema>;
 
-export const listApplicationsQuerySchema = paginationQuerySchema;
+export const listApplicationsQuerySchema = paginationQuerySchema.extend({
+  /** Only the caller's applications to this job (own list only; rejected for scope=organization). */
+  job_id: uuidSchema.optional(),
+});
 export type ListApplicationsQuery = z.infer<typeof listApplicationsQuerySchema>;
 
 export const listApplicationsResponseSchema = z.object({
-  items: z.array(applicationSchema),
+  items: z.array(applicationViewSchema),
   next_cursor: z.string().nullable(),
 });
 
@@ -201,6 +232,20 @@ export const scheduleMessageRequestSchema = z.object({
 });
 
 export type ScheduleMessageRequest = z.infer<typeof scheduleMessageRequestSchema>;
+
+/**
+ * `POST /v1/messages/:id/mark-sent`: the user records that they sent the
+ * message themselves (copy-paste, their own mail app). The body is optional.
+ *
+ * `note` is accepted so clients can send one, but it is NOT stored: `messages`
+ * has no column for it and the audit trail deliberately takes no free text.
+ * Persisting it needs a migration (see docs/04_api_design.md).
+ */
+export const markMessageSentRequestSchema = z.object({
+  note: z.string().trim().max(500).optional(),
+});
+
+export type MarkMessageSentRequest = z.infer<typeof markMessageSentRequestSchema>;
 
 export const messageResponseSchema = z.object({ message: messageSchema });
 export type MessageResponse = z.infer<typeof messageResponseSchema>;

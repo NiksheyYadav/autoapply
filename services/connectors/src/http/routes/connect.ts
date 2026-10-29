@@ -5,7 +5,7 @@ import { AppError, pgErrorCode } from '@atlas/utils';
 import type { AppDeps } from '../../app.js';
 import { isConnectorProvider } from '../../lib/providers.js';
 import { toConnectorAccountView, type ConnectorAccountView } from '../../lib/public-view.js';
-import { findByProviderAndExternalId, findByUserAndProvider, insertConnection, replaceConnection } from '../../repo/connector-accounts.js';
+import { findByUserAndProvider, insertConnection, replaceConnection } from '../../repo/connector-accounts.js';
 
 /** Postgres unique_violation. */
 const UNIQUE_VIOLATION = '23505';
@@ -78,10 +78,9 @@ export function connectRoute(app: FastifyInstance, deps: AppDeps): void {
         // Someone else already connected this exact provider account — the
         // secret we just wrote is orphaned and must not be left behind.
         await deps.secretStore.delete(ref);
-        const conflicting = await findByProviderAndExternalId(deps.db, provider, body.external_account_id);
-        throw new AppError('CONFLICT', 'This connector account is already connected by another user', {
-          details: conflicting ? { connector_account_id: conflicting.connectorAccountId } : undefined,
-        });
+        // Deliberately no `details`: the conflicting row belongs to someone
+        // else, so neither its id nor anything else about it is ours to return.
+        throw new AppError('CONFLICT', 'This connector account is already connected by another user');
       }
       await deps.secretStore.delete(ref);
       throw cause;

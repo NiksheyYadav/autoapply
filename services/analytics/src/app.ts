@@ -9,8 +9,15 @@ import type { Database } from '@atlas/db';
 import type { EventBroker } from '@atlas/messaging';
 import type { ErrorCode } from '@atlas/types';
 import { isAppError, newUuid, toAppError, type Logger } from '@atlas/utils';
-import { createMetricsRegistry, metricsRoute, registerHttpMetrics } from '@atlas/observability';
+import {
+  createMetricsRegistry,
+  metricsRoute,
+  registerHttpMetrics,
+  registerIsoTimestamps,
+  registerRateLimitedRoutes,
+} from '@atlas/observability';
 import type { AnalyticsServiceEnv } from './env.js';
+import { drainRoute } from './http/routes/drain.js';
 import { getSummaryRoute } from './http/routes/get-summary.js';
 import { healthRoute } from './http/routes/health.js';
 
@@ -42,13 +49,11 @@ export function buildApp(deps: AppDeps): FastifyInstance {
   });
 
   void app.register(cors, { origin: parseCorsOrigins(deps.env.CORS_ORIGINS) });
-  void app.register(rateLimit, {
-    max: deps.env.RATE_LIMIT_MAX,
-    timeWindow: deps.env.RATE_LIMIT_WINDOW,
-  });
 
   const metrics = createMetricsRegistry('analytics-service');
   registerHttpMetrics(app, metrics);
+  // Postgres-style timestamps ('2026-10-27 12:59:21+00') become strict ISO 8601, which Safari can parse.
+  registerIsoTimestamps(app);
 
   app.setErrorHandler((error: FastifyError | ZodError, request, reply) => {
     if (error instanceof ZodError) {
@@ -91,9 +96,24 @@ export function buildApp(deps: AppDeps): FastifyInstance {
     });
   });
 
+  // Probes are scraped by infrastructure and stay outside the rate limiter.
   healthRoute(app, deps);
   metricsRoute(app, metrics);
-  getSummaryRoute(app, deps);
+  // Machine-authenticated (bearer secret) and called by the scheduler: never throttled.
+  drainRoute(app, deps);
+
+  // Everything else is declared inside the rate-limited scope: see registerRateLimitedRoutes for
+  // why routes declared on `app` right after registering the plugin would not be limited.
+  registerRateLimitedRoutes(
+    app,
+    {
+      plugin: rateLimit,
+      settings: { max: deps.env.RATE_LIMIT_MAX, timeWindow: deps.env.RATE_LIMIT_WINDOW },
+    },
+    (api) => {
+      getSummaryRoute(api, deps);
+    },
+  );
 
   return app;
 }

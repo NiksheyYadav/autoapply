@@ -34,4 +34,18 @@ export default tseslint.config(
     files: ['**/test/**/*.ts', '**/*.config.ts', 'scripts/**/*.ts'],
     rules: { 'no-console': 'off' },
   },
+  {
+    // Node CLI scripts: their output is the product, and Node globals are available.
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      globals: {
+        process: 'readonly',
+        console: 'readonly',
+        URL: 'readonly',
+        fetch: 'readonly',
+        AbortSignal: 'readonly',
+      },
+    },
+    rules: { 'no-console': 'off' },
+  },
 );

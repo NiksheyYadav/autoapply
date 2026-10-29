@@ -9,9 +9,16 @@ import type { Database } from '@atlas/db';
 import type { EventBroker } from '@atlas/messaging';
 import type { ErrorCode } from '@atlas/types';
 import { isAppError, newUuid, toAppError, type Logger } from '@atlas/utils';
-import { createMetricsRegistry, metricsRoute, registerHttpMetrics } from '@atlas/observability';
+import {
+  createMetricsRegistry,
+  metricsRoute,
+  registerHttpMetrics,
+  registerIsoTimestamps,
+  registerRateLimitedRoutes,
+} from '@atlas/observability';
 import type { ReferralsServiceEnv } from './env.js';
 import { createContactRoute } from './http/routes/create-contact.js';
+import { drainRoute } from './http/routes/drain.js';
 import { healthRoute } from './http/routes/health.js';
 import { listCompanyContactsRoute } from './http/routes/list-company-contacts.js';
 import { listReferralsRoute } from './http/routes/list-referrals.js';
@@ -44,13 +51,11 @@ export function buildApp(deps: AppDeps): FastifyInstance {
   });
 
   void app.register(cors, { origin: parseCorsOrigins(deps.env.CORS_ORIGINS) });
-  void app.register(rateLimit, {
-    max: deps.env.RATE_LIMIT_MAX,
-    timeWindow: deps.env.RATE_LIMIT_WINDOW,
-  });
 
   const metrics = createMetricsRegistry('referrals-service');
   registerHttpMetrics(app, metrics);
+  // Postgres-style timestamps ('2026-10-27 12:59:21+00') become strict ISO 8601, which Safari can parse.
+  registerIsoTimestamps(app);
 
   app.setErrorHandler((error: FastifyError | ZodError, request, reply) => {
     if (error instanceof ZodError) {
@@ -93,11 +98,26 @@ export function buildApp(deps: AppDeps): FastifyInstance {
     });
   });
 
+  // Probes are scraped by infrastructure and stay outside the rate limiter.
   healthRoute(app, deps);
   metricsRoute(app, metrics);
-  createContactRoute(app, deps);
-  listCompanyContactsRoute(app, deps);
-  listReferralsRoute(app, deps);
+  // Machine-authenticated (bearer secret) and called by the scheduler: never throttled.
+  drainRoute(app, deps);
+
+  // Everything else is declared inside the rate-limited scope: see registerRateLimitedRoutes for
+  // why routes declared on `app` right after registering the plugin would not be limited.
+  registerRateLimitedRoutes(
+    app,
+    {
+      plugin: rateLimit,
+      settings: { max: deps.env.RATE_LIMIT_MAX, timeWindow: deps.env.RATE_LIMIT_WINDOW },
+    },
+    (api) => {
+      createContactRoute(api, deps);
+      listCompanyContactsRoute(api, deps);
+      listReferralsRoute(api, deps);
+    },
+  );
 
   return app;
 }

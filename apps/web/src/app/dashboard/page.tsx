@@ -6,9 +6,9 @@ import { listApplications } from '@/lib/services/applications';
 import { listReferrals } from '@/lib/services/referrals';
 import { listResumes } from '@/lib/services/profile';
 import { useResource } from '@/lib/use-resource';
-import { Card, CardDescription, CardTitle, Skeleton, fadeUp, staggerContainer } from '@atlas/ui';
+import { Button, Card, CardDescription, CardTitle, Skeleton, fadeUp, staggerContainer } from '@atlas/ui';
 import { motion } from 'framer-motion';
-import { FileText, SendHorizontal, Search, Users } from 'lucide-react';
+import { FileText, RefreshCw, SendHorizontal, Search, Users } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
@@ -38,9 +38,9 @@ function StatCard({
           </div>
           <CardTitle className="text-sm font-medium text-[var(--color-ink-soft)]">{title}</CardTitle>
           {loading ? (
-            <Skeleton className="mt-2 h-9 w-16" />
+            <Skeleton className="mt-2 h-9 w-16" aria-busy="true" />
           ) : error ? (
-            <p className="mt-1 text-sm text-[var(--color-ink-faint)]">Not reachable</p>
+            <p className="mt-1 text-sm text-[var(--color-ink-faint)]">Unavailable</p>
           ) : (
             <p className="mt-1 font-[var(--font-display)] text-3xl font-medium text-[var(--color-ink)]">{value}</p>
           )}
@@ -60,11 +60,25 @@ export default function DashboardOverviewPage() {
   const referrals = useResource(() => listReferrals(accessToken!), [accessToken]);
 
   const latestAts = resumes.data?.items[0]?.ats_score;
+  const failed = [resumes, jobs, applications, referrals].filter((resource) => resource.error);
 
   return (
     <div>
       <h1 className="font-[var(--font-display)] text-2xl font-medium text-[var(--color-ink)]">Your route so far</h1>
       <p className="mt-1 text-[var(--color-ink-soft)]">A quick look at every stage of the pipeline.</p>
+
+      {failed.length > 0 ? (
+        <div
+          role="alert"
+          className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-control)] border border-[var(--color-serious)]/25 bg-[var(--color-serious-soft)] px-4 py-3 text-sm text-[var(--color-serious)]"
+        >
+          <span>Some of these figures couldn&apos;t be loaded. This is usually temporary.</span>
+          <Button variant="secondary" size="sm" onClick={() => failed.forEach((resource) => resource.reload())}>
+            <RefreshCw className="h-4 w-4" />
+            Try again
+          </Button>
+        </div>
+      ) : null}
 
       <motion.div
         initial="hidden"
