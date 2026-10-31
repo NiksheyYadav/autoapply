@@ -23,7 +23,7 @@ describes the attack areas (A to G) lives outside the repo; each task below name
 9. [ ] **Races, rest of it (C).** Applications are done (see Done). Still to do: double drains (each event's effects applied once), double account deletion and deletion during activity, parallel roster imports, concurrent job ingest of the same posting, and `setScheduled` in outreach (unconditional update; only matters if delivery is ever enabled).
 10. [ ] **Committed bundles end to end (G).** Boot `api/*/index.js` locally with a fake JWKS issuer, check `scripts/bundle-backend.mjs` is byte-for-byte repeatable.
 11. [ ] **Secrets and logging hygiene (F).** Secret-like strings in tree, history and bundles; log redaction; log injection.
-12. [ ] **Frontends with hostile data (E).** Web and admin rendering with script-like and oversized data, open-redirect params, CSV formula safety, security headers.
+12. [ ] **Frontends in a browser (E).** Static review, redirect, link and header checks are done (see Done). Still to do: Playwright against a fake API with script-like, oversized, RTL and null data on every page, API down / 500 / 429 / malformed JSON on every page, double submit on mutating buttons, and a Content-Security-Policy with nonces.
 
 ## Done
 
@@ -37,6 +37,7 @@ describes the attack areas (A to G) lives outside the repo; each task below name
 - [x] **Races in applications (C)** — `work/break-fix-1`. Real bugs: status moves could be applied twice, `submitted` published repeatedly, and a rejected application could become `offer`; identical simultaneous creates sometimes got a 409. Fixed with a conditional update and replay handling. Suite: 125 files, 1,912 tests.
 - [x] **Forged pagination cursors (B)** — `work/break-fix-1`. A cursor with a bad timestamp or id gave a 500 on six list endpoints; other bad shapes were silently the first page. One shared validator, 400 for anything not issued by the API. Also: six simultaneous account deletions hold. Suite: 126 files, 1,961 tests.
 - [x] **Config that starts fine and then breaks (F)** — `work/break-fix-1`. `SUPABASE_URL` with a trailing slash refused every token; `MESSAGING_DRIVER=memory` (the `.env.example` value) would drop events on Vercel; `CRON_SECRET` with a pasted newline could never match. All now normalized or refused at boot. `.env.example` now lists every variable and a test keeps it so. Also: request body / query / path fuzz on applications held (76 cases). Suite: 130 files, 2,070 tests.
+- [x] **Frontend headers and static review (E)** — `work/break-fix-1`. The web app sent no security headers; added framing protection, nosniff, referrer and permissions policies, hid `X-Powered-By`; admin tightened to match. Both apps build; headers checked on a running build. Suite: 132 files, 2,080 tests.
 
 ## Blocked
 
