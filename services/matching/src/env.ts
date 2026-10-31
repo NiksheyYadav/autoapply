@@ -1,4 +1,11 @@
-import { baseEnvSchema, databaseEnvSchema, httpEnvSchema, loadEnv, messagingEnvSchema } from '@atlas/config';
+import {
+  baseEnvSchema,
+  cronSecretSchema,
+  databaseEnvSchema,
+  httpEnvSchema,
+  loadEnv,
+  messagingEnvSchema,
+} from '@atlas/config';
 import { z } from 'zod';
 
 /**
@@ -16,7 +23,7 @@ export const matchingServiceEnvSchema = z.object({
    * `Authorization: Bearer $CRON_SECRET` when this variable is set. Unset, the
    * route answers 503 and never runs a drain.
    */
-  CRON_SECRET: z.string().min(16, 'CRON_SECRET must be at least 16 characters').optional(),
+  CRON_SECRET: cronSecretSchema.optional(),
 });
 
 export type MatchingServiceEnv = z.infer<typeof matchingServiceEnvSchema>;

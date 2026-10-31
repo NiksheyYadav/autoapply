@@ -88084,12 +88084,16 @@ function createVercelHandler(app2) {
 }
 var SERVERLESS_PLACEHOLDER_PORT = "3000";
 var SERVERLESS_DEFAULT_MESSAGING_DRIVER = "postgres";
+function serverlessMessagingDriver(configured) {
+  const driver = configured?.trim() ?? "";
+  return driver === "" || driver.toLowerCase() === "memory" ? SERVERLESS_DEFAULT_MESSAGING_DRIVER : driver;
+}
 function withServerlessEnvDefaults(source = process.env) {
   if (!source.VERCEL) return source;
   return {
     ...source,
     PORT: source.PORT ?? SERVERLESS_PLACEHOLDER_PORT,
-    MESSAGING_DRIVER: source.MESSAGING_DRIVER ?? SERVERLESS_DEFAULT_MESSAGING_DRIVER
+    MESSAGING_DRIVER: serverlessMessagingDriver(source.MESSAGING_DRIVER)
   };
 }
 
@@ -120360,8 +120364,32 @@ var storageEnvSchema = external_exports.object({
   SUPABASE_STORAGE_BUCKET: external_exports.string().min(1).default("resumes"),
   SUPABASE_SECRET_KEY: external_exports.string().min(1).optional()
 });
+var LOOPBACK_HOSTS = /* @__PURE__ */ new Set(["localhost", "127.0.0.1", "[::1]"]);
+function normalizeSupabaseUrl(value) {
+  let url2;
+  try {
+    url2 = new URL(value.trim());
+  } catch {
+    return void 0;
+  }
+  if (url2.username !== "" || url2.password !== "") return void 0;
+  const secure = url2.protocol === "https:";
+  const localStack = url2.protocol === "http:" && LOOPBACK_HOSTS.has(url2.hostname);
+  return secure || localStack ? url2.origin : void 0;
+}
+var supabaseUrlSchema = external_exports.string().transform((value, ctx) => {
+  const origin = normalizeSupabaseUrl(value);
+  if (origin === void 0) {
+    ctx.addIssue({
+      code: "custom",
+      message: "SUPABASE_URL must be an https URL such as https://abc.supabase.co (http only for localhost)"
+    });
+    return external_exports.NEVER;
+  }
+  return origin;
+});
 var supabaseAuthEnvSchema = external_exports.object({
-  SUPABASE_URL: external_exports.string().url("SUPABASE_URL must be a valid URL")
+  SUPABASE_URL: supabaseUrlSchema
 });
 var WINDOW_UNIT_MS = {
   s: 1e3,
@@ -120439,6 +120467,7 @@ var httpEnvSchema = external_exports.object({
   RATE_LIMIT_WINDOW: rateLimitWindowSchema.default("1 minute"),
   BODY_LIMIT_BYTES: external_exports.coerce.number().int().min(1024).default(1048576)
 });
+var cronSecretSchema = external_exports.string().trim().min(16, "CRON_SECRET must be at least 16 characters").regex(/^\S+$/, "CRON_SECRET must not contain whitespace");
 var ConfigError = class extends Error {
   constructor(service, issues) {
     super(`Invalid configuration for ${service}:

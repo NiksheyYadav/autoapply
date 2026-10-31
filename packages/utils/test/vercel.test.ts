@@ -111,6 +111,19 @@ describe('withServerlessEnvDefaults', () => {
     expect(withServerlessEnvDefaults({ VERCEL: '1', MESSAGING_DRIVER: 'rabbitmq' }).MESSAGING_DRIVER).toBe('rabbitmq');
   });
 
+  // `.env.example` says MESSAGING_DRIVER=memory for local work; pasted into the project's settings it
+  // would drop every cross-service event on Vercel, each function being its own process.
+  it.each([['memory'], ['MEMORY'], [' memory '], [''], ['  ']])(
+    'does not honour MESSAGING_DRIVER=%j on Vercel: the in-memory broker cannot cross functions',
+    (configured) => {
+      expect(withServerlessEnvDefaults({ VERCEL: '1', MESSAGING_DRIVER: configured }).MESSAGING_DRIVER).toBe('postgres');
+    },
+  );
+
+  it('still honours the memory driver outside Vercel, for local work and tests', () => {
+    expect(withServerlessEnvDefaults({ MESSAGING_DRIVER: 'memory' }).MESSAGING_DRIVER).toBe('memory');
+  });
+
   it('does not default MESSAGING_DRIVER outside Vercel, so local dev and tests keep the memory broker', () => {
     expect(withServerlessEnvDefaults({}).MESSAGING_DRIVER).toBeUndefined();
   });

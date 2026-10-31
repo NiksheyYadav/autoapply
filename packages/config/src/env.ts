@@ -48,13 +48,48 @@ export const storageEnvSchema = z.object({
   SUPABASE_SECRET_KEY: z.string().min(1).optional(),
 });
 
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
+
+/**
+ * The project URL as an origin (`https://abc.supabase.co`), or `undefined` when it cannot be one.
+ * Tokens are checked against `<url>/auth/v1` as their issuer and the signing keys are fetched from
+ * under it, so the value must be exact: a trailing slash (`https://abc.supabase.co/`, the way the
+ * dashboard shows it) makes the issuer `https://abc.supabase.co//auth/v1`, which no token carries,
+ * and every request is refused as unauthenticated. Plain `http` is only for a local stack, since a
+ * key set fetched in the clear can be swapped on the way.
+ */
+export function normalizeSupabaseUrl(value: string): string | undefined {
+  let url: URL;
+  try {
+    url = new URL(value.trim());
+  } catch {
+    return undefined;
+  }
+  if (url.username !== '' || url.password !== '') return undefined;
+  const secure = url.protocol === 'https:';
+  const localStack = url.protocol === 'http:' && LOOPBACK_HOSTS.has(url.hostname);
+  return secure || localStack ? url.origin : undefined;
+}
+
+export const supabaseUrlSchema = z.string().transform((value, ctx) => {
+  const origin = normalizeSupabaseUrl(value);
+  if (origin === undefined) {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'SUPABASE_URL must be an https URL such as https://abc.supabase.co (http only for localhost)',
+    });
+    return z.NEVER;
+  }
+  return origin;
+});
+
 /**
  * Every service that verifies a caller's identity needs only the (non-secret)
  * Supabase project URL — tokens are checked against its JWKS, not a shared
  * secret. See packages/auth-kit/src/tokens.ts.
  */
 export const supabaseAuthEnvSchema = z.object({
-  SUPABASE_URL: z.string().url('SUPABASE_URL must be a valid URL'),
+  SUPABASE_URL: supabaseUrlSchema,
 });
 
 const WINDOW_UNIT_MS: Record<string, number> = {
@@ -170,6 +205,19 @@ export const httpEnvSchema = z.object({
   RATE_LIMIT_WINDOW: rateLimitWindowSchema.default('1 minute'),
   BODY_LIMIT_BYTES: z.coerce.number().int().min(1024).default(1_048_576),
 });
+
+/**
+ * The shared secret a scheduler presents as `Authorization: Bearer <secret>` to the machine-only
+ * routes (event drains, job-board ingestion). Surrounding whitespace is dropped, because a secret
+ * pasted into a dashboard often keeps its trailing newline and the comparison would then never
+ * succeed. One with whitespace inside is refused: a header value cannot carry it, so the routes
+ * would answer 401 to the scheduler for ever, with nothing to say why.
+ */
+export const cronSecretSchema = z
+  .string()
+  .trim()
+  .min(16, 'CRON_SECRET must be at least 16 characters')
+  .regex(/^\S+$/, 'CRON_SECRET must not contain whitespace');
 
 export class ConfigError extends Error {
   constructor(
