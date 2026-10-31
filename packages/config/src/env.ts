@@ -57,13 +57,68 @@ export const supabaseAuthEnvSchema = z.object({
   SUPABASE_URL: z.string().url('SUPABASE_URL must be a valid URL'),
 });
 
+const WINDOW_UNIT_MS: Record<string, number> = {
+  s: 1_000,
+  sec: 1_000,
+  secs: 1_000,
+  second: 1_000,
+  seconds: 1_000,
+  m: 60_000,
+  min: 60_000,
+  mins: 60_000,
+  minute: 60_000,
+  minutes: 60_000,
+  h: 3_600_000,
+  hr: 3_600_000,
+  hrs: 3_600_000,
+  hour: 3_600_000,
+  hours: 3_600_000,
+  d: 86_400_000,
+  day: 86_400_000,
+  days: 86_400_000,
+};
+
+const RATE_LIMIT_WINDOW_MIN_MS = 1_000;
+const RATE_LIMIT_WINDOW_MAX_MS = 7 * 86_400_000;
+
+/**
+ * The length in milliseconds of a rate-limit window written as `<number> <unit>` (`30 seconds`,
+ * `1 minute`, `2h`), or `undefined` when the text is not that. A bare number is refused on purpose:
+ * the rate-limit plugin reads `60` as 60 milliseconds, which switches limiting off in practice.
+ */
+export function parseRateLimitWindowMs(text: string): number | undefined {
+  const match = /^(\d+(?:\.\d+)?)\s*([a-z]+)$/i.exec(text.trim());
+  if (match === null) return undefined;
+  const unit = WINDOW_UNIT_MS[(match[2] ?? '').toLowerCase()];
+  if (unit === undefined) return undefined;
+  return Math.round(Number(match[1]) * unit);
+}
+
+/**
+ * A rate-limit window such as `1 minute`. The plugin accepts any string at boot and then answers
+ * every request with a 500 for text it cannot read (`abc`, `1 parsec`, empty), and a negative
+ * window quietly turns limiting off, so the value is checked here, where a bad one stops the boot.
+ * Between one second and seven days: below that the limit means nothing, above it a client that
+ * hits the maximum is locked out for practically ever.
+ */
+export const rateLimitWindowSchema = z.string().refine(
+  (text) => {
+    const ms = parseRateLimitWindowMs(text);
+    return ms !== undefined && ms >= RATE_LIMIT_WINDOW_MIN_MS && ms <= RATE_LIMIT_WINDOW_MAX_MS;
+  },
+  {
+    message:
+      'must be a number and a unit between 1 second and 7 days, for example "30 seconds", "1 minute" or "1 hour"',
+  },
+);
+
 export const httpEnvSchema = z.object({
   HOST: z.string().min(1).default('0.0.0.0'),
   PORT: z.coerce.number().int().min(1).max(65_535),
   /** Comma-separated list, or `*` in development only. */
   CORS_ORIGINS: z.string().default(''),
   RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(300),
-  RATE_LIMIT_WINDOW: z.string().default('1 minute'),
+  RATE_LIMIT_WINDOW: rateLimitWindowSchema.default('1 minute'),
   BODY_LIMIT_BYTES: z.coerce.number().int().min(1024).default(1_048_576),
 });
 

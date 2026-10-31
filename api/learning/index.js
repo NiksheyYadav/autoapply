@@ -86110,13 +86110,51 @@ var storageEnvSchema = external_exports.object({
 var supabaseAuthEnvSchema = external_exports.object({
   SUPABASE_URL: external_exports.string().url("SUPABASE_URL must be a valid URL")
 });
+var WINDOW_UNIT_MS = {
+  s: 1e3,
+  sec: 1e3,
+  secs: 1e3,
+  second: 1e3,
+  seconds: 1e3,
+  m: 6e4,
+  min: 6e4,
+  mins: 6e4,
+  minute: 6e4,
+  minutes: 6e4,
+  h: 36e5,
+  hr: 36e5,
+  hrs: 36e5,
+  hour: 36e5,
+  hours: 36e5,
+  d: 864e5,
+  day: 864e5,
+  days: 864e5
+};
+var RATE_LIMIT_WINDOW_MIN_MS = 1e3;
+var RATE_LIMIT_WINDOW_MAX_MS = 7 * 864e5;
+function parseRateLimitWindowMs(text2) {
+  const match = /^(\d+(?:\.\d+)?)\s*([a-z]+)$/i.exec(text2.trim());
+  if (match === null) return void 0;
+  const unit = WINDOW_UNIT_MS[(match[2] ?? "").toLowerCase()];
+  if (unit === void 0) return void 0;
+  return Math.round(Number(match[1]) * unit);
+}
+var rateLimitWindowSchema = external_exports.string().refine(
+  (text2) => {
+    const ms = parseRateLimitWindowMs(text2);
+    return ms !== void 0 && ms >= RATE_LIMIT_WINDOW_MIN_MS && ms <= RATE_LIMIT_WINDOW_MAX_MS;
+  },
+  {
+    message: 'must be a number and a unit between 1 second and 7 days, for example "30 seconds", "1 minute" or "1 hour"'
+  }
+);
 var httpEnvSchema = external_exports.object({
   HOST: external_exports.string().min(1).default("0.0.0.0"),
   PORT: external_exports.coerce.number().int().min(1).max(65535),
   /** Comma-separated list, or `*` in development only. */
   CORS_ORIGINS: external_exports.string().default(""),
   RATE_LIMIT_MAX: external_exports.coerce.number().int().min(1).default(300),
-  RATE_LIMIT_WINDOW: external_exports.string().default("1 minute"),
+  RATE_LIMIT_WINDOW: rateLimitWindowSchema.default("1 minute"),
   BODY_LIMIT_BYTES: external_exports.coerce.number().int().min(1024).default(1048576)
 });
 var ConfigError = class extends Error {
