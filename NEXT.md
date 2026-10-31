@@ -21,7 +21,7 @@ describes the attack areas (A to G) lives outside the repo; each task below name
 7. [ ] **ReDoS audit, last part (D).** `packages/ai`, the services' libraries and the roster CSV parser are done. Still to do: the web apps' client-side parsing (the admin console parses the CSV in the browser before upload) and `scripts/`.
 8. [ ] **Upload parsers, last part (D).** Still to do: multipart edge cases (no boundary, duplicate or many parts, a field larger than the limit) and a wall-clock limit on PDF text extraction (pdf.js can also be slow without being large). Also: a failed insert after the file was stored leaves the blob behind (cleanup on error).
 9. [ ] **Races, rest of it (C).** Applications are done (see Done). Still to do: double drains (each event's effects applied once), double account deletion and deletion during activity, parallel roster imports, concurrent job ingest of the same posting, and `setScheduled` in outreach (unconditional update; only matters if delivery is ever enabled).
-10. [ ] **Committed bundles, more flows (G).** The first end-to-end run is done (see Done). Still to do: the drain routes with a real outbox backlog through the bundles, the admin roster import through the admin bundle, deletion through the auth bundle, and a clean-room `pnpm install --frozen-lockfile` + bundle + run from a fresh clone.
+10. [ ] **Committed bundles, more flows (G).** The resume-to-recommendation loop and the drains are done (see Done). Still to do: the admin roster import through the admin bundle, account deletion through the auth bundle, and an outreach draft through the outreach bundle.
 12. [ ] **Frontends in a browser (E).** Static review, redirect, link and header checks are done (see Done). Still to do: Playwright against a fake API with script-like, oversized, RTL and null data on every page, API down / 500 / 429 / malformed JSON on every page, double submit on mutating buttons, and a Content-Security-Policy with nonces.
 
 ## Done
@@ -42,6 +42,7 @@ describes the attack areas (A to G) lives outside the repo; each task below name
 - [x] **Upload filenames and CSV parsing (D)** — `work/break-fix-1`. A NUL byte or a 400+ character filename made an upload 500 after the file was already stored; control and bidi characters were shown back. Names are now sanitized. Roster CSV parsing held on 15 hostile shapes. Suite: 136 files, 2,162 tests.
 - [x] **Every route requires sign-in (A)** — `work/break-fix-1`. The bundle test now walks each booted bundle's real route table and checks anonymous and forged-token requests get 401 everywhere except the probes. All pass. PR [#10](https://github.com/NiksheyYadav/autoapply/pull/10) is open (draft, base is the launch branch) and its CI is green.
 - [x] **Database outage reads as 503, not 500 (C)** — `work/break-fix-1`. Connection failures and "too many connections" now answer 503 with a fixed message. Over-posting checked: schemas strip unknown keys. Suite: 136 files, 2,178 tests.
+- [x] **Main product loop through the deployed bundles (G)** — `work/break-fix-1`. Resume upload, job ingest, matching drain and recommendations work across four bundles and the outbox; the other consumers' drains behave. Suite: 136 files, 2,180 tests.
 
 ## Blocked
 

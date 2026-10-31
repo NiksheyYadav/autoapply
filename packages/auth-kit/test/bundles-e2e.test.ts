@@ -246,15 +246,7 @@ describe.skipIf(!testDatabaseUrl)('the committed deploy bundles, booted for real
   let resumeId = '';
 
   it('profile: reads a text resume, a PDF and a DOCX inside the bundle (the parsing libraries are really there)', async () => {
-    const text = Buffer.from(
-      'Ada Lovelace\nada@example.com\n+1 555 123 4567\n\nSummary\nBackend engineer.\n\nExperience\nAcme Corp — Engineer\nJan 2019 - Present\n- Built TypeScript services serving 2M users\n\nSkills\nTypeScript, PostgreSQL, Node.js\n',
-    );
-    const asText = await upload('resume.txt', 'text/plain', text);
-    expect(asText.status).toBe(201);
-    const textBody = await read(asText);
-    expect(textBody.status, 'text upload').toBe('parsed');
-    resumeId = textBody.resume_id;
-
+    // The text resume goes last: matching scores against the latest parsed resume.
     const asPdf = await upload('resume.pdf', 'application/pdf', buildPdf(['Grace Hopper', 'Compiler pioneer. TypeScript. PostgreSQL.']));
     expect(asPdf.status).toBe(201);
     expect((await read(asPdf)).status, 'PDF upload').toBe('parsed');
@@ -266,6 +258,15 @@ describe.skipIf(!testDatabaseUrl)('the committed deploy bundles, booted for real
     );
     expect(asDocx.status).toBe(201);
     expect((await read(asDocx)).status, 'DOCX upload').toBe('parsed');
+
+    const text = Buffer.from(
+      'Ada Lovelace\nada@example.com\n+1 555 123 4567\n\nSummary\nBackend engineer.\n\nExperience\nAcme Corp — Engineer\nJan 2019 - Present\n- Built TypeScript services serving 2M users\n\nSkills\nTypeScript, PostgreSQL, Node.js\n',
+    );
+    const asText = await upload('resume.txt', 'text/plain', text);
+    expect(asText.status).toBe(201);
+    const textBody = await read(asText);
+    expect(textBody.status, 'text upload').toBe('parsed');
+    resumeId = textBody.resume_id;
 
     const list = await call('profile', '/v1/resumes', { bearer: userToken });
     expect((await read(list)).items).toHaveLength(3);
@@ -326,6 +327,33 @@ describe.skipIf(!testDatabaseUrl)('the committed deploy bundles, booted for real
     expect((await read(moved)).application.status).toBe('submitted');
     const mine = await call('applications', '/v1/applications', { bearer: userToken });
     expect(((await read(mine)) as { items: unknown[] }).items).toHaveLength(1);
+  });
+
+  // The product's main loop, across four deployed functions and the Postgres outbox: a resume is parsed
+  // (profile), a job is discovered (jobs), the matching consumer scores the pair when its drain route is
+  // called, and the score shows up as a recommendation (jobs again).
+  it('matching: after the drain, the uploaded resume produces a recommendation for the ingested job', async () => {
+    const drain = await call('matching', '/internal/matching/drain?limit=1000&budget_ms=20000', { method: 'POST', bearer: cronSecret });
+    expect(drain.status).toBe(200);
+    const result = await read(drain);
+    expect(result.processed ?? result.delivered ?? result.handled ?? 0, JSON.stringify(result)).toBeGreaterThan(0);
+
+    const recommendations = await call('jobs', `/v1/jobs/recommendations?user_id=${userId}&limit=50`, { bearer: userToken });
+    expect(recommendations.status).toBe(200);
+    const items = (await read(recommendations)).items as Array<{ job: { job_id: string }; score: number; reasons: string[] }>;
+    const mine = items.find((item) => item.job.job_id === jobId);
+    expect(mine, `the ingested job is recommended (${items.length} items)`).toBeDefined();
+    expect(mine!.score).toBeGreaterThan(0);
+    expect(mine!.reasons.join(' ')).toMatch(/typescript|postgresql/i);
+  });
+
+  it('the other consumers drain cleanly too, and a drain with the wrong secret is refused', async () => {
+    for (const [service, path] of [['learning', '/internal/learning/drain'], ['analytics', '/internal/analytics/drain'], ['referrals', '/internal/referrals/drain']] as const) {
+      expect((await call(service, path, { method: 'POST' })).status, `${service} anonymous`).toBe(401);
+      expect((await call(service, path, { method: 'POST', bearer: 'wrong-secret-wrong-secret' })).status, `${service} wrong secret`).toBe(401);
+      const drained = await call(service, `${path}?limit=1000&budget_ms=20000`, { method: 'POST', bearer: cronSecret });
+      expect(drained.status, `${service} drain`).toBe(200);
+    }
   });
 
   it('a user cannot read another user\'s resume or application through the bundles', async () => {
