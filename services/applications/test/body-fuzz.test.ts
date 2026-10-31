@@ -197,4 +197,17 @@ describe('applications-service request bodies', () => {
     expect(res.statusCode).toBeLessThan(500);
     expect(res.json().error.request_id).toEqual(expect.any(String));
   });
+
+  // The database behind this app is unreachable (port 1). A caller who is signed in and whose request
+  // is valid should be told "try again", not that the service crashed.
+  it('answers 503 with the standard envelope when the database cannot be reached', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/v1/applications',
+      headers: { authorization: `Bearer ${token}`, 'x-forwarded-for': '10.3.0.1' },
+    });
+    expect(res.statusCode).toBe(503);
+    expect(res.json().error).toMatchObject({ code: 'UPSTREAM_UNAVAILABLE', request_id: expect.any(String) });
+    expect(res.body).not.toMatch(/127\.0\.0\.1|ECONNREFUSED|postgres:\/\//);
+  });
 });

@@ -45969,10 +45969,46 @@ var AppError = class extends Error {
 function isAppError(value) {
   return value instanceof AppError;
 }
+var DATABASE_UNAVAILABLE_CODES = /* @__PURE__ */ new Set([
+  "53300",
+  // too_many_connections
+  "57P01",
+  // admin_shutdown
+  "57P02",
+  // crash_shutdown
+  "57P03",
+  // cannot_connect_now
+  "08000",
+  "08001",
+  "08003",
+  "08004",
+  "08006",
+  "08007",
+  "CONNECTION_CLOSED",
+  "CONNECTION_DESTROYED",
+  "CONNECTION_ENDED",
+  "CONNECT_TIMEOUT",
+  "ECONNREFUSED",
+  "ECONNRESET",
+  "EPIPE",
+  "ETIMEDOUT",
+  "ENOTFOUND",
+  "EAI_AGAIN"
+]);
 function toAppError(value) {
   if (isAppError(value)) return value;
+  const code = pgErrorCode(value);
+  if (code !== void 0 && DATABASE_UNAVAILABLE_CODES.has(code)) {
+    return new AppError("UPSTREAM_UNAVAILABLE", "The service is temporarily unavailable. Please try again shortly.", { cause: value });
+  }
   const message2 = value instanceof Error ? value.message : String(value);
   return new AppError("INTERNAL_ERROR", message2, { cause: value, exposeMessage: false });
+}
+function pgErrorCode(cause) {
+  if (typeof cause !== "object" || cause === null) return void 0;
+  const direct = cause.code;
+  if (typeof direct === "string") return direct;
+  return pgErrorCode(cause.cause);
 }
 
 // packages/utils/src/ids.ts
