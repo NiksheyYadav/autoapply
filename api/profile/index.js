@@ -121177,7 +121177,7 @@ function optimizeResumeRoute(app2, deps) {
 
 // services/profile/src/lib/extract-text.ts
 var import_mammoth = __toESM(require_lib7(), 1);
-import { inflateRaw } from "node:zlib";
+import { inflateRaw, inflateSync } from "node:zlib";
 import { promisify } from "node:util";
 
 // node_modules/.pnpm/pdfjs-dist@5.4.296/node_modules/pdfjs-dist/legacy/build/pdf.mjs
@@ -153158,6 +153158,9 @@ var MAX_EXTRACTED_TEXT_CHARS = 2e5;
 var MAX_PDF_PAGES = 30;
 var MAX_DOCX_ENTRIES = 1e3;
 var MAX_DOCX_UNCOMPRESSED_BYTES = 30 * 1024 * 1024;
+var MAX_PDF_STREAM_BYTES = 32 * 1024 * 1024;
+var MAX_PDF_TOTAL_STREAM_BYTES = 128 * 1024 * 1024;
+var MAX_PDF_STREAMS_CHECKED = 2e4;
 var FORMAT_BY_MIME = {
   [PDF_MIME]: "pdf",
   [DOCX_MIME]: "docx",
@@ -153318,6 +153321,38 @@ async function verifyResumeUpload(buffer2, declaredContentType) {
   if (format === "docx") await assertSafeDocxArchive(buffer2);
   return MIME_BY_FORMAT[format];
 }
+function startsLikeZlib(body) {
+  return body.length >= 2 && (body[0] & 15) === 8 && (body[0] << 8 | body[1]) % 31 === 0;
+}
+function assertSafePdfStreams(buffer2) {
+  let total = 0;
+  let checked = 0;
+  let from = 0;
+  for (; ; ) {
+    const keyword = buffer2.indexOf("stream", from, "latin1");
+    if (keyword === -1) return;
+    from = keyword + 6;
+    if (keyword >= 3 && buffer2.toString("latin1", keyword - 3, keyword) === "end") continue;
+    let start = keyword + 6;
+    if (buffer2[start] === 13) start += 1;
+    if (buffer2[start] === 10) start += 1;
+    if (!startsLikeZlib(buffer2.subarray(start, start + 2))) continue;
+    checked += 1;
+    if (checked > MAX_PDF_STREAMS_CHECKED) throw archiveTooLarge();
+    const end = buffer2.indexOf("endstream", start, "latin1");
+    const body = buffer2.subarray(start, end === -1 ? buffer2.length : end);
+    let inflated;
+    try {
+      inflated = inflateSync(body, { maxOutputLength: MAX_PDF_STREAM_BYTES }).length;
+    } catch (cause) {
+      if (cause.code === "ERR_BUFFER_TOO_LARGE") throw archiveTooLarge();
+      continue;
+    }
+    total += inflated;
+    if (total > MAX_PDF_TOTAL_STREAM_BYTES) throw archiveTooLarge();
+    from = Math.max(from, end === -1 ? buffer2.length : end);
+  }
+}
 function finalizeText(text2) {
   const clean = text2.includes("\0") ? text2.replaceAll("\0", "") : text2;
   return clean.length > MAX_EXTRACTED_TEXT_CHARS ? clean.slice(0, MAX_EXTRACTED_TEXT_CHARS) : clean;
@@ -153325,6 +153360,7 @@ function finalizeText(text2) {
 async function extractText(buffer2, contentType) {
   const mime = await verifyResumeUpload(buffer2, contentType);
   if (mime === PDF_MIME) {
+    assertSafePdfStreams(buffer2);
     const parser = new PDFParse({ data: buffer2 });
     try {
       const result2 = await parser.getText({ first: MAX_PDF_PAGES });
