@@ -7,6 +7,7 @@ import type { AtsReport, CreateResumeResponse, ParsedProfile } from '@atlas/type
 import { AppError, newTraceContext, pgErrorCode } from '@atlas/utils';
 import type { AppDeps } from '../../app.js';
 import { extractText, resumeFailureReason, verifyResumeUpload } from '../../lib/extract-text.js';
+import { sanitizeFilename } from '../../lib/filename.js';
 import { sha256HexBuffer } from '../../lib/hash.js';
 import { findByUserAndHash, insertPending, markFailed, markParsed } from '../../repo/resumes.js';
 
@@ -63,7 +64,7 @@ export function uploadResumeRoute(app: FastifyInstance, deps: AppDeps): void {
         const resume = await insertPending(deps.db, {
           userId: actor.user_id,
           storageUrl: storageKey,
-          originalFilename: data.filename,
+          originalFilename: sanitizeFilename(data.filename),
           contentType,
           byteSize: buffer.length,
           contentHash,

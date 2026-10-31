@@ -215644,6 +215644,21 @@ function resumeFailureReason(cause) {
   return RESUME_FAILURE_REASONS.unreadable;
 }
 
+// services/profile/src/lib/filename.ts
+var FALLBACK_NAME = "resume";
+var MAX_NAME_LENGTH = 255;
+var MAX_EXTENSION_LENGTH = 16;
+var UNSAFE_CHARS = /[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/g;
+function sanitizeFilename(raw) {
+  const lastSegment = (raw ?? "").split(/[\\/]/).pop() ?? "";
+  const cleaned = lastSegment.replace(UNSAFE_CHARS, "").replace(/\s+/g, " ").trim();
+  if (cleaned === "" || /^[. ]+$/.test(cleaned)) return FALLBACK_NAME;
+  if (cleaned.length <= MAX_NAME_LENGTH) return cleaned;
+  const dot = cleaned.lastIndexOf(".");
+  const extension = dot > 0 && cleaned.length - dot <= MAX_EXTENSION_LENGTH ? cleaned.slice(dot) : "";
+  return `${Array.from(cleaned.slice(0, dot > 0 ? dot : cleaned.length)).slice(0, MAX_NAME_LENGTH - extension.length).join("")}${extension}`;
+}
+
 // services/profile/src/lib/hash.ts
 import { createHash as createHash2 } from "node:crypto";
 function sha256HexBuffer(data) {
@@ -215682,7 +215697,7 @@ function uploadResumeRoute(app2, deps) {
         const resume = await insertPending(deps.db, {
           userId: actor.user_id,
           storageUrl: storageKey,
-          originalFilename: data.filename,
+          originalFilename: sanitizeFilename(data.filename),
           contentType,
           byteSize: buffer2.length,
           contentHash
