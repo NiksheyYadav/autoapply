@@ -2,9 +2,17 @@ import { inflateRaw, inflateSync } from 'node:zlib';
 import { promisify } from 'node:util';
 import mammoth from 'mammoth';
 import { PDFParse } from 'pdf-parse';
+import { getData as getPdfWorkerData } from 'pdf-parse/worker';
 import { AppError } from '@atlas/utils';
 
 const inflateRawAsync = promisify(inflateRaw);
+
+// pdf.js runs its parser in a "worker" module that it loads by file name, relative to where the
+// code that asks for it lives. In a bundled function (api/profile/index.js on Vercel) there is no
+// such file next to the bundle, and every PDF failed with "Setting up fake worker failed: Cannot
+// find module .../api/profile/pdf.worker.mjs". pdf-parse ships the same worker embedded as a data
+// URL, which needs no file at all, so it is used everywhere: the bundle, the sources, the tests.
+PDFParse.setWorker(getPdfWorkerData());
 
 const PDF_MIME = 'application/pdf';
 const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
