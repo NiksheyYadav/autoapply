@@ -37,10 +37,24 @@ export class SourcePayloadError extends Error {
   }
 }
 
-/** Trimmed, length-capped text; null when nothing is left. */
+/**
+ * Characters that have no place in a posting and do harm elsewhere: NUL (Postgres cannot store it,
+ * so the posting would be rejected, and one rejected posting stops a board's closed roles from ever
+ * being deactivated), the other control characters except tab, line feed and carriage return
+ * (they garble logs and terminals), and the bidirectional overrides and isolates that reverse the
+ * text around them, which can make a title read as something else.
+ */
+// eslint-disable-next-line no-control-regex
+const UNSAFE_TEXT_CHARS = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/g;
+
+export function stripUnsafeChars(text: string): string {
+  return text.replace(UNSAFE_TEXT_CHARS, '');
+}
+
+/** Cleaned, trimmed, length-capped text; null when nothing is left. */
 export function clampText(value: string | null | undefined, max: number): string | null {
   if (typeof value !== 'string') return null;
-  const trimmed = value.trim();
+  const trimmed = stripUnsafeChars(value).trim();
   if (trimmed === '') return null;
   return trimmed.length > max ? trimmed.slice(0, max).trimEnd() : trimmed;
 }

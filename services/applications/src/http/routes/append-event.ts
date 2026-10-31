@@ -42,6 +42,11 @@ export function appendEventRoute(app: FastifyInstance, deps: AppDeps): void {
       toStatus: body.to_status,
       note: body.note ?? null,
     });
+    if (updated === null) {
+      // Moved by another request between our read and our write (a double click, or the user and
+      // staff acting together). The move was validated against a status it no longer has.
+      throw new AppError('CONFLICT', 'This application was just changed by another request. Reload it and try again.');
+    }
 
     if (body.to_status === 'submitted') {
       await deps.broker.publish(

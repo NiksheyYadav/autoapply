@@ -1,10 +1,18 @@
-import { inflateRaw } from 'node:zlib';
+import { inflateRaw, inflateSync } from 'node:zlib';
 import { promisify } from 'node:util';
 import mammoth from 'mammoth';
 import { PDFParse } from 'pdf-parse';
+import { getData as getPdfWorkerData } from 'pdf-parse/worker';
 import { AppError } from '@atlas/utils';
 
 const inflateRawAsync = promisify(inflateRaw);
+
+// pdf.js runs its parser in a "worker" module that it loads by file name, relative to where the
+// code that asks for it lives. In a bundled function (api/profile/index.js on Vercel) there is no
+// such file next to the bundle, and every PDF failed with "Setting up fake worker failed: Cannot
+// find module .../api/profile/pdf.worker.mjs". pdf-parse ships the same worker embedded as a data
+// URL, which needs no file at all, so it is used everywhere: the bundle, the sources, the tests.
+PDFParse.setWorker(getPdfWorkerData());
 
 const PDF_MIME = 'application/pdf';
 const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
@@ -21,6 +29,11 @@ export const MAX_EXTRACTED_TEXT_CHARS = 200_000;
 export const MAX_PDF_PAGES = 30;
 export const MAX_DOCX_ENTRIES = 1_000;
 export const MAX_DOCX_UNCOMPRESSED_BYTES = 30 * 1024 * 1024;
+/** One PDF stream may inflate to this much (a full-page 24-bit scan at 300 dpi is about 25 MB). */
+export const MAX_PDF_STREAM_BYTES = 32 * 1024 * 1024;
+/** All the PDF's compressed streams together may inflate to this much. */
+export const MAX_PDF_TOTAL_STREAM_BYTES = 128 * 1024 * 1024;
+const MAX_PDF_STREAMS_CHECKED = 20_000;
 
 export type ResumeFormat = 'pdf' | 'docx' | 'text';
 
@@ -254,6 +267,56 @@ export async function verifyResumeUpload(buffer: Buffer, declaredContentType: st
   return MIME_BY_FORMAT[format];
 }
 
+/** True when the bytes open with a valid zlib header (the `FlateDecode` filter's wrapper). */
+function startsLikeZlib(body: Buffer): boolean {
+  return body.length >= 2 && (body[0]! & 0x0f) === 8 && ((body[0]! << 8) | body[1]!) % 31 === 0;
+}
+
+/**
+ * Rejects PDF decompression bombs *before* pdf.js sees the file. A PDF stream is usually
+ * `FlateDecode`, and a few hundred KB of it can inflate to hundreds of MB (a page whose content is
+ * a very long run of spaces, an image of one colour), which costs seconds of CPU and a gigabyte
+ * or more of memory in the upload request. Every stream that opens like a zlib stream is inflated
+ * here with `maxOutputLength`, so one that expands past {@link MAX_PDF_STREAM_BYTES}, or streams
+ * that together pass {@link MAX_PDF_TOTAL_STREAM_BYTES}, abort the upload with a 413. The scan
+ * looks at raw bytes and ignores what the stream dictionaries claim, because those are
+ * attacker-controlled; anything it cannot inflate is left to pdf.js, which reads it lazily and
+ * only for the first {@link MAX_PDF_PAGES} pages.
+ */
+export function assertSafePdfStreams(buffer: Buffer): void {
+  let total = 0;
+  let checked = 0;
+  let from = 0;
+  for (;;) {
+    const keyword = buffer.indexOf('stream', from, 'latin1');
+    if (keyword === -1) return;
+    from = keyword + 6;
+    // "endstream" contains the keyword too; only "stream" on its own opens a stream.
+    if (keyword >= 3 && buffer.toString('latin1', keyword - 3, keyword) === 'end') continue;
+
+    let start = keyword + 6;
+    if (buffer[start] === 0x0d) start += 1;
+    if (buffer[start] === 0x0a) start += 1;
+    if (!startsLikeZlib(buffer.subarray(start, start + 2))) continue;
+
+    checked += 1;
+    if (checked > MAX_PDF_STREAMS_CHECKED) throw archiveTooLarge();
+    const end = buffer.indexOf('endstream', start, 'latin1');
+    const body = buffer.subarray(start, end === -1 ? buffer.length : end);
+    let inflated: number;
+    try {
+      inflated = inflateSync(body, { maxOutputLength: MAX_PDF_STREAM_BYTES }).length;
+    } catch (cause) {
+      // Over the limit is the one failure that matters; a damaged stream is pdf.js's to report.
+      if ((cause as { code?: unknown }).code === 'ERR_BUFFER_TOO_LARGE') throw archiveTooLarge();
+      continue;
+    }
+    total += inflated;
+    if (total > MAX_PDF_TOTAL_STREAM_BYTES) throw archiveTooLarge();
+    from = Math.max(from, end === -1 ? buffer.length : end);
+  }
+}
+
 /** Bounded, NUL-free text: Postgres `text` rejects NUL bytes and `parsed_text` is sensitive and unbounded otherwise. */
 function finalizeText(text: string): string {
   const clean = text.includes('\u0000') ? text.replaceAll('\u0000', '') : text;
@@ -268,6 +331,7 @@ export async function extractText(buffer: Buffer, contentType: string): Promise<
   const mime = await verifyResumeUpload(buffer, contentType);
 
   if (mime === PDF_MIME) {
+    assertSafePdfStreams(buffer);
     const parser = new PDFParse({ data: buffer });
     try {
       // A resume is a handful of pages; never walk an arbitrarily long document.

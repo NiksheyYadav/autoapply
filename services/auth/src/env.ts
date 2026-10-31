@@ -3,6 +3,7 @@ import {
   databaseEnvSchema,
   httpEnvSchema,
   loadEnv,
+  rateLimitWindowSchema,
   storageEnvSchema,
   supabaseAuthEnvSchema,
 } from '@atlas/config';
@@ -27,7 +28,7 @@ export const authServiceEnvSchema = z.object({
    */
   PRIVACY_EXPORT_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(10),
   PRIVACY_DELETE_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(3),
-  PRIVACY_RATE_LIMIT_WINDOW: z.string().min(1).default('1 hour'),
+  PRIVACY_RATE_LIMIT_WINDOW: rateLimitWindowSchema.default('1 hour'),
 });
 
 export type AuthServiceEnv = z.infer<typeof authServiceEnvSchema>;

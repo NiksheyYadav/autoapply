@@ -1,7 +1,7 @@
 import { and, desc, eq, lt, or } from 'drizzle-orm';
 import { schema, type Database } from '@atlas/db';
 import type { AtsReport, PaginationQuery, ParsedProfile, Resume } from '@atlas/types';
-import { decodeCursor, encodeCursor } from '@atlas/utils';
+import { encodeCursor, parseTimeCursor } from '@atlas/utils';
 
 type ResumeRow = typeof schema.resumes.$inferSelect;
 
@@ -70,6 +70,11 @@ export interface MarkParsedInput {
   atsReport: AtsReport;
 }
 
+/** Removes a record that has no file behind it (an upload whose storage write failed). */
+export async function deleteById(db: Database, resumeId: string): Promise<void> {
+  await db.delete(schema.resumes).where(eq(schema.resumes.resumeId, resumeId));
+}
+
 export async function markParsed(db: Database, resumeId: string, result: MarkParsedInput): Promise<void> {
   const now = new Date().toISOString();
   await db
@@ -103,9 +108,9 @@ export async function listForUser(
   userId: string,
   pagination: PaginationQuery,
 ): Promise<ListForUserResult> {
-  const cursorValue = pagination.cursor ? decodeCursor(pagination.cursor) : null;
-  const cursorCreatedAt = typeof cursorValue?.createdAt === 'string' ? cursorValue.createdAt : null;
-  const cursorId = typeof cursorValue?.id === 'string' ? cursorValue.id : null;
+  const cursor = parseTimeCursor(pagination.cursor);
+  const cursorCreatedAt = cursor?.createdAt ?? null;
+  const cursorId = cursor?.id ?? null;
 
   const conditions = [eq(schema.resumes.userId, userId)];
   if (cursorCreatedAt && cursorId) {

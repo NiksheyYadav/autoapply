@@ -1,4 +1,12 @@
-import { baseEnvSchema, databaseEnvSchema, httpEnvSchema, loadEnv, messagingEnvSchema, supabaseAuthEnvSchema } from '@atlas/config';
+import {
+  baseEnvSchema,
+  cronSecretSchema,
+  databaseEnvSchema,
+  httpEnvSchema,
+  loadEnv,
+  messagingEnvSchema,
+  supabaseAuthEnvSchema,
+} from '@atlas/config';
 import { z } from 'zod';
 
 export const jobsServiceEnvSchema = z.object({
@@ -18,7 +26,7 @@ export const jobsServiceEnvSchema = z.object({
    * ingestion (a scheduler sends `Authorization: Bearer $CRON_SECRET`). Unset,
    * the route answers 503 and never runs.
    */
-  CRON_SECRET: z.string().min(16, 'CRON_SECRET must be at least 16 characters').optional(),
+  CRON_SECRET: cronSecretSchema.optional(),
   /**
    * An email address or URL where the operator of a job board can reach whoever
    * runs this reader, appended to the User-Agent it sends. Printable ASCII only

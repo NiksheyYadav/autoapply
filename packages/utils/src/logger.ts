@@ -1,4 +1,4 @@
-import { pino, type Logger } from 'pino';
+import { pino, type DestinationStream, type Logger } from 'pino';
 import { REDACTED } from './redact.js';
 
 export type { Logger };
@@ -7,14 +7,17 @@ export interface LoggerOptions {
   service: string;
   level?: string;
   pretty?: boolean;
+  /** Where lines go; stdout when omitted. For tests that read what was logged. */
+  destination?: DestinationStream;
 }
 
 /**
  * Structured JSON logs with trace propagation (docs/10 § Observability).
  * Redaction is configured here so no service can log a secret by accident.
  */
-export function createLogger({ service, level = 'info', pretty = false }: LoggerOptions): Logger {
-  return pino({
+export function createLogger({ service, level = 'info', pretty = false, destination }: LoggerOptions): Logger {
+  return pino(
+    {
     level,
     base: { service },
     redact: {
@@ -32,6 +35,25 @@ export function createLogger({ service, level = 'info', pretty = false }: Logger
         '*.password',
         '*.access_token',
         '*.refresh_token',
+        // The same secrets one level down, in request-shaped objects and in a bare `headers`.
+        'authorization',
+        'cookie',
+        'headers.authorization',
+        'headers.cookie',
+        'headers["x-api-key"]',
+        '*.authorization',
+        '*.cookie',
+        '*.headers.authorization',
+        '*.headers.cookie',
+        '*.headers["x-api-key"]',
+        '*.token',
+        '*.secret',
+        '*.api_key',
+        '*.client_secret',
+        '*.private_key',
+        // A resume's text is personal data and can be 200,000 characters of it.
+        'parsed_text',
+        '*.parsed_text',
       ],
       censor: REDACTED,
     },
@@ -47,7 +69,9 @@ export function createLogger({ service, level = 'info', pretty = false }: Logger
           },
         }
       : {}),
-  });
+    },
+    destination,
+  );
 }
 
 /** A logger that discards everything. Used by tests and by dry-run workers. */

@@ -1,7 +1,7 @@
 import { and, desc, eq, ilike, inArray, lt, or, sql } from 'drizzle-orm';
 import { schema, type Database } from '@atlas/db';
 import type { EmploymentType, Job, JobSource, PaginationQuery, RemoteType } from '@atlas/types';
-import { decodeCursor, encodeCursor } from '@atlas/utils';
+import { encodeCursor, parseTimeCursor } from '@atlas/utils';
 
 type JobRow = typeof schema.jobs.$inferSelect;
 
@@ -189,9 +189,9 @@ export async function listActive(
   filters: ListActiveFilters,
   pagination: PaginationQuery,
 ): Promise<ListJobsResult> {
-  const cursorValue = pagination.cursor ? decodeCursor(pagination.cursor) : null;
-  const cursorCreatedAt = typeof cursorValue?.createdAt === 'string' ? cursorValue.createdAt : null;
-  const cursorId = typeof cursorValue?.id === 'string' ? cursorValue.id : null;
+  const cursor = parseTimeCursor(pagination.cursor);
+  const cursorCreatedAt = cursor?.createdAt ?? null;
+  const cursorId = cursor?.id ?? null;
 
   const conditions = [];
   if (filters.isActive !== undefined) conditions.push(eq(schema.jobs.isActive, filters.isActive));

@@ -154,6 +154,53 @@ describe.skipIf(!testDatabaseUrl)('profile-service HTTP flow', () => {
     expect(res.json().error.code).toBe('VALIDATION_ERROR');
   });
 
+  // The filename is whatever the client says. It is shown back to the user and stored in a 400-character
+  // column, so it must not make the upload fail, and nothing in it may reach the storage path (that is
+  // built from the user id and the content hash).
+  describe('hostile filenames', () => {
+    const cases: ReadonlyArray<readonly [string, string]> = [
+      ['a NUL byte', 'a\u0000b.txt'],
+      ['5,000 characters', `${'x'.repeat(5000)}.txt`],
+      ['a Unix traversal path', '../../../etc/passwd'],
+      ['a Windows traversal path', '..\\..\\windows\\system32\\config'],
+      ['a right-to-left override', 'resume\u202egnp.txt'],
+      ['control characters', 'bell\u0007esc\u001b[31m.txt'],
+      ['unicode and emoji', 'résumé 日本語 🙂.txt'],
+      ['only dots', '...'],
+      ['only spaces', '   '],
+      ['an empty name', ''],
+    ];
+
+    it.each(cases)('stores or refuses a file named with %s, never a 500', async (_label, filename) => {
+      const boundary = `boundary-name-${Math.abs(filename.length * 7919)}`;
+      const body = buildMultipartBody(
+        boundary,
+        {},
+        { filename, contentType: 'text/plain', data: Buffer.from(`Filename test ${randomUUID()}\nBackend engineer\nTypeScript, PostgreSQL`) },
+      );
+      const res = await app.inject({
+        method: 'POST',
+        url: '/v1/resumes',
+        headers: { authorization: `Bearer ${token}`, 'content-type': `multipart/form-data; boundary=${boundary}` },
+        payload: body,
+      });
+      expect(res.statusCode, res.body.slice(0, 200)).toBeLessThan(500);
+      if (res.statusCode >= 400) return;
+
+      const fetched = await app.inject({
+        method: 'GET',
+        url: `/v1/resumes/${res.json().resume_id}`,
+        headers: { authorization: `Bearer ${token}` },
+      });
+      expect(fetched.statusCode).toBe(200);
+      const stored = fetched.json().resume.original_filename as string;
+      expect(stored.length).toBeGreaterThan(0);
+      expect(stored.length).toBeLessThanOrEqual(400);
+      // eslint-disable-next-line no-control-regex
+      expect(stored).not.toMatch(/[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/);
+    });
+  });
+
   it('uploads, parses, and retrieves a resume; re-uploading the same bytes is idempotent', async () => {
     const resumeText = [
       'Ada Lovelace',

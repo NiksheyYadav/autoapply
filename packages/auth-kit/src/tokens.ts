@@ -26,6 +26,23 @@ export function createTokenVerifierConfig(env: TokenVerifierEnvSource): TokenVer
   };
 }
 
+/**
+ * True when verification failed because the key set could not be obtained or read, not because
+ * of anything wrong with the token: the endpoint is unreachable, slow, answers with an error, or
+ * serves something that is not a key set. A project that is paused or briefly down must read as
+ * "try again" (503), not as "this session is invalid" (401), or every client signs its user out.
+ * A plain JOSEError (neither a token problem such as a bad signature or an expired claim, nor a
+ * more specific key-set error) is what jose raises for a non-200 key-set response.
+ */
+function isKeySetUnavailable(cause: unknown): boolean {
+  if (!(cause instanceof joseErrors.JOSEError)) return true;
+  return (
+    cause instanceof joseErrors.JWKSTimeout ||
+    cause instanceof joseErrors.JWKSInvalid ||
+    cause.constructor === joseErrors.JOSEError
+  );
+}
+
 /** Verifies signature, issuer, and expiry, then re-validates the claim shape. */
 export async function verifyAccessToken(
   token: string,
@@ -36,8 +53,16 @@ export async function verifyAccessToken(
     ({ payload } = await jwtVerify(token, config.jwks, {
       issuer: config.issuer,
       audience: 'authenticated',
+      // jose treats a missing `exp` as "never expires" unless told otherwise. Supabase always
+      // sets both, so a token without them was not issued by it.
+      requiredClaims: ['exp', 'sub'],
     }));
   } catch (cause) {
+    if (isKeySetUnavailable(cause)) {
+      throw new AppError('UPSTREAM_UNAVAILABLE', 'Sign-in keys are temporarily unavailable', {
+        cause,
+      });
+    }
     const message =
       cause instanceof joseErrors.JWTExpired ? 'Access token has expired' : 'Access token is invalid';
     throw new AppError('UNAUTHENTICATED', message, { cause });

@@ -7,11 +7,13 @@ import type { AtsReport, CreateResumeResponse, ParsedProfile } from '@atlas/type
 import { AppError, newTraceContext, pgErrorCode } from '@atlas/utils';
 import type { AppDeps } from '../../app.js';
 import { extractText, resumeFailureReason, verifyResumeUpload } from '../../lib/extract-text.js';
+import { sanitizeFilename } from '../../lib/filename.js';
 import { sha256HexBuffer } from '../../lib/hash.js';
-import { findByUserAndHash, insertPending, markFailed, markParsed } from '../../repo/resumes.js';
+import { deleteById, findByUserAndHash, insertPending, markFailed, markParsed } from '../../repo/resumes.js';
 
 /** Postgres unique_violation. */
 const UNIQUE_VIOLATION = '23505';
+const FOREIGN_KEY_VIOLATION = '23503';
 
 /**
  * The Zod contract for this endpoint (`createResumeRequestSchema`) only
@@ -56,20 +58,27 @@ export function uploadResumeRoute(app: FastifyInstance, deps: AppDeps): void {
       }
 
       const storageKey = `resumes/${actor.user_id}/${contentHash}`;
-      await deps.storage.put(storageKey, buffer, { contentType });
 
+      // The record comes first and the file second. The other way round, an upload that the database
+      // then refuses leaves a file behind that nothing points at; the case that matters is the account
+      // of a user who has been deleted: their access token stays valid until it expires, and the file
+      // would be personal data stored for somebody who asked for all of it to be erased.
       let resumeId: string;
       try {
         const resume = await insertPending(deps.db, {
           userId: actor.user_id,
           storageUrl: storageKey,
-          originalFilename: data.filename,
+          originalFilename: sanitizeFilename(data.filename),
           contentType,
           byteSize: buffer.length,
           contentHash,
         });
         resumeId = resume.resumeId;
       } catch (cause) {
+        // The account no longer exists (deleted since the token was issued): nothing is stored for it.
+        if (pgErrorCode(cause) === FOREIGN_KEY_VIOLATION) {
+          throw new AppError('UNAUTHENTICATED', 'This account no longer exists');
+        }
         // Another request for the same user+bytes won the race between our
         // findByUserAndHash check and this insert — that's the same idempotent
         // case above, not a failure.
@@ -81,6 +90,14 @@ export function uploadResumeRoute(app: FastifyInstance, deps: AppDeps): void {
             return;
           }
         }
+        throw cause;
+      }
+
+      try {
+        await deps.storage.put(storageKey, buffer, { contentType });
+      } catch (cause) {
+        // No file, so no record: a resume row that points at nothing would sit "pending" for good.
+        await deleteById(deps.db, resumeId).catch(() => undefined);
         throw cause;
       }
 

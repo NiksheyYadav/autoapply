@@ -4,6 +4,34 @@ import { decodeCursor, encodeCursor, secureEquals, sha256Hex } from '../src/ids.
 import { maskEmail, maskToken, redact, REDACTED } from '../src/redact.js';
 import { backoffDelayMs, withRetry } from '../src/retry.js';
 
+describe('toAppError and an unreachable database', () => {
+  const wrapped = (code: string) => Object.assign(new Error('driver failure with the connection string postgres://user:pw@host/db'), { cause: { code } });
+
+  it.each([
+    ['too many connections', '53300'],
+    ['the server shutting down', '57P01'],
+    ['the server not accepting connections yet', '57P03'],
+    ['a connection exception', '08006'],
+    ['a refused connection', 'ECONNREFUSED'],
+    ['a connection that was closed', 'CONNECTION_CLOSED'],
+    ['a connection that timed out', 'CONNECT_TIMEOUT'],
+    ['a reset connection', 'ECONNRESET'],
+    ['a name that does not resolve', 'ENOTFOUND'],
+  ])('answers 503 for %s, without the driver text', (_label, code) => {
+    const error = toAppError(wrapped(code));
+    expect(error).toMatchObject({ code: 'UPSTREAM_UNAVAILABLE', statusCode: 503 });
+    expect(JSON.stringify(error.toResponse('req-1'))).not.toContain('postgres://');
+    expect(error.toResponse('req-1').error.message).toBe('The service is temporarily unavailable. Please try again shortly.');
+  });
+
+  it.each([['23505'], ['22P02'], ['42P01'], ['23503'], ['40001']])(
+    'still answers 500 for the database error %s: that one is a bug or a conflict, not an outage',
+    (code) => {
+      expect(toAppError(wrapped(code))).toMatchObject({ code: 'INTERNAL_ERROR', statusCode: 500 });
+    },
+  );
+});
+
 describe('AppError', () => {
   it('maps codes to status codes and serializes the documented error envelope', () => {
     const error = new AppError('JOB_NOT_FOUND', 'Job is unavailable');
