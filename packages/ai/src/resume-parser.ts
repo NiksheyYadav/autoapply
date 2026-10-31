@@ -9,7 +9,10 @@ import { extractSkillKeywords } from './skills.js';
  * replace the body later without profile-service noticing.
  */
 
-const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
+// Every quantifier is bounded (64 is the limit for a local part, 255 for a domain): with open-ended
+// ones, a long run of local-part characters and no "@" is rescanned from every start position, which
+// takes quadratic time on a resume made of one 200,000-character word.
+const EMAIL_RE = /[a-zA-Z0-9._%+-]{1,64}@[a-zA-Z0-9.-]{1,255}\.[a-zA-Z]{2,24}/;
 const PHONE_RE = /(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/;
 const URL_RE = /\bhttps?:\/\/[^\s,;)]+|(?:www\.)[^\s,;)]+/gi;
 

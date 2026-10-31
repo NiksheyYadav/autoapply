@@ -120958,7 +120958,7 @@ function analyzeResumeForJob(profile, rawText, target) {
 }
 
 // packages/ai/src/resume-parser.ts
-var EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
+var EMAIL_RE = /[a-zA-Z0-9._%+-]{1,64}@[a-zA-Z0-9.-]{1,255}\.[a-zA-Z]{2,24}/;
 var PHONE_RE = /(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/;
 var URL_RE = /\bhttps?:\/\/[^\s,;)]+|(?:www\.)[^\s,;)]+/gi;
 var MONTHS = {

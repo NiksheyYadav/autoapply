@@ -18,7 +18,7 @@ describes the attack areas (A to G) lives outside the repo; each task below name
 3. [ ] **Env boot fuzz, rest of it (F).** Done: `RATE_LIMIT_*`, `CORS_ORIGINS`. Still to do: `PLATFORM_ADMIN_USER_IDS` oddities, `SUPABASE_URL` (http, localhost, userinfo), `MESSAGING_DRIVER=memory` on serverless, `STORAGE_DRIVER` combinations, `.env.example` against the env schemas.
 4. [ ] **Authorization matrix, runtime part (A).** Token forgery and the ownership checks were attacked and read (see Done). Still to do: run every route against anonymous, other user, other org staff, same-org roles and platform admin as a table-driven test, and mass assignment (extra keys such as `user_id`, `organization_id`, `role`, `status`) on every create and update body; RLS as the `anon`/`authenticated` roles on every table.
 5. [ ] **Validation and pagination fuzz (B).** Malformed JSON, wrong types, oversized bodies, huge `limit` and `offset`, odd UUIDs. Always a clean 4xx envelope, never 500.
-7. [ ] **ReDoS audit (D).** Every regex in `packages/ai`, `services/profile/src`, `services/jobs/src` with adversarial 200 KB inputs.
+7. [ ] **ReDoS audit, rest of it (D).** `packages/ai` is done (see Done). Still to do: regexes in `services/profile/src` (text extraction clean-up), `services/admin` (CSV import), `packages/utils`, and the web apps' client-side parsing.
 8. [ ] **Upload parsers (D).** Hostile PDFs and DOCX (zip bombs, traversal names, truncation), filenames, multipart edge cases.
 9. [ ] **Races and idempotency (C).** Parallel application creates, parallel status moves, double drains, double account deletion.
 10. [ ] **Committed bundles end to end (G).** Boot `api/*/index.js` locally with a fake JWKS issuer, check `scripts/bundle-backend.mjs` is byte-for-byte repeatable.
@@ -32,6 +32,7 @@ describes the attack areas (A to G) lives outside the repo; each task below name
 - [x] **Env boot fuzz, first half (F)** — `work/break-fix-1`. `CORS_ORIGINS` entries that can never match now stop the boot (trailing slash is forgiven). Rate-limit window done earlier.
 - [x] **Token forgery and ownership checks (A)** — `work/break-fix-1`. 13 forgery vectors held. Fixed: a Supabase key-set outage answered 401 (the web app then signs everyone out), now 503; tokens without `exp` were accepted, now refused. New `packages/auth-kit/test/tokens-attacks.test.ts`. Suite: 122 files, 1,783 tests.
 - [x] **Job-source fetchers and hostile postings (D)** — `work/break-fix-1`. SSRF, redirect, size and time limits all held. Fixed: a NUL byte in a posting made it unstorable, which also blocked the board's closed-role cleanup; control and bidi characters are now stripped. Suite: 123 files, 1,785 tests.
+- [x] **ReDoS audit of `packages/ai` (D)** — `work/break-fix-1`. Found a real one: the resume email pattern was quadratic, so a 200 KB one-word text upload pinned a function for minutes. Fixed by bounding the pattern; new growth test over 37 hostile shapes. Suite: 124 files, 1,901 tests.
 
 ## Blocked
 
