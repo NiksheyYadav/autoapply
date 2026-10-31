@@ -201,6 +201,31 @@ describe.skipIf(!testDatabaseUrl)('DELETE /v1/auth/me', () => {
     expect(await tombstones(h, user.userId)).toHaveLength(1);
   });
 
+  it('survives six simultaneous deletions of one account: every request succeeds, one tombstone, nothing left', async () => {
+    const user = await h.seedUser();
+    const [job] = await h.seedJobs(1);
+    const data = await seedUserData(h, user, { label: 'parallel', jobIds: [job!] });
+
+    // Each request from its own address: the per-address limit (3 deletions an hour) is not under test.
+    const results = await Promise.all(
+      Array.from({ length: 6 }, async (_unused, index) =>
+        h.app.inject({
+          method: 'DELETE',
+          url: '/v1/auth/me',
+          headers: { ...(await h.authHeaders(user.userId)), 'x-forwarded-for': `10.9.0.${index + 1}` },
+          payload: { confirm: 'DELETE' } as never,
+        }),
+      ),
+    );
+
+    expect(results.map((res) => res.statusCode)).toEqual(Array(6).fill(200));
+    expect(await userExists(h, user.userId)).toBe(false);
+    expect(await tombstones(h, user.userId)).toHaveLength(1);
+    expect(
+      await rowsMentioning(h.handle.sql, [user.userId, user.email, user.fullName, ...Object.values(data.markers)]),
+    ).toEqual({});
+  });
+
   describe('confirmation', () => {
     it.each([
       ['no body', undefined, undefined],

@@ -53910,6 +53910,23 @@ function decodeCursor(cursor) {
     return null;
   }
 }
+var UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var MAX_CURSOR_SCORE = 1e9;
+function invalidCursor() {
+  return new AppError("VALIDATION_ERROR", "Invalid cursor", {
+    details: [{ path: "cursor", message: "Not a cursor this API issued" }]
+  });
+}
+function parseScoreCursor(cursor) {
+  if (cursor === void 0) return null;
+  const decoded = decodeCursor(cursor);
+  const score = decoded?.score;
+  const id = decoded?.id;
+  if (typeof score !== "number" || !Number.isFinite(score) || Math.abs(score) > MAX_CURSOR_SCORE || typeof id !== "string" || !UUID.test(id)) {
+    throw invalidCursor();
+  }
+  return { score, id };
+}
 
 // packages/utils/src/logger.ts
 var import_pino = __toESM(require_pino(), 1);
@@ -86403,9 +86420,9 @@ async function insertContact(db2, input2) {
   return row;
 }
 async function listForCompany(db2, companyId, pagination) {
-  const cursorValue = pagination.cursor ? decodeCursor(pagination.cursor) : null;
-  const cursorScore = typeof cursorValue?.score === "number" ? cursorValue.score : null;
-  const cursorId = typeof cursorValue?.id === "string" ? cursorValue.id : null;
+  const cursor = parseScoreCursor(pagination.cursor);
+  const cursorScore = cursor?.score ?? null;
+  const cursorId = cursor?.id ?? null;
   const conditions = [eq(schema_exports.contacts.companyId, companyId)];
   if (cursorScore !== null && cursorId) {
     const tieBreak = or(

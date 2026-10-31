@@ -8,7 +8,7 @@ import type {
   ApplicationWithJob,
   PaginationQuery,
 } from '@atlas/types';
-import { decodeCursor, encodeCursor } from '@atlas/utils';
+import { encodeCursor, parseTimeCursor } from '@atlas/utils';
 import { jobSummaryColumns, toJobSummary } from './lookups.js';
 
 export type ApplicationRow = typeof schema.applications.$inferSelect;
@@ -116,9 +116,9 @@ export interface ListForOrganizationResult {
 }
 
 function pageCondition(scopeCondition: SQL, pagination: PaginationQuery): SQL | undefined {
-  const cursorValue = pagination.cursor ? decodeCursor(pagination.cursor) : null;
-  const cursorCreatedAt = typeof cursorValue?.createdAt === 'string' ? cursorValue.createdAt : null;
-  const cursorId = typeof cursorValue?.id === 'string' ? cursorValue.id : null;
+  const cursor = parseTimeCursor(pagination.cursor);
+  const cursorCreatedAt = cursor?.createdAt ?? null;
+  const cursorId = cursor?.id ?? null;
 
   const conditions = [scopeCondition];
   if (cursorCreatedAt && cursorId) {

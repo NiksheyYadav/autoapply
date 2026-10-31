@@ -1,7 +1,7 @@
 import { and, desc, eq, inArray, lt, or } from 'drizzle-orm';
 import { schema, type Database } from '@atlas/db';
 import type { Contact, PaginationQuery } from '@atlas/types';
-import { decodeCursor, encodeCursor } from '@atlas/utils';
+import { encodeCursor, parseScoreCursor } from '@atlas/utils';
 
 type ContactRow = typeof schema.contacts.$inferSelect;
 
@@ -58,9 +58,9 @@ export async function listForCompany(
   companyId: string,
   pagination: PaginationQuery,
 ): Promise<ListForCompanyResult> {
-  const cursorValue = pagination.cursor ? decodeCursor(pagination.cursor) : null;
-  const cursorScore = typeof cursorValue?.score === 'number' ? cursorValue.score : null;
-  const cursorId = typeof cursorValue?.id === 'string' ? cursorValue.id : null;
+  const cursor = parseScoreCursor(pagination.cursor);
+  const cursorScore = cursor?.score ?? null;
+  const cursorId = cursor?.id ?? null;
 
   const conditions = [eq(schema.contacts.companyId, companyId)];
   if (cursorScore !== null && cursorId) {

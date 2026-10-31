@@ -53910,6 +53910,33 @@ function decodeCursor(cursor) {
     return null;
   }
 }
+var PG_TIMESTAMP = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})(?:\.\d{1,6})?(?:Z|[+-](\d{2})(?::?(\d{2}))?)$/;
+var UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function isPostgresTimestamp(text2) {
+  const match = PG_TIMESTAMP.exec(text2);
+  if (match === null) return false;
+  const [year, month, day, hour, minute, second] = match.slice(1, 7).map(Number);
+  const date6 = new Date(Date.UTC(year, month - 1, day));
+  const realDate = year >= 1e3 && date6.getUTCFullYear() === year && date6.getUTCMonth() === month - 1 && date6.getUTCDate() === day;
+  const offsetHours = match[7] === void 0 ? 0 : Number(match[7]);
+  const offsetMinutes = match[8] === void 0 ? 0 : Number(match[8]);
+  return realDate && hour <= 23 && minute <= 59 && second <= 59 && offsetHours <= 15 && offsetMinutes <= 59;
+}
+function invalidCursor() {
+  return new AppError("VALIDATION_ERROR", "Invalid cursor", {
+    details: [{ path: "cursor", message: "Not a cursor this API issued" }]
+  });
+}
+function parseTimeCursor(cursor) {
+  if (cursor === void 0) return null;
+  const decoded = decodeCursor(cursor);
+  const createdAt = decoded?.createdAt;
+  const id = decoded?.id;
+  if (typeof createdAt !== "string" || typeof id !== "string" || !isPostgresTimestamp(createdAt) || !UUID.test(id)) {
+    throw invalidCursor();
+  }
+  return { createdAt, id };
+}
 
 // packages/utils/src/logger.ts
 var import_pino = __toESM(require_pino(), 1);
@@ -86249,10 +86276,10 @@ function registerRateLimitedRoutes(app2, options, declareRoutes) {
 }
 
 // packages/observability/src/timestamps.ts
-var PG_TIMESTAMP = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})(?:\.(\d{1,9}))?(Z|[+-]\d{2}(?::?\d{2})?)$/;
+var PG_TIMESTAMP2 = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})(?:\.(\d{1,9}))?(Z|[+-]\d{2}(?::?\d{2})?)$/;
 var TIMESTAMP_KEY = /_at$/;
 function toIsoTimestamp(value) {
-  const match = PG_TIMESTAMP.exec(value);
+  const match = PG_TIMESTAMP2.exec(value);
   if (!match) return void 0;
   const [, date6, time4, fraction = "", zone = "Z"] = match;
   const millis = fraction.slice(0, 3).padEnd(3, "0");
@@ -86399,9 +86426,9 @@ async function insertApplication(db2, input2) {
   return row;
 }
 function pageCondition(scopeCondition, pagination) {
-  const cursorValue = pagination.cursor ? decodeCursor(pagination.cursor) : null;
-  const cursorCreatedAt = typeof cursorValue?.createdAt === "string" ? cursorValue.createdAt : null;
-  const cursorId = typeof cursorValue?.id === "string" ? cursorValue.id : null;
+  const cursor = parseTimeCursor(pagination.cursor);
+  const cursorCreatedAt = cursor?.createdAt ?? null;
+  const cursorId = cursor?.id ?? null;
   const conditions = [scopeCondition];
   if (cursorCreatedAt && cursorId) {
     const tieBreak = or(
