@@ -16,7 +16,7 @@ describes the attack areas (A to G) lives outside the repo; each task below name
 ## Queue
 
 3. [ ] **Env boot fuzz, rest of it (F).** Done: `RATE_LIMIT_*`, `CORS_ORIGINS`. Still to do: `PLATFORM_ADMIN_USER_IDS` oddities, `SUPABASE_URL` (http, localhost, userinfo), `MESSAGING_DRIVER=memory` on serverless, `STORAGE_DRIVER` combinations, `.env.example` against the env schemas.
-4. [ ] **Authorization matrix (A).** Every route of every service against anonymous, other user, other org staff, same org roles, platform admin. Mass assignment on create and update bodies.
+4. [ ] **Authorization matrix, runtime part (A).** Token forgery and the ownership checks were attacked and read (see Done). Still to do: run every route against anonymous, other user, other org staff, same-org roles and platform admin as a table-driven test, and mass assignment (extra keys such as `user_id`, `organization_id`, `role`, `status`) on every create and update body; RLS as the `anon`/`authenticated` roles on every table.
 5. [ ] **Validation and pagination fuzz (B).** Malformed JSON, wrong types, oversized bodies, huge `limit` and `offset`, odd UUIDs. Always a clean 4xx envelope, never 500.
 6. [ ] **Job-source fetchers (D).** SSRF via board token and redirects, response size and time limits, hostile postings (script tags, `javascript:` apply links), cross-company overwrite.
 7. [ ] **ReDoS audit (D).** Every regex in `packages/ai`, `services/profile/src`, `services/jobs/src` with adversarial 200 KB inputs.
@@ -31,6 +31,7 @@ describes the attack areas (A to G) lives outside the repo; each task below name
 - [x] **Rate limiter vs real client IP (F)** — `work/break-fix-1`. Found and fixed: a bad `RATE_LIMIT_WINDOW` booted and then 500'd every request, or silently disabled limiting. Checked and held: store is a bounded LRU, exempt routes are by scope not path. Spoofable `X-Forwarded-For` is safe on Vercel (it overwrites the header); noted in `docs/17_break_report.md`. Typecheck, lint, full suite (119 files, 1,730 tests) pass; bundles rebuilt.
 - [x] **Internal routes and rewrites (A/F)** — `work/break-fix-1`. Held. Added `packages/utils/test/vercel-routing.test.ts`, which fails if a public route stops resolving to its own function.
 - [x] **Env boot fuzz, first half (F)** — `work/break-fix-1`. `CORS_ORIGINS` entries that can never match now stop the boot (trailing slash is forgiven). Rate-limit window done earlier.
+- [x] **Token forgery and ownership checks (A)** — `work/break-fix-1`. 13 forgery vectors held. Fixed: a Supabase key-set outage answered 401 (the web app then signs everyone out), now 503; tokens without `exp` were accepted, now refused. New `packages/auth-kit/test/tokens-attacks.test.ts`. Suite: 122 files, 1,783 tests.
 
 ## Blocked
 

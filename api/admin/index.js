@@ -67489,14 +67489,26 @@ function createTokenVerifierConfig(env2) {
     issuer: authBase
   };
 }
+function isKeySetUnavailable(cause) {
+  if (!(cause instanceof errors_exports.JOSEError)) return true;
+  return cause instanceof errors_exports.JWKSTimeout || cause instanceof errors_exports.JWKSInvalid || cause.constructor === errors_exports.JOSEError;
+}
 async function verifyAccessToken(token, config2) {
   let payload;
   try {
     ({ payload } = await jwtVerify(token, config2.jwks, {
       issuer: config2.issuer,
-      audience: "authenticated"
+      audience: "authenticated",
+      // jose treats a missing `exp` as "never expires" unless told otherwise. Supabase always
+      // sets both, so a token without them was not issued by it.
+      requiredClaims: ["exp", "sub"]
     }));
   } catch (cause) {
+    if (isKeySetUnavailable(cause)) {
+      throw new AppError("UPSTREAM_UNAVAILABLE", "Sign-in keys are temporarily unavailable", {
+        cause
+      });
+    }
     const message2 = cause instanceof errors_exports.JWTExpired ? "Access token has expired" : "Access token is invalid";
     throw new AppError("UNAUTHENTICATED", message2, { cause });
   }
