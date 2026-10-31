@@ -182871,6 +182871,9 @@ async function insertPending(db2, input2) {
   if (!row) throw new Error("insertPending: insert returned no row");
   return row;
 }
+async function deleteById(db2, resumeId) {
+  await db2.delete(schema_exports.resumes).where(eq(schema_exports.resumes.resumeId, resumeId));
+}
 async function markParsed(db2, resumeId, result2) {
   const now = (/* @__PURE__ */ new Date()).toISOString();
   await db2.update(schema_exports.resumes).set({
@@ -215697,6 +215700,7 @@ function sha256HexBuffer(data) {
 
 // services/profile/src/http/routes/upload-resume.ts
 var UNIQUE_VIOLATION = "23505";
+var FOREIGN_KEY_VIOLATION = "23503";
 var sourceSchema = external_exports.enum(["upload", "connector", "import"]).default("upload");
 function uploadResumeRoute(app2, deps) {
   app2.post(
@@ -215721,7 +215725,6 @@ function uploadResumeRoute(app2, deps) {
         return;
       }
       const storageKey = `resumes/${actor.user_id}/${contentHash}`;
-      await deps.storage.put(storageKey, buffer2, { contentType });
       let resumeId;
       try {
         const resume = await insertPending(deps.db, {
@@ -215734,6 +215737,9 @@ function uploadResumeRoute(app2, deps) {
         });
         resumeId = resume.resumeId;
       } catch (cause) {
+        if (pgErrorCode(cause) === FOREIGN_KEY_VIOLATION) {
+          throw new AppError("UNAUTHENTICATED", "This account no longer exists");
+        }
         if (pgErrorCode(cause) === UNIQUE_VIOLATION) {
           const raced = await findByUserAndHash(deps.db, actor.user_id, contentHash);
           if (raced) {
@@ -215742,6 +215748,12 @@ function uploadResumeRoute(app2, deps) {
             return;
           }
         }
+        throw cause;
+      }
+      try {
+        await deps.storage.put(storageKey, buffer2, { contentType });
+      } catch (cause) {
+        await deleteById(deps.db, resumeId).catch(() => void 0);
         throw cause;
       }
       let parsed = null;

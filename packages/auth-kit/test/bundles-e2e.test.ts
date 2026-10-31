@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -112,6 +112,9 @@ describe.skipIf(!testDatabaseUrl)('the committed deploy bundles, booted for real
       PLATFORM_ADMIN_USER_IDS: adminId,
       CRON_SECRET: cronSecret,
       RATE_LIMIT_MAX: '100000',
+      // Every request here comes from one address; the limits are not what is under test.
+      PRIVACY_EXPORT_RATE_LIMIT_MAX: '1000',
+      PRIVACY_DELETE_RATE_LIMIT_MAX: '1000',
     });
     for (const service of SERVICES) {
       const file = join(ROOT, 'api', service, 'index.js');
@@ -354,6 +357,103 @@ describe.skipIf(!testDatabaseUrl)('the committed deploy bundles, booted for real
       const drained = await call(service, `${path}?limit=1000&budget_ms=20000`, { method: 'POST', bearer: cronSecret });
       expect(drained.status, `${service} drain`).toBe(200);
     }
+  });
+
+  // The university pilot, through the admin bundle: staff of a university import a roster, read it
+  // back, export it and see the funnel; someone who is not a member of the organization is told it does
+  // not exist.
+  it('admin: a university owner imports a roster and reads it back; a non-member gets 404', async () => {
+    const staffId = randomUUID();
+    const organizationId = randomUUID();
+    await handle.sql`
+      insert into auth.users (id, instance_id, aud, role, email, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
+      values (${staffId}, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', ${`bundle-staff-${staffId}@example.com`}, now(), '{"provider":"email"}'::jsonb, '{}'::jsonb, now(), now())
+    `;
+    await handle.sql`insert into public.organizations (organization_id, name, type) values (${organizationId}, ${`Bundle University ${organizationId.slice(0, 8)}`}, 'university')`;
+    await handle.sql`insert into public.organization_members (organization_id, user_id, role) values (${organizationId}, ${staffId}, 'owner')`;
+    try {
+      const staffToken = await token(staffId, `bundle-staff-${staffId}@example.com`);
+      const base = `/v1/admin/organizations/${organizationId}`;
+      const studentEmail = `bundle-user-${userId}@example.com`;
+
+      const imported = await call('admin', `${base}/students/import`, {
+        method: 'POST',
+        bearer: staffToken,
+        headers: { 'content-type': 'text/csv', 'idempotency-key': randomUUID() },
+        body: `email,full_name,program,graduation_year\n${studentEmail},Bundle Student,Computer Science,2027\nnobody-${randomUUID()}@example.com,No Body,Physics,2026\n`,
+      });
+      expect(imported.status, await imported.clone().text()).toBe(200);
+      expect(await read(imported)).toMatchObject({ total_rows: 2, created: 1, skipped: 1, skipped_breakdown: { no_platform_account: 1 } });
+
+      const list = await read(await call('admin', `${base}/students`, { bearer: staffToken }));
+      expect(list.items).toHaveLength(1);
+      expect(list.items[0]).toMatchObject({ email: studentEmail, program: 'Computer Science', graduation_year: 2027, sharing_enabled: false });
+      // Identity only until the student joins the organization: no name, no activity.
+      expect(list.items[0].full_name).toBeNull();
+      expect(list.items[0].insights).toBeNull();
+
+      const exported = await call('admin', `${base}/export.csv`, { bearer: staffToken });
+      expect(exported.status).toBe(200);
+      expect(exported.headers.get('content-type')).toMatch(/text\/csv/);
+      expect(await exported.text()).toContain(studentEmail);
+      expect((await call('admin', `${base}/funnel`, { bearer: staffToken })).status).toBe(200);
+
+      // The regular user is no member: the organization does not exist as far as they can tell.
+      for (const path of [`${base}/students`, `${base}/funnel`, `${base}/export.csv`]) {
+        expect((await call('admin', path, { bearer: userToken })).status, path).toBe(404);
+      }
+    } finally {
+      await handle.sql`delete from public.organizations where organization_id = ${organizationId}`;
+      await handle.sql`delete from auth.users where id = ${staffId}`;
+    }
+  });
+
+  // Account deletion across two deployed functions and the storage the profile one writes: the auth
+  // bundle must remove the files the profile bundle stored, and what a still-valid token can do afterwards.
+  it('auth: deleting an account removes its rows and its stored files, and the old token then gets nothing', async () => {
+    const leaverId = randomUUID();
+    const leaverEmail = `bundle-leaver-${leaverId}@example.com`;
+    await handle.sql`
+      insert into auth.users (id, instance_id, aud, role, email, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
+      values (${leaverId}, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', ${leaverEmail}, now(), '{"provider":"email"}'::jsonb, '{"full_name":"Bundle Leaver"}'::jsonb, now(), now())
+    `;
+    const leaverToken = await token(leaverId, leaverEmail);
+    const form = new FormData();
+    form.append('file', new Blob([`Leaver Resume ${leaverId}\nBackend engineer\nTypeScript, PostgreSQL`], { type: 'text/plain' }), 'leaver.txt');
+    const uploaded = await call('profile', '/v1/resumes', { method: 'POST', bearer: leaverToken, body: form });
+    expect(uploaded.status).toBe(201);
+    const stored = await handle.sql<Array<{ storage_url: string }>>`select storage_url from public.resumes where user_id = ${leaverId}`;
+    expect(stored).toHaveLength(1);
+    // On Vercel a `local` storage driver is redirected to the temp directory (see storageOptionsFromEnv).
+    const file = join(tmpdir(), 'atlas-storage', stored[0]!.storage_url);
+    expect(existsSync(file), 'the resume file is on disk before deletion').toBe(true);
+
+    const refused = await call('auth', '/v1/auth/me', { method: 'DELETE', bearer: leaverToken, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ confirm: 'delete' }) });
+    expect(refused.status).toBe(400);
+    expect(existsSync(file)).toBe(true);
+
+    const deleted = await call('auth', '/v1/auth/me', { method: 'DELETE', bearer: leaverToken, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ confirm: 'DELETE' }) });
+    expect(deleted.status, await deleted.clone().text()).toBe(200);
+    expect(existsSync(file), 'the resume file is gone after deletion').toBe(false);
+    const [left] = await handle.sql<Array<{ n: number }>>`
+      select (select count(*) from public.resumes where user_id = ${leaverId})::int
+           + (select count(*) from public.users where user_id = ${leaverId})::int
+           + (select count(*) from auth.users where id = ${leaverId})::int as n`;
+    expect(left!.n).toBe(0);
+
+    // The token is a signed statement that stays valid until it expires. It must not bring the account
+    // back or leave data behind: an upload is refused (never a 2xx), and lists are empty.
+    const again = new FormData();
+    again.append('file', new Blob([`Ghost Resume ${leaverId}\nBackend engineer`], { type: 'text/plain' }), 'ghost.txt');
+    const ghost = await call('profile', '/v1/resumes', { method: 'POST', bearer: leaverToken, body: again });
+    expect(ghost.status, 'a deleted account cannot upload: it is told the account is gone').toBe(401);
+    // (The local driver removes files, not the now-empty folder.)
+    const folder = join(tmpdir(), 'atlas-storage', 'resumes', leaverId);
+    expect(existsSync(folder) ? readdirSync(folder) : [], 'and nothing is stored for it').toEqual([]);
+    const [ghostRows] = await handle.sql<Array<{ n: number }>>`select count(*)::int as n from public.resumes where user_id = ${leaverId}`;
+    expect(ghostRows!.n).toBe(0);
+    const [ghostFiles] = await handle.sql<Array<{ n: number }>>`select count(*)::int as n from public.users where user_id = ${leaverId}`;
+    expect(ghostFiles!.n).toBe(0);
   });
 
   it('a user cannot read another user\'s resume or application through the bundles', async () => {
