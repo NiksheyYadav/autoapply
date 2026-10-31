@@ -26,7 +26,7 @@ Ship the smallest safe, verified change per run, as a pull request the owner can
    - If anything under `services/` or `packages/` changed, run `node scripts/bundle-backend.mjs` and commit the regenerated `api/`. Vercel reads functions from the git checkout, so a stale `api/` ships old code.
    - If `apps/web` or `apps/admin` changed, run that app's `typecheck` and `build` using the environment variables in `.github/workflows/ci.yml`.
 7. **Ship.** Push the branch and open a pull request through the REST API. Update the item's status in `docs/17_backlog.md` and add an entry to `docs/18_autopilot_log.md` in the same pull request, so merging records the state. Never merge your own pull request.
-8. **Report.** Send the owner a summary of at most five lines: what shipped, the pull request link, what is blocked, and anything that needs an owner decision.
+8. **Report.** Send the owner a summary of at most five lines, in simple language (English or Hinglish, casual, no jargon): what shipped, the pull request link, what is blocked, and anything that needs an owner decision. The later run of each day (after 05:00 IST) starts the message with "Daily report:" and covers every run since midnight IST, using `docs/18_autopilot_log.md` and the list of open `autopilot/` pull requests.
 
 ## Pull request body
 
@@ -49,6 +49,8 @@ Ship the smallest safe, verified change per run, as a pull request the owner can
 
 These runs draw on the owner's Claude usage limits, so they are deliberately small.
 
+- **A run uses at most about half of one five-hour usage window.** A run cannot read the usage meter, so this is enforced by size: one item, targeted file reads only, and roughly 50 tool calls in total including the subagents' calls. If you reach that and are not done, stop at a clean point: commit only what is verified, mark the item `in-progress` with notes, and log it.
+- The schedule is two runs a day, at 01:12 and 06:12 IST, five hours apart so each gets its own window. The owner should check Settings > Usage after the first few runs and tell Claude to tighten or loosen the size cap.
 - One item per run. Stop early rather than expanding scope.
 - If a usage limit interrupts a run, nothing is lost: progress lives on the branch and in the log. The next run resumes from there.
 - The owner sets the cadence by editing the scheduled task. The agent never changes its own schedule.
