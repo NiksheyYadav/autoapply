@@ -20,7 +20,7 @@ describes the attack areas (A to G) lives outside the repo; each task below name
 5. [ ] **Validation and pagination fuzz (B).** Malformed JSON, wrong types, oversized bodies, huge `limit` and `offset`, odd UUIDs. Always a clean 4xx envelope, never 500.
 7. [ ] **ReDoS audit, rest of it (D).** `packages/ai` is done (see Done). Still to do: regexes in `services/profile/src` (text extraction clean-up), `services/admin` (CSV import), `packages/utils`, and the web apps' client-side parsing.
 8. [ ] **Upload parsers, rest of it (D).** DOCX guards and the PDF stream bomb are done. Still to do: filenames (traversal, NUL, 10k characters) and multipart edge cases (no boundary, duplicate fields, many parts); a wall-clock limit on PDF text extraction (pdf.js can also be slow without being large).
-9. [ ] **Races and idempotency (C).** Parallel application creates, parallel status moves, double drains, double account deletion.
+9. [ ] **Races, rest of it (C).** Applications are done (see Done). Still to do: double drains (each event's effects applied once), double account deletion and deletion during activity, parallel roster imports, concurrent job ingest of the same posting, and `setScheduled` in outreach (unconditional update; only matters if delivery is ever enabled).
 10. [ ] **Committed bundles end to end (G).** Boot `api/*/index.js` locally with a fake JWKS issuer, check `scripts/bundle-backend.mjs` is byte-for-byte repeatable.
 11. [ ] **Secrets and logging hygiene (F).** Secret-like strings in tree, history and bundles; log redaction; log injection.
 12. [ ] **Frontends with hostile data (E).** Web and admin rendering with script-like and oversized data, open-redirect params, CSV formula safety, security headers.
@@ -34,6 +34,7 @@ describes the attack areas (A to G) lives outside the repo; each task below name
 - [x] **Job-source fetchers and hostile postings (D)** — `work/break-fix-1`. SSRF, redirect, size and time limits all held. Fixed: a NUL byte in a posting made it unstorable, which also blocked the board's closed-role cleanup; control and bidi characters are now stripped. Suite: 123 files, 1,785 tests.
 - [x] **ReDoS audit of `packages/ai` (D)** — `work/break-fix-1`. Found a real one: the resume email pattern was quadratic, so a 200 KB one-word text upload pinned a function for minutes. Fixed by bounding the pattern; new growth test over 37 hostile shapes. Suite: 124 files, 1,901 tests.
 - [x] **PDF decompression bombs (D)** — `work/break-fix-1`. A 299 KB PDF cost 3 s and ~670 MB, and the size limit allows ~1 GB inflated. Added a capped pre-inflate of every stream (32 MB each, 128 MB total), 413 on excess. Suite: 124 files, 1,907 tests.
+- [x] **Races in applications (C)** — `work/break-fix-1`. Real bugs: status moves could be applied twice, `submitted` published repeatedly, and a rejected application could become `offer`; identical simultaneous creates sometimes got a 409. Fixed with a conditional update and replay handling. Suite: 125 files, 1,912 tests.
 
 ## Blocked
 

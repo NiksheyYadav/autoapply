@@ -217,8 +217,17 @@ export interface AppendEventInput {
   note: string | null;
 }
 
-/** Folds the new status onto `applications` and appends the trail row in one transaction. */
-export async function appendEvent(db: Database, input: AppendEventInput): Promise<ApplicationRow> {
+/**
+ * Folds the new status onto `applications` and appends the trail row in one transaction.
+ *
+ * The update only applies while the application is still in `fromStatus`, the status the caller
+ * validated the move against. Without that, two requests that both read "interviewing" would both
+ * pass validation and both write, so an application could go "rejected" and then "offer", the
+ * trail would show two moves out of the same status, and a duplicate "submitted" would publish
+ * twice. Returns `null` when the application is no longer in `fromStatus`: someone else moved it
+ * first, and nothing was written.
+ */
+export async function appendEvent(db: Database, input: AppendEventInput): Promise<ApplicationRow | null> {
   return db.transaction(async (tx) => {
     const now = new Date().toISOString();
     const [updated] = await tx
@@ -228,9 +237,14 @@ export async function appendEvent(db: Database, input: AppendEventInput): Promis
         lastEventAt: now,
         submittedAt: input.toStatus === 'submitted' ? now : undefined,
       })
-      .where(eq(schema.applications.applicationId, input.applicationId))
+      .where(
+        and(
+          eq(schema.applications.applicationId, input.applicationId),
+          eq(schema.applications.status, input.fromStatus),
+        ),
+      )
       .returning();
-    if (!updated) throw new Error('appendEvent: application disappeared mid-transaction');
+    if (!updated) return null;
 
     await tx.insert(schema.applicationEvents).values({
       applicationId: input.applicationId,

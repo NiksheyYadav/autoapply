@@ -86442,8 +86442,13 @@ async function appendEvent(db2, input2) {
       status: input2.toStatus,
       lastEventAt: now,
       submittedAt: input2.toStatus === "submitted" ? now : void 0
-    }).where(eq(schema_exports.applications.applicationId, input2.applicationId)).returning();
-    if (!updated) throw new Error("appendEvent: application disappeared mid-transaction");
+    }).where(
+      and(
+        eq(schema_exports.applications.applicationId, input2.applicationId),
+        eq(schema_exports.applications.status, input2.fromStatus)
+      )
+    ).returning();
+    if (!updated) return null;
     await tx.insert(schema_exports.applicationEvents).values({
       applicationId: input2.applicationId,
       fromStatus: input2.fromStatus,
@@ -86504,6 +86509,9 @@ function appendEventRoute(app2, deps) {
       toStatus: body.to_status,
       note: body.note ?? null
     });
+    if (updated === null) {
+      throw new AppError("CONFLICT", "This application was just changed by another request. Reload it and try again.");
+    }
     if (body.to_status === "submitted") {
       await deps.broker.publish(
         createEvent(
@@ -86524,6 +86532,9 @@ function appendEventRoute(app2, deps) {
 var UNIQUE_VIOLATION = "23505";
 var idempotencyKeySchema = external_exports.string().min(8).max(200);
 var AUTO_MODE_UNAVAILABLE_MESSAGE = 'Mode "auto" cannot be used: automatic submission is not available yet. Use "manual" or "review" instead.';
+function isSameRequest(existing, body) {
+  return existing.jobId === body.job_id && existing.resumeId === body.resume_id && existing.mode === body.mode;
+}
 function createApplicationRoute(app2, deps) {
   async function ownerView(row, knownJob) {
     const job = knownJob === void 0 ? await findJobSummary(deps.db, row.jobId) : knownJob;
@@ -86544,8 +86555,7 @@ function createApplicationRoute(app2, deps) {
     }
     const existingByKey = await findByUserAndIdempotencyKey(deps.db, actor.user_id, idempotencyKey);
     if (existingByKey) {
-      const sameRequest = existingByKey.jobId === body.job_id && existingByKey.resumeId === body.resume_id && existingByKey.mode === body.mode;
-      if (!sameRequest) {
+      if (!isSameRequest(existingByKey, body)) {
         throw new AppError("IDEMPOTENCY_KEY_REUSED", "This idempotency key was already used for a different request");
       }
       reply.status(200).send(await ownerView(existingByKey));
@@ -86561,6 +86571,10 @@ function createApplicationRoute(app2, deps) {
     }
     const existingForJob = await findByUserAndJob(deps.db, actor.user_id, body.job_id);
     if (existingForJob) {
+      if (existingForJob.idempotencyKey === idempotencyKey && isSameRequest(existingForJob, body)) {
+        reply.status(200).send(await ownerView(existingForJob));
+        return;
+      }
       throw new AppError("CONFLICT", "You already have an application for this job", {
         details: { existing_application_id: existingForJob.applicationId }
       });
@@ -86594,6 +86608,10 @@ function createApplicationRoute(app2, deps) {
           return;
         }
         const racedByJob = await findByUserAndJob(deps.db, actor.user_id, body.job_id);
+        if (racedByJob && racedByJob.idempotencyKey === idempotencyKey && isSameRequest(racedByJob, body)) {
+          reply.status(200).send(await ownerView(racedByJob));
+          return;
+        }
         if (racedByJob) {
           throw new AppError("CONFLICT", "You already have an application for this job", {
             details: { existing_application_id: racedByJob.applicationId }
