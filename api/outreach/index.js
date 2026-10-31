@@ -53945,39 +53945,61 @@ var import_pino = __toESM(require_pino(), 1);
 var REDACTED = "[redacted]";
 
 // packages/utils/src/logger.ts
-function createLogger({ service, level = "info", pretty = false }) {
-  return (0, import_pino.pino)({
-    level,
-    base: { service },
-    redact: {
-      paths: [
-        "password",
-        "password_hash",
-        "token",
-        "access_token",
-        "refresh_token",
-        "secret",
-        "api_key",
-        "req.headers.authorization",
-        "req.headers.cookie",
-        'res.headers["set-cookie"]',
-        "*.password",
-        "*.access_token",
-        "*.refresh_token"
-      ],
-      censor: REDACTED
+function createLogger({ service, level = "info", pretty = false, destination }) {
+  return (0, import_pino.pino)(
+    {
+      level,
+      base: { service },
+      redact: {
+        paths: [
+          "password",
+          "password_hash",
+          "token",
+          "access_token",
+          "refresh_token",
+          "secret",
+          "api_key",
+          "req.headers.authorization",
+          "req.headers.cookie",
+          'res.headers["set-cookie"]',
+          "*.password",
+          "*.access_token",
+          "*.refresh_token",
+          // The same secrets one level down, in request-shaped objects and in a bare `headers`.
+          "authorization",
+          "cookie",
+          "headers.authorization",
+          "headers.cookie",
+          'headers["x-api-key"]',
+          "*.authorization",
+          "*.cookie",
+          "*.headers.authorization",
+          "*.headers.cookie",
+          '*.headers["x-api-key"]',
+          "*.token",
+          "*.secret",
+          "*.api_key",
+          "*.client_secret",
+          "*.private_key",
+          // A resume's text is personal data and can be 200,000 characters of it.
+          "parsed_text",
+          "*.parsed_text"
+        ],
+        censor: REDACTED
+      },
+      timestamp: import_pino.pino.stdTimeFunctions.isoTime,
+      formatters: {
+        level: (label) => ({ level: label })
+      },
+      ...pretty ? {
+        transport: {
+          target: "pino-pretty",
+          options: { colorize: true, translateTime: "HH:MM:ss.l", ignore: "pid,hostname" }
+        }
+      } : {}
     },
-    timestamp: import_pino.pino.stdTimeFunctions.isoTime,
-    formatters: {
-      level: (label) => ({ level: label })
-    },
-    ...pretty ? {
-      transport: {
-        target: "pino-pretty",
-        options: { colorize: true, translateTime: "HH:MM:ss.l", ignore: "pid,hostname" }
-      }
-    } : {}
-  });
+    destination
+  );
 }
 
 // packages/utils/src/retry.ts

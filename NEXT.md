@@ -22,7 +22,6 @@ describes the attack areas (A to G) lives outside the repo; each task below name
 8. [ ] **Upload parsers, rest of it (D).** DOCX guards and the PDF stream bomb are done. Still to do: filenames (traversal, NUL, 10k characters) and multipart edge cases (no boundary, duplicate fields, many parts); a wall-clock limit on PDF text extraction (pdf.js can also be slow without being large).
 9. [ ] **Races, rest of it (C).** Applications are done (see Done). Still to do: double drains (each event's effects applied once), double account deletion and deletion during activity, parallel roster imports, concurrent job ingest of the same posting, and `setScheduled` in outreach (unconditional update; only matters if delivery is ever enabled).
 10. [ ] **Committed bundles, more flows (G).** The first end-to-end run is done (see Done). Still to do: the drain routes with a real outbox backlog through the bundles, the admin roster import through the admin bundle, deletion through the auth bundle, and a clean-room `pnpm install --frozen-lockfile` + bundle + run from a fresh clone.
-11. [ ] **Secrets and logging hygiene (F).** Secret-like strings in tree, history and bundles; log redaction; log injection.
 12. [ ] **Frontends in a browser (E).** Static review, redirect, link and header checks are done (see Done). Still to do: Playwright against a fake API with script-like, oversized, RTL and null data on every page, API down / 500 / 429 / malformed JSON on every page, double submit on mutating buttons, and a Content-Security-Policy with nonces.
 
 ## Done
@@ -39,6 +38,7 @@ describes the attack areas (A to G) lives outside the repo; each task below name
 - [x] **Config that starts fine and then breaks (F)** — `work/break-fix-1`. `SUPABASE_URL` with a trailing slash refused every token; `MESSAGING_DRIVER=memory` (the `.env.example` value) would drop events on Vercel; `CRON_SECRET` with a pasted newline could never match. All now normalized or refused at boot. `.env.example` now lists every variable and a test keeps it so. Also: request body / query / path fuzz on applications held (76 cases). Suite: 130 files, 2,070 tests.
 - [x] **Frontend headers and static review (E)** — `work/break-fix-1`. The web app sent no security headers; added framing protection, nosniff, referrer and permissions policies, hid `X-Powered-By`; admin tightened to match. Both apps build; headers checked on a running build. Suite: 132 files, 2,080 tests.
 - [x] **Deployed bundles, end to end (G)** — `work/break-fix-1`. **Found a launch blocker:** PDF resumes could not be parsed in the deployed profile bundle (pdf.js could not find its worker file), though all source-level tests passed. Fixed with pdf-parse's embedded worker. New test boots all ten committed bundles over HTTP against Postgres. Suite: 133 files, 2,099 tests.
+- [x] **Secrets and logging hygiene (F)** — `work/break-fix-1`. History, tree and bundles clean. Log redaction was thin (only exact paths); widened and tested, including log-line forgery. Suite: 134 files, 2,112 tests.
 
 ## Blocked
 
