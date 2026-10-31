@@ -86072,11 +86072,40 @@ var rateLimitWindowSchema = external_exports.string().refine(
     message: 'must be a number and a unit between 1 second and 7 days, for example "30 seconds", "1 minute" or "1 hour"'
   }
 );
+function normalizeCorsOrigin(entry) {
+  const text2 = entry.trim();
+  let url2;
+  try {
+    url2 = new URL(text2);
+  } catch {
+    return void 0;
+  }
+  if (url2.protocol !== "http:" && url2.protocol !== "https:") return void 0;
+  if (url2.username !== "" || url2.password !== "" || url2.search !== "" || url2.hash !== "") {
+    return void 0;
+  }
+  if (url2.pathname !== "/") return void 0;
+  return url2.origin;
+}
+function splitCorsOrigins(value) {
+  return value.split(",").map((origin) => origin.trim()).filter((origin) => origin.length > 0);
+}
+var corsOriginsSchema = external_exports.string().default("").superRefine((value, ctx) => {
+  if (value.trim() === "*") return;
+  for (const entry of splitCorsOrigins(value)) {
+    if (normalizeCorsOrigin(entry) === void 0) {
+      ctx.addIssue({
+        code: "custom",
+        message: `"${entry}" is not an origin; use scheme and host only, such as https://app.example.com`
+      });
+    }
+  }
+});
 var httpEnvSchema = external_exports.object({
   HOST: external_exports.string().min(1).default("0.0.0.0"),
   PORT: external_exports.coerce.number().int().min(1).max(65535),
   /** Comma-separated list, or `*` in development only. */
-  CORS_ORIGINS: external_exports.string().default(""),
+  CORS_ORIGINS: corsOriginsSchema,
   RATE_LIMIT_MAX: external_exports.coerce.number().int().min(1).default(300),
   RATE_LIMIT_WINDOW: rateLimitWindowSchema.default("1 minute"),
   BODY_LIMIT_BYTES: external_exports.coerce.number().int().min(1024).default(1048576)
@@ -86104,8 +86133,7 @@ function loadEnv(service, schema, source = process.env) {
 function parseCorsOrigins(value) {
   const trimmed = value.trim();
   if (trimmed === "*") return true;
-  if (trimmed === "") return [];
-  return trimmed.split(",").map((origin) => origin.trim()).filter((origin) => origin.length > 0);
+  return splitCorsOrigins(trimmed).map(normalizeCorsOrigin).filter((origin) => origin !== void 0);
 }
 
 // packages/observability/src/metrics.ts

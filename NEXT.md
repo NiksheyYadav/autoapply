@@ -15,8 +15,7 @@ describes the attack areas (A to G) lives outside the repo; each task below name
 
 ## Queue
 
-2. [ ] **Internal routes and rewrites (A/F).** Secret comparison edge cases on every `/internal/*` route (empty, wrong length, duplicate headers, query string, other methods); `vercel.json` rewrite confusion toward `/internal/*`.
-3. [ ] **Env boot fuzz (F).** Each service with each env var missing, empty, garbage: `RATE_LIMIT_MAX=0`, `CORS_ORIGINS` variants, `PLATFORM_ADMIN_USER_IDS` oddities, `CRON_SECRET` short. Fail fast or fail safe, never open.
+3. [ ] **Env boot fuzz, rest of it (F).** Done: `RATE_LIMIT_*`, `CORS_ORIGINS`. Still to do: `PLATFORM_ADMIN_USER_IDS` oddities, `SUPABASE_URL` (http, localhost, userinfo), `MESSAGING_DRIVER=memory` on serverless, `STORAGE_DRIVER` combinations, `.env.example` against the env schemas.
 4. [ ] **Authorization matrix (A).** Every route of every service against anonymous, other user, other org staff, same org roles, platform admin. Mass assignment on create and update bodies.
 5. [ ] **Validation and pagination fuzz (B).** Malformed JSON, wrong types, oversized bodies, huge `limit` and `offset`, odd UUIDs. Always a clean 4xx envelope, never 500.
 6. [ ] **Job-source fetchers (D).** SSRF via board token and redirects, response size and time limits, hostile postings (script tags, `javascript:` apply links), cross-company overwrite.
@@ -30,6 +29,8 @@ describes the attack areas (A to G) lives outside the repo; each task below name
 ## Done
 
 - [x] **Rate limiter vs real client IP (F)** — `work/break-fix-1`. Found and fixed: a bad `RATE_LIMIT_WINDOW` booted and then 500'd every request, or silently disabled limiting. Checked and held: store is a bounded LRU, exempt routes are by scope not path. Spoofable `X-Forwarded-For` is safe on Vercel (it overwrites the header); noted in `docs/17_break_report.md`. Typecheck, lint, full suite (119 files, 1,730 tests) pass; bundles rebuilt.
+- [x] **Internal routes and rewrites (A/F)** — `work/break-fix-1`. Held. Added `packages/utils/test/vercel-routing.test.ts`, which fails if a public route stops resolving to its own function.
+- [x] **Env boot fuzz, first half (F)** — `work/break-fix-1`. `CORS_ORIGINS` entries that can never match now stop the boot (trailing slash is forgiven). Rate-limit window done earlier.
 
 ## Blocked
 
@@ -39,4 +40,5 @@ describes the attack areas (A to G) lives outside the repo; each task below name
 
 - [ ] **Goal line was blank.** The goal in your message was still the placeholder text. I assumed "break the project locally, fix what I find, get ready for the 2026-11-17 launch". Tell me if you want a different focus.
 - [ ] **Google Fonts at build time.** `next/font/google` made the admin build fail once in CI. The fix is to ship the font files with the repo (`next/font/local`) or use a system font stack. That changes how the site looks or adds font files, so it is your call.
+- [ ] **`CORS_ORIGINS=*` in production.** `docs/16` says never, but nothing enforces it. Enforcing it would stop a service from starting if your Vercel settings use `*` today (for example on previews). Tell me whether to enforce it, or whether `*` is fine on previews and only production should refuse it.
 - [ ] **Pushing branches.** Every push of any branch builds twelve Vercel projects and the free plan allows 100 deployments a day. I will commit locally and push only at clean points, in batches. Say if you want a different rhythm.

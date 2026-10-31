@@ -112,11 +112,60 @@ export const rateLimitWindowSchema = z.string().refine(
   },
 );
 
+/**
+ * The form of an allowed origin that a browser's `Origin` header can equal: lower-case scheme and
+ * host, no path, no trailing slash. `undefined` for text that no browser would ever send, such as a
+ * host without a scheme, an entry with a path, or `null`.
+ */
+export function normalizeCorsOrigin(entry: string): string | undefined {
+  const text = entry.trim();
+  let url: URL;
+  try {
+    url = new URL(text);
+  } catch {
+    return undefined;
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return undefined;
+  if (url.username !== '' || url.password !== '' || url.search !== '' || url.hash !== '') {
+    return undefined;
+  }
+  // A single trailing slash is the usual slip and is forgiven; any other path is not an origin.
+  if (url.pathname !== '/') return undefined;
+  return url.origin;
+}
+
+function splitCorsOrigins(value: string): string[] {
+  return value
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0);
+}
+
+/**
+ * `CORS_ORIGINS`: empty, `*`, or a comma-separated list of origins. An entry that can never match
+ * a browser's `Origin` header (`app.example.com`, `https://app.example.com/login`, `null`) is
+ * refused at boot: it would otherwise start fine and block every browser request.
+ */
+export const corsOriginsSchema = z
+  .string()
+  .default('')
+  .superRefine((value, ctx) => {
+    if (value.trim() === '*') return;
+    for (const entry of splitCorsOrigins(value)) {
+      if (normalizeCorsOrigin(entry) === undefined) {
+        ctx.addIssue({
+          code: 'custom',
+          message: `"${entry}" is not an origin; use scheme and host only, such as https://app.example.com`,
+        });
+      }
+    }
+  });
+
 export const httpEnvSchema = z.object({
   HOST: z.string().min(1).default('0.0.0.0'),
   PORT: z.coerce.number().int().min(1).max(65_535),
   /** Comma-separated list, or `*` in development only. */
-  CORS_ORIGINS: z.string().default(''),
+  CORS_ORIGINS: corsOriginsSchema,
   RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(300),
   RATE_LIMIT_WINDOW: rateLimitWindowSchema.default('1 minute'),
   BODY_LIMIT_BYTES: z.coerce.number().int().min(1024).default(1_048_576),
@@ -153,13 +202,11 @@ export function loadEnv<T extends z.ZodType>(
   return result.data as z.infer<T>;
 }
 
-/** `CORS_ORIGINS` → array, with `*` preserved as a wildcard sentinel. */
+/** `CORS_ORIGINS` → array of canonical origins, with `*` preserved as a wildcard sentinel. */
 export function parseCorsOrigins(value: string): string[] | true {
   const trimmed = value.trim();
   if (trimmed === '*') return true;
-  if (trimmed === '') return [];
-  return trimmed
-    .split(',')
-    .map((origin) => origin.trim())
-    .filter((origin) => origin.length > 0);
+  return splitCorsOrigins(trimmed)
+    .map(normalizeCorsOrigin)
+    .filter((origin): origin is string => origin !== undefined);
 }
