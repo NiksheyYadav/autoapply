@@ -86881,9 +86881,13 @@ var SourcePayloadError = class extends Error {
     this.name = "SourcePayloadError";
   }
 };
+var UNSAFE_TEXT_CHARS = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/g;
+function stripUnsafeChars(text2) {
+  return text2.replace(UNSAFE_TEXT_CHARS, "");
+}
 function clampText(value, max) {
   if (typeof value !== "string") return null;
-  const trimmed = value.trim();
+  const trimmed = stripUnsafeChars(value).trim();
   if (trimmed === "") return null;
   return trimmed.length > max ? trimmed.slice(0, max).trimEnd() : trimmed;
 }
