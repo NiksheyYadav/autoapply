@@ -40,6 +40,7 @@ describes the attack areas (A to G) lives outside the repo; each task below name
 - [x] **Deployed bundles, end to end (G)** — `work/break-fix-1`. **Found a launch blocker:** PDF resumes could not be parsed in the deployed profile bundle (pdf.js could not find its worker file), though all source-level tests passed. Fixed with pdf-parse's embedded worker. New test boots all ten committed bundles over HTTP against Postgres. Suite: 133 files, 2,099 tests.
 - [x] **Secrets and logging hygiene (F)** — `work/break-fix-1`. History, tree and bundles clean. Log redaction was thin (only exact paths); widened and tested, including log-line forgery. Suite: 134 files, 2,112 tests.
 - [x] **Upload filenames and CSV parsing (D)** — `work/break-fix-1`. A NUL byte or a 400+ character filename made an upload 500 after the file was already stored; control and bidi characters were shown back. Names are now sanitized. Roster CSV parsing held on 15 hostile shapes. Suite: 136 files, 2,162 tests.
+- [x] **Every route requires sign-in (A)** — `work/break-fix-1`. The bundle test now walks each booted bundle's real route table and checks anonymous and forged-token requests get 401 everywhere except the probes. All pass. PR [#10](https://github.com/NiksheyYadav/autoapply/pull/10) is open (draft, base is the launch branch) and its CI is green.
 
 ## Blocked
 

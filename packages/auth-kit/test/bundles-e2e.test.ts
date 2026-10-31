@@ -50,6 +50,7 @@ describe.skipIf(!testDatabaseUrl)('the committed deploy bundles, booted for real
   const servers: Server[] = [];
   const bases = {} as Record<Service, string>;
   const modules: Array<{ app?: { close(): Promise<void> } }> = [];
+  const apps = {} as Record<Service, { printRoutes(options?: object): string }>;
   let issuer: Server;
   let signingKey: CryptoKey;
   let handle: DatabaseHandle;
@@ -118,6 +119,7 @@ describe.skipIf(!testDatabaseUrl)('the committed deploy bundles, booted for real
       const mod = (await import(pathToFileURL(file).href)) as { default: (req: IncomingMessage, res: ServerResponse) => unknown; app?: { close(): Promise<void> } };
       expect(typeof mod.default, `${service} bundle default-exports a handler`).toBe('function');
       modules.push(mod);
+      apps[service] = (mod as unknown as { app: { printRoutes(options?: object): string } }).app;
       const listening = await listen(mod.default);
       servers.push(listening.server);
       bases[service] = listening.base;
@@ -152,6 +154,46 @@ describe.skipIf(!testDatabaseUrl)('the committed deploy bundles, booted for real
     expect((await read(anonymous)).error).toMatchObject({ code: expect.any(String), request_id: expect.any(String) });
     const forged = await call(service, PROTECTED_PATH[service], { bearer: 'not.a.token' });
     expect(forged.status).toBe(401);
+  });
+
+  /** Every `{ method, path }` a booted app serves, read from Fastify's printed route tree. */
+  function routesOf(service: Service): Array<{ method: string; path: string }> {
+    const found: Array<{ method: string; path: string }> = [];
+    const stack: string[] = [];
+    for (const line of apps[service].printRoutes({ commonPrefix: false }).split('\n')) {
+      const match = /^((?:│ {3}| {4})*)(?:├── |└── )(.+?)(?: \(([A-Z, ]+)\))?$/.exec(line);
+      if (match === null) continue;
+      const depth = (match[1] ?? '').length / 4;
+      stack.length = depth;
+      stack[depth] = match[2] as string;
+      for (const method of (match[3] ?? '').split(', ').filter(Boolean)) found.push({ method, path: stack.join('') });
+    }
+    return found;
+  }
+
+  // The rule the whole API rests on: nothing but the probes answers a caller who has not signed in.
+  // Walking the routes the deployed code really registers (rather than a list someone keeps up to
+  // date) means a new route that forgets its authentication preHandler fails here.
+  it('every route of every bundle other than /health and /metrics turns an anonymous caller and a forged token away', async () => {
+    const probes = new Set(['/health', '/metrics']);
+    const boundary = 'anonymous-boundary';
+    let checked = 0;
+    for (const service of SERVICES) {
+      const routes = routesOf(service).filter(({ method, path }) => !probes.has(path) && method !== 'OPTIONS' && method !== 'HEAD' && path !== '*');
+      expect(routes.length, `${service} has routes to check`).toBeGreaterThan(0);
+      for (const { method, path } of routes) {
+        const url = path.replace(/:\w+/g, () => randomUUID());
+        const isUpload = method === 'POST' && path === '/v1/resumes';
+        const body = method === 'GET' ? undefined : isUpload ? `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="a.txt"\r\nContent-Type: text/plain\r\n\r\nhi\r\n--${boundary}--\r\n` : '{}';
+        const headers = { 'content-type': isUpload ? `multipart/form-data; boundary=${boundary}` : 'application/json' };
+        for (const bearer of [undefined, 'not.a.token']) {
+          const response = await call(service, url, { method, body, headers: { ...headers, ...(bearer ? { authorization: `Bearer ${bearer}` } : {}) } });
+          expect(response.status, `${service} ${method} ${path} ${bearer ? 'with a forged token' : 'anonymously'}`).toBe(401);
+        }
+        checked += 1;
+      }
+    }
+    expect(checked).toBeGreaterThan(25);
   });
 
   it('auth: GET /v1/auth/me returns the signed-in user, and the export works', async () => {
