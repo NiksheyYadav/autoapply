@@ -15,7 +15,7 @@
   "dependencies": {
     "@atlas/types": "workspace:*",
     "drizzle-orm": "^0.45.2",
-    "postgres": "^3.4.9"
+    "postgres": "^4.1.1"
   },
   "devDependencies": {
     "drizzle-kit": "^0.31.10",
