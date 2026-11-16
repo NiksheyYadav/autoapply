@@ -15,15 +15,17 @@ export const CANONICAL_SKILLS = [
   'sales', 'marketing', 'seo', 'content strategy', 'copywriting', 'accounting', 'bookkeeping',
 ];
 
+/** True when `keyword` appears in `text` as a whole term (case-insensitive). */
+export function containsKeyword(text: string, keyword: string): boolean {
+  const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // `\b` requires a word/non-word transition, which never fires right after
+  // a symbol like the trailing `+` in "c++" followed by a comma or space —
+  // both sides are non-word characters. Anchoring on alphanumeric adjacency
+  // instead handles keywords that end (or start) in punctuation correctly.
+  return new RegExp(`(?<![a-z0-9])${escaped}(?![a-z0-9])`, 'i').test(text);
+}
+
 /** Returns the canonical keywords (lowercase) found in `text`, deduped, in list order. */
 export function extractSkillKeywords(text: string): string[] {
-  const lowerText = text.toLowerCase();
-  return CANONICAL_SKILLS.filter((keyword) => {
-    const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    // `\b` requires a word/non-word transition, which never fires right after
-    // a symbol like the trailing `+` in "c++" followed by a comma or space —
-    // both sides are non-word characters. Anchoring on alphanumeric adjacency
-    // instead handles keywords that end (or start) in punctuation correctly.
-    return new RegExp(`(?<![a-z0-9])${escaped}(?![a-z0-9])`, 'i').test(lowerText);
-  });
+  return CANONICAL_SKILLS.filter((keyword) => containsKeyword(text, keyword));
 }

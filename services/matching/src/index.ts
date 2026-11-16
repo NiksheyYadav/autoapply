@@ -1,25 +1,32 @@
 import { createDatabase } from '@atlas/db';
 import { createBroker } from '@atlas/messaging';
-import { createLogger } from '@atlas/utils';
+import { createLogger, createVercelHandler, withServerlessEnvDefaults } from '@atlas/utils';
 import { buildApp } from './app.js';
 import { loadMatchingServiceEnv } from './env.js';
 import { registerConsumers } from './worker.js';
 
-async function main(): Promise<void> {
-  const env = loadMatchingServiceEnv();
-  const logger = createLogger({ service: 'matching-service', level: env.LOG_LEVEL, pretty: env.LOG_PRETTY });
-  const { db, sql, close } = createDatabase({ url: env.DATABASE_URL, maxConnections: env.DATABASE_POOL_MAX });
-  const broker = createBroker({
-    driver: env.MESSAGING_DRIVER,
-    url: env.RABBITMQ_URL,
-    exchange: env.MESSAGING_EXCHANGE,
-    maxRetries: env.MESSAGING_MAX_RETRIES,
-    logger,
-  });
+const env = loadMatchingServiceEnv(withServerlessEnvDefaults());
+const logger = createLogger({ service: 'matching-service', level: env.LOG_LEVEL, pretty: env.LOG_PRETTY });
+const { db, sql, close } = createDatabase({ url: env.DATABASE_URL, maxConnections: env.DATABASE_POOL_MAX });
+const broker = createBroker({
+  driver: env.MESSAGING_DRIVER,
+  url: env.RABBITMQ_URL,
+  exchange: env.MESSAGING_EXCHANGE,
+  maxRetries: env.MESSAGING_MAX_RETRIES,
+  db,
+  logger,
+});
 
-  const app = buildApp({ db, sql, env, logger, broker });
-  const subscriptions = await registerConsumers({ db, broker, logger });
+export const app = buildApp({ db, sql, env, logger, broker });
+// Consumers register in every runtime, as before. A failed subscription fails
+// module load loudly, the same way a bad config does.
+const subscriptions = await registerConsumers({ db, broker, logger });
 
+// Vercel invokes this module as a serverless request handler — it never calls
+// app.listen(), so requests are dispatched onto the app directly.
+export default createVercelHandler(app);
+
+if (!process.env.VERCEL) {
   const shutdown = async (signal: string): Promise<void> => {
     logger.info({ signal }, 'shutting down');
     await Promise.all(subscriptions.map((subscription) => subscription.stop()));
@@ -33,8 +40,3 @@ async function main(): Promise<void> {
 
   await app.listen({ host: env.HOST, port: env.PORT });
 }
-
-main().catch((error: unknown) => {
-  console.error(error);
-  process.exit(1);
-});

@@ -115,3 +115,41 @@ export const atsReportSchema = z.object({
 });
 
 export type AtsReport = z.infer<typeof atsReportSchema>;
+
+/** Why one resume bullet was flagged by the optimizer. */
+export const bulletIssueSchema = z.enum(['weak_opening', 'no_metric', 'too_short', 'too_long']);
+
+export type BulletIssue = z.infer<typeof bulletIssueSchema>;
+
+export const bulletFindingSchema = z.object({
+  company: z.string(),
+  title: z.string(),
+  /** Position within that experience entry's `highlights`. */
+  bullet_index: z.number().int().min(0),
+  bullet: z.string(),
+  issues: z.array(bulletIssueSchema).min(1),
+  suggestions: z.array(z.string()).min(1),
+});
+
+export type BulletFinding = z.infer<typeof bulletFindingSchema>;
+
+/**
+ * Advice for tailoring one parsed resume to one job. Advisory only: nothing
+ * here rewrites the resume or asserts a skill/metric the candidate didn't
+ * already state (the resume-optimization agent's truthfulness rule).
+ */
+export const resumeOptimizationReportSchema = z.object({
+  keyword_match: z.object({
+    /** 0–100 share of the job's keywords the resume covers; null when the job names none. */
+    score: z.number().int().min(0).max(100).nullable(),
+    matched: z.array(z.string()),
+    missing: z.array(z.string()),
+  }),
+  bullet_findings: z.array(bulletFindingSchema).max(20),
+  /** The resume's job-independent ATS report, as computed at parse time. */
+  ats: atsReportSchema,
+  recommendations: z.array(z.string()).max(10),
+  truthfulness_note: z.string(),
+});
+
+export type ResumeOptimizationReport = z.infer<typeof resumeOptimizationReportSchema>;

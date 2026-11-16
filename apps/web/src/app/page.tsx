@@ -1,6 +1,5 @@
-import { CompanyMarquee } from '@/components/marketing/CompanyMarquee';
+import type { Metadata } from 'next';
 import { CtaSection } from '@/components/marketing/CtaSection';
-import { DemoPreview } from '@/components/marketing/DemoPreview';
 import { FeatureGrid } from '@/components/marketing/FeatureGrid';
 import { FloatingOrbs } from '@/components/marketing/FloatingOrbs';
 import { Footer } from '@/components/marketing/Footer';
@@ -11,6 +10,14 @@ import { Outcomes } from '@/components/marketing/Outcomes';
 import { PipelineDock } from '@/components/marketing/PipelineDock';
 import { StatsSection } from '@/components/marketing/StatsSection';
 
+// The one page that should be indexed: it carries the canonical URL, and
+// openGraph.url, which the root layout deliberately leaves unset so other
+// routes don't inherit it.
+export const metadata: Metadata = {
+  alternates: { canonical: '/' },
+  openGraph: { url: '/' },
+};
+
 export default function HomePage() {
   return (
     <main className="relative">
@@ -18,8 +25,6 @@ export default function HomePage() {
       <NavBar />
       <Hero />
       <StatsSection />
-      <DemoPreview />
-      <CompanyMarquee />
       <FeatureGrid />
       <HowItWorks />
       <Outcomes />

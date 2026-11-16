@@ -8,7 +8,6 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
 export const SERVICE_URLS = {
   auth: API_BASE_URL ?? process.env.NEXT_PUBLIC_AUTH_SERVICE_URL ?? 'http://localhost:4001',
-  applications: API_BASE_URL ?? process.env.NEXT_PUBLIC_APPLICATIONS_SERVICE_URL ?? 'http://localhost:4005',
   learning: API_BASE_URL ?? process.env.NEXT_PUBLIC_LEARNING_SERVICE_URL ?? 'http://localhost:4008',
-  analytics: API_BASE_URL ?? process.env.NEXT_PUBLIC_ANALYTICS_SERVICE_URL ?? 'http://localhost:4009',
+  admin: API_BASE_URL ?? process.env.NEXT_PUBLIC_ADMIN_SERVICE_URL ?? 'http://localhost:4011',
 } as const;

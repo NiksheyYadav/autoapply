@@ -1,6 +1,7 @@
 'use client';
 
 import { useSession } from '@/lib/auth-context';
+import { safeNextPath } from '@/lib/safe-redirect';
 import { Button, Card, Input, Label, Logo, fadeUp } from '@atlas/ui';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
@@ -20,7 +21,11 @@ export default function LoginPage() {
     setSubmitting(true);
     try {
       await login(email, password);
-      router.push('/dashboard');
+      // The guard in /dashboard sends people here with `?next=<where they were
+      // going>`. Read at submit time (not render time) and only ever followed
+      // when it is a same-origin path.
+      const next = new URLSearchParams(window.location.search).get('next');
+      router.push(safeNextPath(next));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Something went wrong. Try again.');
     } finally {
@@ -37,7 +42,7 @@ export default function LoginPage() {
         </div>
         <Card>
           <p className="mb-6 text-center text-sm text-[var(--color-ink-soft)]">
-            Sign in with an org admin or owner account to view usage and application activity.
+            Sign in with a university organization owner or admin account to manage your student roster.
           </p>
           <form onSubmit={handleSubmit} className="flex flex-col gap-5">
             <div>
@@ -55,7 +60,11 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
-            {error ? <p className="text-sm text-[var(--color-serious)]">{error}</p> : null}
+            {error ? (
+              <p role="alert" className="text-sm text-[var(--color-serious)]">
+                {error}
+              </p>
+            ) : null}
             <Button type="submit" size="lg" disabled={submitting}>
               {submitting ? 'Signing in…' : 'Sign in'}
             </Button>

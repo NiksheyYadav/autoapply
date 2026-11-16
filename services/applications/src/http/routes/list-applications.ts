@@ -4,7 +4,7 @@ import { getActor, requireAuth } from '@atlas/auth-kit';
 import { listApplicationsQuerySchema, type ListApplicationsResponse } from '@atlas/types';
 import { AppError } from '@atlas/utils';
 import type { AppDeps } from '../../app.js';
-import { listForOrganization, listForUser, toApplication } from '../../repo/applications.js';
+import { listForOrganization, listForUser, toApplication, toApplicationWithJob } from '../../repo/applications.js';
 
 const scopeSchema = z.enum(['mine', 'organization']).default('mine');
 
@@ -14,8 +14,13 @@ export function listApplicationsRoute(app: FastifyInstance, deps: AppDeps): void
     const query = listApplicationsQuerySchema.parse(request.query);
     const scope = scopeSchema.parse((request.query as { scope?: string }).scope);
 
-    let result;
+    let response: ListApplicationsResponse;
     if (scope === 'organization') {
+      // A per-job filter would let staff ask "did anyone apply to job X?", which is
+      // exactly the job-level detail staff are not allowed to see.
+      if (query.job_id !== undefined) {
+        throw new AppError('VALIDATION_ERROR', 'job_id cannot be combined with scope=organization');
+      }
       // Org-wide visibility for admin/owner staff (apps/admin), not a
       // per-user default — everyone else keeps seeing only their own.
       if (actor.role !== 'admin' && actor.role !== 'owner') {
@@ -24,12 +29,21 @@ export function listApplicationsRoute(app: FastifyInstance, deps: AppDeps): void
       if (!actor.organization_id) {
         throw new AppError('VALIDATION_ERROR', 'This account is not attached to an organization');
       }
-      result = await listForOrganization(deps.db, actor.organization_id, query);
+      // Privacy rule for university/enterprise staff: applications counts and
+      // statuses only — never job titles, employer names or apply links. This
+      // branch reads and returns plain application rows (`toApplication` has
+      // no `job` field), even for staff members' own applications; the job
+      // context below is the owner's `mine` view only.
+      const result = await listForOrganization(deps.db, actor.organization_id, query);
+      response = { items: result.items.map(toApplication), next_cursor: result.nextCursor };
     } else {
-      result = await listForUser(deps.db, actor.user_id, query);
+      const result = await listForUser(deps.db, actor.user_id, query, { jobId: query.job_id });
+      response = {
+        items: result.items.map(({ application, job }) => toApplicationWithJob(application, job)),
+        next_cursor: result.nextCursor,
+      };
     }
 
-    const response: ListApplicationsResponse = { items: result.items.map(toApplication), next_cursor: result.nextCursor };
     reply.status(200).send(response);
   });
 }

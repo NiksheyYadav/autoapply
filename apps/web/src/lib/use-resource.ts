@@ -32,7 +32,9 @@ export function useResource<T>(fetcher: () => Promise<T>, deps: React.Dependency
       })
       .catch((cause: unknown) => {
         if (cancelled) return;
-        setError(cause instanceof ApiError ? cause.message : 'Could not reach this service.');
+        // Pages render their own friendly copy and a retry button; this string
+        // is only a fallback, never named after an internal service.
+        setError(cause instanceof ApiError ? cause.message : 'Something went wrong. Please try again.');
       })
       .finally(() => {
         if (!cancelled) setLoading(false);

@@ -29,7 +29,9 @@ export async function listForUser(
   const cursorScore = typeof cursorValue?.score === 'number' ? cursorValue.score : null;
   const cursorId = typeof cursorValue?.id === 'string' ? cursorValue.id : null;
 
-  const conditions = [eq(schema.jobScores.userId, userId)];
+  // Scores outlive the posting they were computed for: a job its source has stopped listing is
+  // marked inactive (scheduled ingestion), and must stop being recommended along with it.
+  const conditions = [eq(schema.jobScores.userId, userId), eq(schema.jobs.isActive, true)];
   if (filters.remoteType) conditions.push(eq(schema.jobs.remoteType, filters.remoteType));
   if (filters.location) conditions.push(ilike(schema.jobs.location, `%${filters.location}%`));
   if (cursorScore !== null && cursorId) {
@@ -44,9 +46,10 @@ export async function listForUser(
   }
 
   const rows = await db
-    .select({ score: schema.jobScores, job: schema.jobs })
+    .select({ score: schema.jobScores, job: schema.jobs, companyName: schema.companies.name })
     .from(schema.jobScores)
     .innerJoin(schema.jobs, eq(schema.jobScores.jobId, schema.jobs.jobId))
+    .leftJoin(schema.companies, eq(schema.jobs.companyId, schema.companies.companyId))
     .where(and(...conditions))
     .orderBy(desc(schema.jobScores.score), desc(schema.jobScores.jobId))
     .limit(pagination.limit + 1);
@@ -54,7 +57,7 @@ export async function listForUser(
   const hasMore = rows.length > pagination.limit;
   const page = hasMore ? rows.slice(0, pagination.limit) : rows;
   const items: JobRecommendation[] = page.map((row) => ({
-    job: toJob(row.job),
+    job: toJob(row.job, row.companyName),
     score: row.score.score,
     reasons: row.score.reasons,
   }));

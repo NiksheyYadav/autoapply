@@ -4,7 +4,7 @@ import { getActor, requireAuth } from '@atlas/auth-kit';
 import { uuidSchema, type ApplicationResponse } from '@atlas/types';
 import { AppError } from '@atlas/utils';
 import type { AppDeps } from '../../app.js';
-import { findById, toApplication } from '../../repo/applications.js';
+import { findByIdWithJob, toApplication, toApplicationWithJob } from '../../repo/applications.js';
 
 const paramsSchema = z.object({ id: uuidSchema });
 
@@ -13,21 +13,25 @@ export function getApplicationRoute(app: FastifyInstance, deps: AppDeps): void {
     const actor = getActor(request);
     const { id } = paramsSchema.parse(request.params);
 
-    const row = await findById(deps.db, id);
-    const isOwner = row?.userId === actor.user_id;
+    const found = await findByIdWithJob(deps.db, id);
+    const isOwner = found?.application.userId === actor.user_id;
     const isOrgStaff =
-      row !== null &&
+      found !== null &&
       (actor.role === 'admin' || actor.role === 'owner') &&
-      row.organizationId !== null &&
-      row.organizationId === actor.organization_id;
+      found.application.organizationId !== null &&
+      found.application.organizationId === actor.organization_id;
 
     // 404, not 403: this endpoint never confirms that an application exists
     // for a job/user combination the caller isn't entitled to see.
-    if (!row || !(isOwner || isOrgStaff)) {
+    if (!found || !(isOwner || isOrgStaff)) {
       throw new AppError('NOT_FOUND', 'Application not found');
     }
 
-    const response: ApplicationResponse = { application: toApplication(row) };
+    // The owner gets the job context. Org staff who are not the owner get the
+    // plain application — no job or employer fields (see list-applications).
+    const response: ApplicationResponse = {
+      application: isOwner ? toApplicationWithJob(found.application, found.job) : toApplication(found.application),
+    };
     reply.status(200).send(response);
   });
 }

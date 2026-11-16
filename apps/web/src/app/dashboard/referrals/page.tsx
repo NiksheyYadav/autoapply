@@ -3,6 +3,8 @@
 import { useSession } from '@/lib/auth-context';
 import { listReferrals } from '@/lib/services/referrals';
 import { useResource } from '@/lib/use-resource';
+import { ResourceError } from '@/components/dashboard/ResourceError';
+import { SkeletonGroup } from '@/components/dashboard/SkeletonGroup';
 import { Badge, Card, CardDescription, CardTitle, Skeleton, fadeUp, staggerContainer } from '@atlas/ui';
 import { motion } from 'framer-motion';
 
@@ -16,20 +18,18 @@ export default function ReferralsPage() {
       <p className="mt-1 text-[var(--color-ink-soft)]">People at companies you&apos;ve already applied to.</p>
 
       {referrals.loading ? (
-        <div className="mt-6 grid gap-4 sm:grid-cols-2">
+        <SkeletonGroup label="Loading referral leads…" className="mt-6 grid gap-4 sm:grid-cols-2">
           {[0, 1, 2, 3].map((i) => (
             <Skeleton key={i} className="h-28 w-full" />
           ))}
-        </div>
+        </SkeletonGroup>
       ) : referrals.error ? (
-        <Card className="mt-6">
-          <CardDescription>Couldn&apos;t reach referrals-service: {referrals.error}</CardDescription>
-        </Card>
+        <ResourceError what="your referral leads" onRetry={referrals.reload} />
       ) : referrals.data?.items.length === 0 ? (
         <Card className="mt-6">
           <CardTitle>No referral leads yet</CardTitle>
           <CardDescription className="mt-1">
-            These surface automatically once a contact is on file at a company you&apos;ve applied to.
+            Referral contacts are rolling out. When there&apos;s a contact on file at a company you&apos;ve applied to, they&apos;ll appear here.
           </CardDescription>
         </Card>
       ) : (

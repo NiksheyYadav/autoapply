@@ -3,6 +3,7 @@ import {
   APPLICATION_STATUSES,
   AUTH_PROVIDERS,
   EMPLOYMENT_TYPES,
+  JOB_BOARD_PROVIDERS,
   JOB_SOURCES,
   MEMBER_ROLES,
   MESSAGE_CHANNELS,
@@ -32,3 +33,5 @@ export const messageChannelEnum = pgEnum('message_channel', MESSAGE_CHANNELS);
 export const messageStatusEnum = pgEnum('message_status', MESSAGE_STATUSES);
 export const taskStatusEnum = pgEnum('task_status', TASK_STATUSES);
 export const jobSourceEnum = pgEnum('job_source', JOB_SOURCES);
+/** Public employer job boards read by the jobs service (`job_sources`). */
+export const jobBoardProviderEnum = pgEnum('job_board_provider', JOB_BOARD_PROVIDERS);

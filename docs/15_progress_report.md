@@ -1,5 +1,7 @@
 # 15 — Progress report
 
+> **Superseded for current status.** The launch-prep branch (PR #8) keeps the verified, up-to-date status in [`15_progress.md`](15_progress.md) and the owner-only steps in [`16_launch_checklist.md`](16_launch_checklist.md). This file is the earlier snapshot taken at `0a755b4`; several rows below (for example priority 5, university administration) describe the code as it was then.
+
 **As of:** 2026-10-27 · **Code baseline:** `feat/profile-jobs-services` @ `0a755b4`
 
 This file is the living status record for Project Atlas. Update it at the end of each working session: change the date and baseline, move items between sections, and keep "Next steps" ordered.

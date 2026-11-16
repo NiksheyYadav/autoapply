@@ -1,0 +1,81 @@
+name: Ingest jobs
+
+# The jobs catalog fills from public employer job boards (Greenhouse, Lever,
+# Ashby) listed in the job_sources table. Nothing reads them until the jobs
+# service's ingestion endpoint is called, and a serverless function has no
+# scheduler of its own, so this workflow is the trigger: once an hour it calls
+# POST /internal/jobs/ingest-sources with the shared CRON_SECRET. The endpoint
+# stays inside a ~20s budget per call and goes through the boards least
+# recently read first, so a long list simply takes several hourly calls.
+#
+# Inert until configured. Set, in GitHub -> Settings -> Secrets and variables:
+#   variable ATLAS_API_BASE_URL   e.g. https://atlas-backend.example.vercel.app (no trailing slash)
+#                                 the one Vercel project that serves every service
+#   variable ATLAS_JOBS_URL       optional; the jobs service's own base URL when it is deployed
+#                                 as its own Vercel project. Wins over ATLAS_API_BASE_URL.
+#   secret   CRON_SECRET          the same value set as CRON_SECRET on the Vercel project
+#                                 (on the jobs service's project, if it is separate)
+# Then add boards with POST /v1/jobs/sources (platform admins) or the example
+# SQL in packages/db/seed/job-sources.example.sql.
+#
+# Run by hand from the Actions tab (workflow_dispatch) to try a board right after
+# adding it: put its source_id (from GET /v1/jobs/sources) in the input.
+#
+# Caveats: GitHub only runs `schedule` on the default branch, may delay runs under
+# load, and disables schedules after 60 days without repository activity. If the
+# project moves to a Vercel plan with sub-daily crons, replace this with a `crons`
+# entry in vercel.json.
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+    inputs:
+      source_id:
+        description: 'Only read this source (a job_sources.source_id UUID); leave empty to read all due sources'
+        required: false
+        type: string
+
+# A slow run must not pile up behind the next tick.
+concurrency:
+  group: ingest-jobs
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  ingest:
+    name: Ingest job sources
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call the ingest endpoint
+        env:
+          ATLAS_API_BASE_URL: ${{ vars.ATLAS_API_BASE_URL }}
+          ATLAS_JOBS_URL: ${{ vars.ATLAS_JOBS_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SOURCE_ID: ${{ inputs.source_id }}
+        run: |
+          base="${ATLAS_JOBS_URL:-${ATLAS_API_BASE_URL}}"
+          if [ -z "${base}" ] || [ -z "${CRON_SECRET}" ]; then
+            echo "::notice title=Job ingestion skipped::Set the ATLAS_API_BASE_URL (or ATLAS_JOBS_URL) variable and the CRON_SECRET secret to enable job source ingestion."
+            exit 0
+          fi
+          url="${base%/}/internal/jobs/ingest-sources"
+          if [ -n "${SOURCE_ID}" ]; then
+            case "${SOURCE_ID}" in
+              *[!0-9a-fA-F-]*)
+                echo "::error title=Invalid source_id::source_id must be a UUID."
+                exit 1
+                ;;
+            esac
+            url="${url}?source_id=${SOURCE_ID}"
+          fi
+          # --fail-with-body makes a 401/503/5xx fail the job (visible in Actions)
+          # while still printing the JSON counts the endpoint returns. A board that
+          # cannot be read is not a failed request: it shows up in the "sources" array.
+          curl --fail-with-body --silent --show-error --max-time 60 \
+            --request POST \
+            --header "Authorization: Bearer ${CRON_SECRET}" \
+            "${url}"
+          echo

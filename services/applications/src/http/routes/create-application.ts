@@ -2,18 +2,46 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { getActor, requireAuth } from '@atlas/auth-kit';
 import { createEvent } from '@atlas/messaging';
-import { createApplicationRequestSchema, type ApplicationResponse } from '@atlas/types';
+import { createApplicationRequestSchema, type ApplicationJobSummary, type ApplicationResponse } from '@atlas/types';
 import { AppError, IDEMPOTENCY_HEADER, newTraceContext, pgErrorCode } from '@atlas/utils';
 import type { AppDeps } from '../../app.js';
-import { findActiveJob, findParsedResumeOwnedBy } from '../../repo/lookups.js';
-import { findByUserAndIdempotencyKey, findByUserAndJob, insertApplication, toApplication } from '../../repo/applications.js';
+import { findJobSummary, findParsedResumeOwnedBy } from '../../repo/lookups.js';
+import {
+  findByUserAndIdempotencyKey,
+  findByUserAndJob,
+  insertApplication,
+  toApplicationWithJob,
+  type ApplicationRow,
+} from '../../repo/applications.js';
 
 /** Postgres unique_violation. */
 const UNIQUE_VIOLATION = '23505';
 
 const idempotencyKeySchema = z.string().min(8).max(200);
 
+/**
+ * What `mode` actually does today:
+ *
+ * - `manual` / `review`: the application starts as an editable `draft`. Nothing
+ *   submits it for the user — they apply on the employer's site (the owner's
+ *   response carries `job.apply_url`) and then record the outcome with
+ *   POST /v1/applications/:id/events.
+ * - `auto`: the row is inserted as `queued`, but NOTHING consumes `queued`
+ *   applications — there is no submission worker, queue consumer or browser
+ *   automation. An auto application would sit in `queued` forever while the UI
+ *   implies it is being handled. So `auto` is refused with a 400 until a worker
+ *   exists and APPLICATIONS_AUTO_MODE_ENABLED=true is set for this service.
+ */
+const AUTO_MODE_UNAVAILABLE_MESSAGE =
+  'Mode "auto" cannot be used: automatic submission is not available yet. Use "manual" or "review" instead.';
+
 export function createApplicationRoute(app: FastifyInstance, deps: AppDeps): void {
+  /** The owner's view of `row`, with the job it points at (null if the job or its company is gone). */
+  async function ownerView(row: ApplicationRow, knownJob?: ApplicationJobSummary | null): Promise<ApplicationResponse> {
+    const job = knownJob === undefined ? await findJobSummary(deps.db, row.jobId) : knownJob;
+    return { application: toApplicationWithJob(row, job) };
+  }
+
   app.post('/v1/applications', { preHandler: requireAuth(deps.tokenVerifier) }, async (request, reply) => {
     const actor = getActor(request);
 
@@ -28,6 +56,12 @@ export function createApplicationRoute(app: FastifyInstance, deps: AppDeps): voi
 
     const body = createApplicationRequestSchema.parse(request.body);
 
+    if (body.mode === 'auto' && !deps.env.APPLICATIONS_AUTO_MODE_ENABLED) {
+      throw new AppError('VALIDATION_ERROR', AUTO_MODE_UNAVAILABLE_MESSAGE, {
+        details: [{ path: 'mode', message: AUTO_MODE_UNAVAILABLE_MESSAGE }],
+      });
+    }
+
     const existingByKey = await findByUserAndIdempotencyKey(deps.db, actor.user_id, idempotencyKey);
     if (existingByKey) {
       const sameRequest =
@@ -35,13 +69,12 @@ export function createApplicationRoute(app: FastifyInstance, deps: AppDeps): voi
       if (!sameRequest) {
         throw new AppError('IDEMPOTENCY_KEY_REUSED', 'This idempotency key was already used for a different request');
       }
-      const response: ApplicationResponse = { application: toApplication(existingByKey) };
-      reply.status(200).send(response);
+      reply.status(200).send(await ownerView(existingByKey));
       return;
     }
 
-    const job = await findActiveJob(deps.db, body.job_id);
-    if (!job || !job.isActive) {
+    const job = await findJobSummary(deps.db, body.job_id);
+    if (!job || !job.is_active) {
       throw new AppError('JOB_NOT_FOUND', 'Job is unavailable');
     }
 
@@ -65,7 +98,8 @@ export function createApplicationRoute(app: FastifyInstance, deps: AppDeps): voi
         organizationId: actor.organization_id,
         mode: body.mode,
         // `auto` has nothing manual left to do before it's eligible for
-        // submission; everything else starts as an editable draft.
+        // submission; everything else starts as an editable draft. Only
+        // reachable with APPLICATIONS_AUTO_MODE_ENABLED — see the note above.
         status: body.mode === 'auto' ? 'queued' : 'draft',
         idempotencyKey,
       });
@@ -78,16 +112,14 @@ export function createApplicationRoute(app: FastifyInstance, deps: AppDeps): voi
         ),
       );
 
-      const response: ApplicationResponse = { application: toApplication(created) };
-      reply.status(201).send(response);
+      reply.status(201).send(await ownerView(created, job));
     } catch (cause) {
       // Another request from the same user raced us between the checks above
       // and this insert. Resolve it the same way the checks would have.
       if (pgErrorCode(cause) === UNIQUE_VIOLATION) {
         const racedByKey = await findByUserAndIdempotencyKey(deps.db, actor.user_id, idempotencyKey);
         if (racedByKey) {
-          const response: ApplicationResponse = { application: toApplication(racedByKey) };
-          reply.status(200).send(response);
+          reply.status(200).send(await ownerView(racedByKey));
           return;
         }
         const racedByJob = await findByUserAndJob(deps.db, actor.user_id, body.job_id);

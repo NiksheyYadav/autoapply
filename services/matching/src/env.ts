@@ -11,6 +11,12 @@ export const matchingServiceEnvSchema = z.object({
   ...databaseEnvSchema.shape,
   ...httpEnvSchema.shape,
   ...messagingEnvSchema.shape,
+  /**
+   * Bearer secret for `/internal/drain`, which Vercel Cron sends as
+   * `Authorization: Bearer $CRON_SECRET` when this variable is set. Unset, the
+   * route answers 503 and never runs a drain.
+   */
+  CRON_SECRET: z.string().min(16, 'CRON_SECRET must be at least 16 characters').optional(),
 });
 
 export type MatchingServiceEnv = z.infer<typeof matchingServiceEnvSchema>;

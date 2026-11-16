@@ -7,6 +7,28 @@ export const jobsServiceEnvSchema = z.object({
   ...httpEnvSchema.shape,
   ...messagingEnvSchema.shape,
   ...supabaseAuthEnvSchema.shape,
+  /**
+   * Comma-separated `auth.users` ids allowed to act on GLOBAL data such as the
+   * shared jobs catalog (see `requirePlatformAdmin` in @atlas/auth-kit).
+   * Empty/unset means nobody.
+   */
+  PLATFORM_ADMIN_USER_IDS: z.string().default(''),
+  /**
+   * Bearer secret for `/internal/jobs/ingest-sources`, the scheduled job-board
+   * ingestion (a scheduler sends `Authorization: Bearer $CRON_SECRET`). Unset,
+   * the route answers 503 and never runs.
+   */
+  CRON_SECRET: z.string().min(16, 'CRON_SECRET must be at least 16 characters').optional(),
+  /**
+   * An email address or URL where the operator of a job board can reach whoever
+   * runs this reader, appended to the User-Agent it sends. Printable ASCII only
+   * (it goes into a header). Optional.
+   */
+  JOB_SOURCE_CONTACT: z
+    .string()
+    .max(200)
+    .regex(/^[\x20-\x7e]*$/, 'JOB_SOURCE_CONTACT must be printable ASCII')
+    .optional(),
 });
 
 export type JobsServiceEnv = z.infer<typeof jobsServiceEnvSchema>;

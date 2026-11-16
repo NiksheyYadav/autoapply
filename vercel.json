@@ -13,7 +13,8 @@
     "api/referrals/index.js": { "maxDuration": 30 },
     "api/outreach/index.js": { "maxDuration": 30 },
     "api/learning/index.js": { "maxDuration": 30 },
-    "api/analytics/index.js": { "maxDuration": 30 }
+    "api/analytics/index.js": { "maxDuration": 30 },
+    "api/admin/index.js": { "maxDuration": 30 }
   },
   "rewrites": [
     { "source": "/v1/auth/:path*", "destination": "/api/auth" },
@@ -22,8 +23,15 @@
     { "source": "/v1/applications/:path*", "destination": "/api/applications" },
     { "source": "/v1/referrals/:path*", "destination": "/api/referrals" },
     { "source": "/v1/contacts/:path*", "destination": "/api/referrals" },
+    { "source": "/v1/companies/:path*", "destination": "/api/referrals" },
     { "source": "/v1/messages/:path*", "destination": "/api/outreach" },
     { "source": "/v1/learning/:path*", "destination": "/api/learning" },
-    { "source": "/v1/analytics/:path*", "destination": "/api/analytics" }
+    { "source": "/v1/analytics/:path*", "destination": "/api/analytics" },
+    { "source": "/v1/admin/:path*", "destination": "/api/admin" },
+    { "source": "/internal/jobs/:path*", "destination": "/api/jobs" },
+    { "source": "/internal/matching/:path*", "destination": "/api/matching" },
+    { "source": "/internal/referrals/:path*", "destination": "/api/referrals" },
+    { "source": "/internal/learning/:path*", "destination": "/api/learning" },
+    { "source": "/internal/analytics/:path*", "destination": "/api/analytics" }
   ]
 }

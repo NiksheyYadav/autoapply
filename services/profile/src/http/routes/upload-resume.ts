@@ -6,7 +6,7 @@ import { createEvent } from '@atlas/messaging';
 import type { AtsReport, CreateResumeResponse, ParsedProfile } from '@atlas/types';
 import { AppError, newTraceContext, pgErrorCode } from '@atlas/utils';
 import type { AppDeps } from '../../app.js';
-import { extractText } from '../../lib/extract-text.js';
+import { extractText, resumeFailureReason, verifyResumeUpload } from '../../lib/extract-text.js';
 import { sha256HexBuffer } from '../../lib/hash.js';
 import { findByUserAndHash, insertPending, markFailed, markParsed } from '../../repo/resumes.js';
 
@@ -40,6 +40,10 @@ export function uploadResumeRoute(app: FastifyInstance, deps: AppDeps): void {
       sourceSchema.parse(rawSource);
 
       const buffer = await data.toBuffer();
+      // The multipart `Content-Type` is whatever the client claims. Check it
+      // against the bytes (and bound DOCX archives) before anything is stored
+      // or parsed; from here on only the canonical, verified type is used.
+      const contentType = await verifyResumeUpload(buffer, data.mimetype);
       const contentHash = sha256HexBuffer(buffer);
 
       // Re-uploading the same bytes is a no-op: hand back the existing record
@@ -52,7 +56,7 @@ export function uploadResumeRoute(app: FastifyInstance, deps: AppDeps): void {
       }
 
       const storageKey = `resumes/${actor.user_id}/${contentHash}`;
-      await deps.storage.put(storageKey, buffer, { contentType: data.mimetype });
+      await deps.storage.put(storageKey, buffer, { contentType });
 
       let resumeId: string;
       try {
@@ -60,7 +64,7 @@ export function uploadResumeRoute(app: FastifyInstance, deps: AppDeps): void {
           userId: actor.user_id,
           storageUrl: storageKey,
           originalFilename: data.filename,
-          contentType: data.mimetype,
+          contentType,
           byteSize: buffer.length,
           contentHash,
         });
@@ -85,7 +89,7 @@ export function uploadResumeRoute(app: FastifyInstance, deps: AppDeps): void {
       // this pass doesn't otherwise need.
       let parsed: { profile: ParsedProfile; report: AtsReport } | null = null;
       try {
-        const text = await extractText(buffer, data.mimetype);
+        const text = await extractText(buffer, contentType);
         const profile = parseResumeText(text);
         const report = scoreResume(profile, text);
         await markParsed(deps.db, resumeId, {
@@ -96,8 +100,12 @@ export function uploadResumeRoute(app: FastifyInstance, deps: AppDeps): void {
         });
         parsed = { profile, report };
       } catch (cause) {
-        const reason = cause instanceof Error ? cause.message : String(cause);
-        await markFailed(deps.db, resumeId, reason);
+        // `failure_reason` is returned to the client, and raw error text can
+        // carry SQL plus bound parameters (i.e. the resume's own contents) or
+        // parser internals. Persist a short stable reason; the detail goes to
+        // the logs, where the logger's `err` serializer scrubs it.
+        request.log.warn({ err: cause, resumeId }, 'resume parsing failed');
+        await markFailed(deps.db, resumeId, resumeFailureReason(cause));
         const response: CreateResumeResponse = { resume_id: resumeId, status: 'failed' };
         reply.status(201).send(response);
         return;

@@ -1,9 +1,17 @@
-import { and, desc, eq, lt, or } from 'drizzle-orm';
+import { and, desc, eq, lt, or, type SQL } from 'drizzle-orm';
 import { schema, type Database } from '@atlas/db';
-import type { Application, ApplicationMode, ApplicationStatus, PaginationQuery } from '@atlas/types';
+import type {
+  Application,
+  ApplicationJobSummary,
+  ApplicationMode,
+  ApplicationStatus,
+  ApplicationWithJob,
+  PaginationQuery,
+} from '@atlas/types';
 import { decodeCursor, encodeCursor } from '@atlas/utils';
+import { jobSummaryColumns, toJobSummary } from './lookups.js';
 
-type ApplicationRow = typeof schema.applications.$inferSelect;
+export type ApplicationRow = typeof schema.applications.$inferSelect;
 
 export function toApplication(row: ApplicationRow): Application {
   return {
@@ -29,6 +37,33 @@ export async function findById(db: Database, applicationId: string): Promise<App
     .where(eq(schema.applications.applicationId, applicationId))
     .limit(1);
   return row ?? null;
+}
+
+/** An application row together with its job summary — what the owner's view is built from. */
+export interface ApplicationWithJobRow {
+  application: ApplicationRow;
+  job: ApplicationJobSummary | null;
+}
+
+/** The owner's view of an application. Staff views use {@link toApplication}, which cannot carry a job. */
+export function toApplicationWithJob(row: ApplicationRow, job: ApplicationJobSummary | null): ApplicationWithJob {
+  return { ...toApplication(row), job };
+}
+
+/**
+ * `findById` plus the job summary in a single query. LEFT joins, so an
+ * application whose job or company row is gone still comes back (with
+ * `job: null`) instead of vanishing.
+ */
+export async function findByIdWithJob(db: Database, applicationId: string): Promise<ApplicationWithJobRow | null> {
+  const [row] = await db
+    .select({ application: schema.applications, job: jobSummaryColumns })
+    .from(schema.applications)
+    .leftJoin(schema.jobs, eq(schema.jobs.jobId, schema.applications.jobId))
+    .leftJoin(schema.companies, eq(schema.companies.companyId, schema.jobs.companyId))
+    .where(eq(schema.applications.applicationId, applicationId))
+    .limit(1);
+  return row ? { application: row.application, job: toJobSummary(row.job) } : null;
 }
 
 export async function findByUserAndJob(db: Database, userId: string, jobId: string): Promise<ApplicationRow | null> {
@@ -70,15 +105,17 @@ export async function insertApplication(db: Database, input: InsertApplicationIn
 }
 
 export interface ListForUserResult {
+  items: ApplicationWithJobRow[];
+  nextCursor: string | null;
+}
+
+/** Staff pagination result: plain application rows, deliberately without any job context. */
+export interface ListForOrganizationResult {
   items: ApplicationRow[];
   nextCursor: string | null;
 }
 
-async function listByCondition(
-  db: Database,
-  scopeCondition: ReturnType<typeof eq>,
-  pagination: PaginationQuery,
-): Promise<ListForUserResult> {
+function pageCondition(scopeCondition: SQL, pagination: PaginationQuery): SQL | undefined {
   const cursorValue = pagination.cursor ? decodeCursor(pagination.cursor) : null;
   const cursorCreatedAt = typeof cursorValue?.createdAt === 'string' ? cursorValue.createdAt : null;
   const cursorId = typeof cursorValue?.id === 'string' ? cursorValue.id : null;
@@ -94,38 +131,83 @@ async function listByCondition(
     );
     if (tieBreak) conditions.push(tieBreak);
   }
+  return and(...conditions);
+}
 
-  const rows = await db
-    .select()
-    .from(schema.applications)
-    .where(and(...conditions))
-    .orderBy(desc(schema.applications.createdAt), desc(schema.applications.applicationId))
-    .limit(pagination.limit + 1);
-
-  const hasMore = rows.length > pagination.limit;
-  const items = hasMore ? rows.slice(0, pagination.limit) : rows;
+function toPage<T>(
+  rows: T[],
+  limit: number,
+  applicationOf: (item: T) => ApplicationRow,
+): { items: T[]; nextCursor: string | null } {
+  const hasMore = rows.length > limit;
+  const items = hasMore ? rows.slice(0, limit) : rows;
   const last = items[items.length - 1];
+  const lastApplication = last === undefined ? null : applicationOf(last);
   return {
     items,
-    nextCursor: hasMore && last ? encodeCursor({ createdAt: last.createdAt, id: last.applicationId }) : null,
+    nextCursor:
+      hasMore && lastApplication
+        ? encodeCursor({ createdAt: lastApplication.createdAt, id: lastApplication.applicationId })
+        : null,
   };
+}
+
+/**
+ * The caller's own applications with job context, in ONE query: a LEFT JOIN on
+ * the jobs and companies primary keys is 1:1 with `applications`, so the
+ * ordering, `limit + 1` page detection and cursor all behave exactly as they do
+ * for the plain table.
+ */
+export interface ListForUserFilter {
+  /** Restrict to applications for one job (the caller's own, so this reveals nothing new). */
+  jobId?: string | undefined;
 }
 
 export async function listForUser(
   db: Database,
   userId: string,
   pagination: PaginationQuery,
+  filter: ListForUserFilter = {},
 ): Promise<ListForUserResult> {
-  return listByCondition(db, eq(schema.applications.userId, userId), pagination);
+  const scopeCondition =
+    filter.jobId === undefined
+      ? eq(schema.applications.userId, userId)
+      : (and(eq(schema.applications.userId, userId), eq(schema.applications.jobId, filter.jobId)) as SQL);
+  const rows = await db
+    .select({ application: schema.applications, job: jobSummaryColumns })
+    .from(schema.applications)
+    .leftJoin(schema.jobs, eq(schema.jobs.jobId, schema.applications.jobId))
+    .leftJoin(schema.companies, eq(schema.companies.companyId, schema.jobs.companyId))
+    .where(pageCondition(scopeCondition, pagination))
+    .orderBy(desc(schema.applications.createdAt), desc(schema.applications.applicationId))
+    .limit(pagination.limit + 1);
+
+  const page = toPage(rows, pagination.limit, (item) => item.application);
+  return {
+    items: page.items.map((item) => ({ application: item.application, job: toJobSummary(item.job) })),
+    nextCursor: page.nextCursor,
+  };
 }
 
-/** Org-wide view for admin/owner staff (apps/admin) — same pagination contract as `listForUser`. */
+/**
+ * Org-wide view for admin/owner staff (apps/admin) — same pagination contract
+ * as `listForUser`, but a plain single-table read. Staff see application
+ * counts/statuses only (no job or employer names), so no job columns are ever
+ * selected on this path.
+ */
 export async function listForOrganization(
   db: Database,
   organizationId: string,
   pagination: PaginationQuery,
-): Promise<ListForUserResult> {
-  return listByCondition(db, eq(schema.applications.organizationId, organizationId), pagination);
+): Promise<ListForOrganizationResult> {
+  const rows = await db
+    .select()
+    .from(schema.applications)
+    .where(pageCondition(eq(schema.applications.organizationId, organizationId), pagination))
+    .orderBy(desc(schema.applications.createdAt), desc(schema.applications.applicationId))
+    .limit(pagination.limit + 1);
+
+  return toPage(rows, pagination.limit, (item) => item);
 }
 
 export interface AppendEventInput {

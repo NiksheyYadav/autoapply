@@ -3,8 +3,10 @@ import { isoTimestampSchema, uuidSchema } from './common.js';
 import {
   applicationModeSchema,
   applicationStatusSchema,
+  employmentTypeSchema,
   messageChannelSchema,
   messageStatusSchema,
+  remoteTypeSchema,
   taskStatusSchema,
 } from './enums.js';
 
@@ -25,6 +27,40 @@ export const applicationSchema = z.object({
 });
 
 export type Application = z.infer<typeof applicationSchema>;
+
+/**
+ * The slice of a job an application's *owner* needs to recognise it and to
+ * continue on the employer's site (assisted apply). Deliberately small: no
+ * description, salary or skills — those stay on the jobs-service surface.
+ */
+export const applicationJobSummarySchema = z.object({
+  job_id: uuidSchema,
+  title: z.string().min(1).max(300),
+  company_id: uuidSchema,
+  company_name: z.string().min(1).max(300),
+  location: z.string().max(300).nullable(),
+  remote_type: remoteTypeSchema,
+  employment_type: employmentTypeSchema,
+  /**
+   * Safe to use as a link target: the service only ever returns http(s) URLs
+   * (anything else a connector stored becomes null).
+   */
+  apply_url: z.url({ protocol: /^https?$/ }).nullable(),
+  is_active: z.boolean(),
+});
+
+export type ApplicationJobSummary = z.infer<typeof applicationJobSummarySchema>;
+
+/**
+ * An application as its owner sees it. `job` is null when the job (or its
+ * company) no longer exists. Organization staff never receive this shape: their
+ * view is {@link applicationSchema} only, with no job or employer fields.
+ */
+export const applicationWithJobSchema = applicationSchema.extend({
+  job: applicationJobSummarySchema.nullable(),
+});
+
+export type ApplicationWithJob = z.infer<typeof applicationWithJobSchema>;
 
 export const contactSchema = z.object({
   contact_id: uuidSchema,

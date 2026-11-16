@@ -27,7 +27,9 @@ const fragmentMono = Fragment_Mono({
 
 export const metadata: Metadata = {
   title: 'Atlas Admin',
-  description: 'Organization operations for Atlas: usage, applications, and platform model health.',
+  description: 'University pilot console for Atlas: student roster, CSV import and export, and the student funnel.',
+  // A staff console full of student data: nothing here belongs in a search index.
+  robots: { index: false, follow: false },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

@@ -56,7 +56,13 @@ describe.skipIf(!testDatabaseUrl)('referrals-service HTTP flow', () => {
 
   beforeAll(async () => {
     await stubJwks();
-    const env = loadReferralsServiceEnv({ DATABASE_URL: testDatabaseUrl, PORT: '4006', SUPABASE_URL });
+    // Contact writes are limited to the platform-admin allowlist; this suite's user is on it.
+    const env = loadReferralsServiceEnv({
+      DATABASE_URL: testDatabaseUrl,
+      PORT: '4006',
+      SUPABASE_URL,
+      PLATFORM_ADMIN_USER_IDS: userId,
+    });
     dbHandle = createDatabase({ url: env.DATABASE_URL });
     broker = createBroker({ driver: 'memory', logger: createSilentLogger() }) as MemoryBroker;
     app = buildApp({
@@ -124,6 +130,22 @@ describe.skipIf(!testDatabaseUrl)('referrals-service HTTP flow', () => {
     });
     expect(res.statusCode).toBe(201);
     expect(res.json().contact.relevance_score).toBe(0.9);
+  });
+
+  it('refuses contact writes from anyone not on the platform-admin allowlist, and writes nothing', async () => {
+    const outsider = randomUUID();
+    const outsiderToken = await signTestToken({ sub: outsider, sid: randomUUID(), org: null, role: 'owner', email: `outsider-${outsider}@example.com` });
+    const probeEmail = `planted-${randomUUID()}@example.com`;
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/contacts',
+      headers: { authorization: `Bearer ${outsiderToken}` },
+      payload: { company_id: companyId, full_name: 'Planted Contact', title: 'Recruiter', email: probeEmail },
+    });
+    // An org owner role is not platform trust either: anyone can create an organization.
+    expect(res.statusCode).toBe(403);
+    const rows = await dbHandle.sql`select 1 from contacts where email = ${probeEmail}`;
+    expect(rows).toHaveLength(0);
   });
 
   it('re-adding the same company+email is idempotent', async () => {

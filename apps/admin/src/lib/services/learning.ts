@@ -13,6 +13,7 @@ export interface LearningMetricsResponse {
   }[];
 }
 
-export function getMetrics(accessToken: string): Promise<LearningMetricsResponse> {
-  return apiFetch<LearningMetricsResponse>(SERVICE_URLS.learning, '/v1/learning/metrics', { accessToken });
+/** Platform-operators only: learning-service answers 403 to everyone else. */
+export function getMetrics(accessToken: string, signal?: AbortSignal): Promise<LearningMetricsResponse> {
+  return apiFetch<LearningMetricsResponse>(SERVICE_URLS.learning, '/v1/learning/metrics', { accessToken, signal });
 }

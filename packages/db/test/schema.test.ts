@@ -34,6 +34,7 @@ describe('schema definition', () => {
       'resumes',
       'jobs',
       'companies',
+      'job_sources',
       'applications',
       'contacts',
       'messages',
@@ -79,6 +80,17 @@ describe('generated migration', () => {
     expect(sqlText).toContain('CREATE UNIQUE INDEX "jobs_source_external_id_key"');
     expect(sqlText).toContain('CREATE UNIQUE INDEX "connector_accounts_provider_external_key"');
     expect(sqlText).toContain('CREATE UNIQUE INDEX "companies_normalized_name_key"');
+  });
+
+  it('keeps one row per job board and restricts board tokens to a URL-safe charset', () => {
+    // job_sources: the board token is spliced into an outbound URL, so the database refuses
+    // anything that could steer it (dots, slashes, query or userinfo characters) even for
+    // rows written by hand.
+    expect(sqlText).toContain('CONSTRAINT "job_sources_provider_board_token_key" UNIQUE("provider","board_token")');
+    expect(sqlText).toContain(
+      `CONSTRAINT "job_sources_board_token_check" CHECK ("job_sources"."board_token" ~ '^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$')`,
+    );
+    expect(sqlText).toContain(`CREATE TYPE "public"."job_board_provider" AS ENUM('greenhouse', 'lever', 'ashby')`);
   });
 
   it('makes email uniqueness case-insensitive', () => {

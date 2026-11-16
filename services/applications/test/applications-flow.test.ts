@@ -42,6 +42,8 @@ async function stubJwks(): Promise<void> {
 
 describe.skipIf(!testDatabaseUrl)('applications-service HTTP flow', () => {
   let app: FastifyInstance;
+  // Same service with APPLICATIONS_AUTO_MODE_ENABLED=true; `app` runs with the default (off).
+  let autoApp: FastifyInstance;
   let dbHandle: DatabaseHandle;
   let token: string;
   let otherToken: string;
@@ -69,6 +71,22 @@ describe.skipIf(!testDatabaseUrl)('applications-service HTTP flow', () => {
       tokenVerifier: createTokenVerifierConfig(env),
     });
     await app.ready();
+
+    const autoEnv = loadApplicationsServiceEnv({
+      DATABASE_URL: testDatabaseUrl,
+      PORT: '4005',
+      SUPABASE_URL,
+      APPLICATIONS_AUTO_MODE_ENABLED: 'true',
+    });
+    autoApp = buildApp({
+      db: dbHandle.db,
+      sql: dbHandle.sql,
+      env: autoEnv,
+      logger: createSilentLogger(),
+      broker,
+      tokenVerifier: createTokenVerifierConfig(autoEnv),
+    });
+    await autoApp.ready();
 
     // public.users.user_id FKs to auth.users.id (see packages/db/supabase/auth-hooks.sql);
     // inserting into auth.users fires handle_new_user, which creates the matching
@@ -137,6 +155,7 @@ describe.skipIf(!testDatabaseUrl)('applications-service HTTP flow', () => {
     await dbHandle.db.delete(schema.resumes).where(eq(schema.resumes.userId, userId));
     // Cascades to public.users via the auth.users FK.
     await dbHandle.sql`delete from auth.users where id in (${userId}, ${otherUserId})`;
+    await autoApp.close();
     await app.close();
     await dbHandle.close();
   });
@@ -189,8 +208,27 @@ describe.skipIf(!testDatabaseUrl)('applications-service HTTP flow', () => {
     expect(res.json().error.code).toBe('CONFLICT');
   });
 
-  it('starts an auto-mode application already queued', async () => {
+  it('rejects mode "auto" while automatic submission is not available (flag off by default)', async () => {
     const res = await app.inject({
+      method: 'POST',
+      url: '/v1/applications',
+      headers: { authorization: `Bearer ${token}`, 'idempotency-key': 'idem-key-3-auto' },
+      payload: { job_id: secondJobId, resume_id: resumeId, mode: 'auto' },
+    });
+    expect(res.statusCode).toBe(400);
+    const error = res.json().error;
+    expect(error.code).toBe('VALIDATION_ERROR');
+    expect(error.message).toContain('automatic submission is not available yet');
+    expect(error.details).toEqual([expect.objectContaining({ path: 'mode' })]);
+
+    // Nothing was written, so the user can't end up stuck in `queued` — and
+    // the rejected request didn't burn its idempotency key or the job.
+    const rows = await dbHandle.db.select().from(schema.applications).where(eq(schema.applications.userId, userId));
+    expect(rows.map((r) => r.jobId)).not.toContain(secondJobId);
+  });
+
+  it('starts an auto-mode application already queued when APPLICATIONS_AUTO_MODE_ENABLED=true', async () => {
+    const res = await autoApp.inject({
       method: 'POST',
       url: '/v1/applications',
       headers: { authorization: `Bearer ${token}`, 'idempotency-key': 'idem-key-3-auto' },
@@ -198,6 +236,7 @@ describe.skipIf(!testDatabaseUrl)('applications-service HTTP flow', () => {
     });
     expect(res.statusCode).toBe(201);
     expect(res.json().application.status).toBe('queued');
+    expect(res.json().application.mode).toBe('auto');
   });
 
   it('lists the caller\'s own applications', async () => {

@@ -9,6 +9,11 @@ import { createClient } from './supabase/client';
 interface SessionState {
   status: 'loading' | 'authenticated' | 'unauthenticated';
   user: PublicUser | null;
+  /**
+   * `role` and `organizationId` are the claims of the access token (the user's
+   * oldest membership), echoed by /v1/auth/me. They are a navigation hint only;
+   * the admin API re-checks the real membership on every request.
+   */
   role: MemberRole | null;
   organizationId: string | null;
   accessToken: string | null;
@@ -17,6 +22,12 @@ interface SessionState {
 interface SessionContextValue extends SessionState {
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  /**
+   * A token that is valid right now. Prefer this over `accessToken` for
+   * requests: the Supabase client refreshes an expiring token here, whereas
+   * the state value is only updated when the auth listener fires.
+   */
+  getAccessToken: () => Promise<string | null>;
 }
 
 const EMPTY_STATE: SessionState = { status: 'unauthenticated', user: null, role: null, organizationId: null, accessToken: null };
@@ -73,7 +84,15 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setState({ ...EMPTY_STATE, status: 'unauthenticated' });
   }, [supabase]);
 
-  const value = React.useMemo<SessionContextValue>(() => ({ ...state, login, logout }), [state, login, logout]);
+  const getAccessToken = React.useCallback(async () => {
+    const { data } = await supabase.auth.getSession();
+    return data.session?.access_token ?? null;
+  }, [supabase]);
+
+  const value = React.useMemo<SessionContextValue>(
+    () => ({ ...state, login, logout, getAccessToken }),
+    [state, login, logout, getAccessToken],
+  );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }

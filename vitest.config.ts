@@ -19,7 +19,7 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['packages/*/test/**/*.test.ts', 'services/*/test/**/*.test.ts'],
+    include: ['packages/*/test/**/*.test.ts', 'services/*/test/**/*.test.ts', 'apps/*/test/**/*.test.ts'],
     exclude: ['**/node_modules/**', '**/dist/**'],
     // Integration tests self-skip when ATLAS_TEST_DATABASE_URL is unset.
     testTimeout: 20_000,

@@ -159,6 +159,27 @@ describe.skipIf(!testDatabaseUrl)('connectors-service HTTP flow', () => {
     expect(res.statusCode).toBe(409);
   });
 
+  it("does not leak the other user's connector_account_id when rejecting a conflicting claim", async () => {
+    const [victimRow] = await dbHandle.db.select().from(schema.connectorAccounts).where(eq(schema.connectorAccounts.userId, userId));
+    expect(victimRow).toBeDefined();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/connectors/greenhouse/connect',
+      headers: { authorization: `Bearer ${otherToken}` },
+      payload: { external_account_id: 'board-1-renamed', credential: 'someone-elses-token', consent: true },
+    });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error.code).toBe('CONFLICT');
+    expect(res.json().error.details).toBeUndefined();
+    expect(res.body).not.toContain(victimRow!.connectorAccountId);
+    expect(res.body).not.toContain('connector_account_id');
+
+    // The rejected claim must not have left a row (or secret) behind for the other user.
+    const otherRows = await dbHandle.db.select().from(schema.connectorAccounts).where(eq(schema.connectorAccounts.userId, otherUserId));
+    expect(otherRows).toHaveLength(0);
+  });
+
   it('disconnects a provider', async () => {
     const res = await app.inject({
       method: 'POST',

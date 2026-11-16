@@ -1,4 +1,4 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import { schema, type Database } from '@atlas/db';
 import type { Job, ParsedProfile } from '@atlas/types';
 
@@ -44,6 +44,13 @@ export async function findJobById(db: Database, jobId: string): Promise<Job | nu
 }
 
 /**
+ * What scoring needs of a job. The full `Job` carries the whole description,
+ * and a fan-out reads hundreds of jobs at once, so the scoring paths read only
+ * these columns.
+ */
+export type ScorableJob = Pick<Job, 'job_id' | 'title' | 'skills'>;
+
+/**
  * Most recently posted active jobs, bounded to keep one `job.discovered` (or
  * `resume.parsed`) event's fan-out work finite. A production system would
  * page through the full active set via its own queue instead of one bounded
@@ -51,14 +58,15 @@ export async function findJobById(db: Database, jobId: string): Promise<Job | nu
  */
 const RESCORE_BATCH_LIMIT = 500;
 
-export async function listActiveJobs(db: Database, limit = RESCORE_BATCH_LIMIT): Promise<Job[]> {
+export async function listActiveJobs(db: Database, limit = RESCORE_BATCH_LIMIT): Promise<ScorableJob[]> {
   const rows = await db
-    .select()
+    .select({ jobId: schema.jobs.jobId, title: schema.jobs.title, skills: schema.jobs.skills })
     .from(schema.jobs)
     .where(eq(schema.jobs.isActive, true))
-    .orderBy(desc(schema.jobs.createdAt))
+    // jobId breaks ties so a retried fan-out sees the same 500 jobs.
+    .orderBy(desc(schema.jobs.createdAt), desc(schema.jobs.jobId))
     .limit(limit);
-  return rows.map(toJob);
+  return rows.map((row) => ({ job_id: row.jobId, title: row.title, skills: row.skills.slice(0, 200) }));
 }
 
 export async function findLatestParsedProfile(
@@ -69,7 +77,7 @@ export async function findLatestParsedProfile(
     .select({ parsedProfile: schema.resumes.parsedProfile })
     .from(schema.resumes)
     .where(and(eq(schema.resumes.userId, userId), eq(schema.resumes.status, 'parsed')))
-    .orderBy(desc(schema.resumes.parsedAt))
+    .orderBy(desc(schema.resumes.parsedAt), desc(schema.resumes.resumeId))
     .limit(1);
   return row?.parsedProfile ?? null;
 }
@@ -80,8 +88,34 @@ export async function listCandidateUserIds(db: Database, limit = RESCORE_BATCH_L
     .select({ userId: schema.resumes.userId })
     .from(schema.resumes)
     .where(eq(schema.resumes.status, 'parsed'))
-    .orderBy(desc(schema.resumes.parsedAt))
+    // resumeId breaks ties so a retried fan-out sees the same candidates.
+    .orderBy(desc(schema.resumes.parsedAt), desc(schema.resumes.resumeId))
     .limit(limit);
   // A user with multiple parsed resumes appears once per resume; de-dupe.
   return [...new Set(rows.map((row) => row.userId))];
+}
+
+/**
+ * Batched sibling of `findLatestParsedProfile`: one query for N users instead
+ * of N. A user with no parsed resume is absent from the map.
+ */
+export async function findLatestParsedProfiles(
+  db: Database,
+  userIds: string[],
+): Promise<Map<string, ParsedProfile>> {
+  const profiles = new Map<string, ParsedProfile>();
+  if (userIds.length === 0) return profiles;
+
+  const rows = await db
+    .selectDistinctOn([schema.resumes.userId], {
+      userId: schema.resumes.userId,
+      parsedProfile: schema.resumes.parsedProfile,
+    })
+    .from(schema.resumes)
+    .where(and(inArray(schema.resumes.userId, userIds), eq(schema.resumes.status, 'parsed')))
+    .orderBy(schema.resumes.userId, desc(schema.resumes.parsedAt), desc(schema.resumes.resumeId));
+  for (const row of rows) {
+    if (row.parsedProfile) profiles.set(row.userId, row.parsedProfile);
+  }
+  return profiles;
 }

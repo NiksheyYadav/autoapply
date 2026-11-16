@@ -9,12 +9,19 @@ import type { Database } from '@atlas/db';
 import type { EventBroker } from '@atlas/messaging';
 import type { ErrorCode } from '@atlas/types';
 import { isAppError, newUuid, toAppError, type Logger } from '@atlas/utils';
-import { createMetricsRegistry, metricsRoute, registerHttpMetrics } from '@atlas/observability';
+import {
+  createMetricsRegistry,
+  metricsRoute,
+  registerHttpMetrics,
+  registerIsoTimestamps,
+  registerRateLimitedRoutes,
+} from '@atlas/observability';
 import type { OutreachServiceEnv } from './env.js';
 import { createMessageRoute } from './http/routes/create-message.js';
 import { getMessageRoute } from './http/routes/get-message.js';
 import { healthRoute } from './http/routes/health.js';
 import { listMessagesRoute } from './http/routes/list-messages.js';
+import { markMessageSentRoute } from './http/routes/mark-message-sent.js';
 import { scheduleMessageRoute } from './http/routes/schedule-message.js';
 import { sendMessageRoute } from './http/routes/send-message.js';
 import type { OutreachTransport } from './lib/transport.js';
@@ -36,6 +43,15 @@ const STATUS_TO_CODE: Partial<Record<number, ErrorCode>> = {
   429: 'RATE_LIMITED',
 };
 
+/**
+ * Sending goes out through an external transport (real email, eventually), so it is held to a
+ * tighter limit than the global one. A route listed here uses its own budget instead of the
+ * global one.
+ */
+const ROUTE_LIMITS = {
+  'POST /v1/messages/:id/send': { max: 20, timeWindow: '1 minute' },
+} as const;
+
 export function buildApp(deps: AppDeps): FastifyInstance {
   const app = Fastify({
     // See services/auth/src/app.ts for why this cast is needed: pino's Logger
@@ -48,13 +64,11 @@ export function buildApp(deps: AppDeps): FastifyInstance {
   });
 
   void app.register(cors, { origin: parseCorsOrigins(deps.env.CORS_ORIGINS) });
-  void app.register(rateLimit, {
-    max: deps.env.RATE_LIMIT_MAX,
-    timeWindow: deps.env.RATE_LIMIT_WINDOW,
-  });
 
   const metrics = createMetricsRegistry('outreach-service');
   registerHttpMetrics(app, metrics);
+  // Postgres-style timestamps ('2026-10-27 12:59:21+00') become strict ISO 8601, which Safari can parse.
+  registerIsoTimestamps(app);
 
   app.setErrorHandler((error: FastifyError | ZodError, request, reply) => {
     if (error instanceof ZodError) {
@@ -97,13 +111,28 @@ export function buildApp(deps: AppDeps): FastifyInstance {
     });
   });
 
+  // Probes are scraped by infrastructure and stay outside the rate limiter.
   healthRoute(app, deps);
   metricsRoute(app, metrics);
-  createMessageRoute(app, deps);
-  listMessagesRoute(app, deps);
-  getMessageRoute(app, deps);
-  scheduleMessageRoute(app, deps);
-  sendMessageRoute(app, deps);
+
+  // Everything else is declared inside the rate-limited scope: see registerRateLimitedRoutes for
+  // why routes declared on `app` right after registering the plugin would not be limited.
+  registerRateLimitedRoutes(
+    app,
+    {
+      plugin: rateLimit,
+      settings: { max: deps.env.RATE_LIMIT_MAX, timeWindow: deps.env.RATE_LIMIT_WINDOW },
+      routeLimits: ROUTE_LIMITS,
+    },
+    (api) => {
+      createMessageRoute(api, deps);
+      listMessagesRoute(api, deps);
+      getMessageRoute(api, deps);
+      scheduleMessageRoute(api, deps);
+      sendMessageRoute(api, deps);
+      markMessageSentRoute(api, deps);
+    },
+  );
 
   return app;
 }

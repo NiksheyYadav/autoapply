@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { allowedNextStatuses, isValidTransition } from '../src/lib/transitions.js';
+import {
+  allowedNextStatuses,
+  isOpenedApplyLinkMarker,
+  isValidTransition,
+  OPENED_APPLY_LINK_NOTE,
+} from '../src/lib/transitions.js';
 
 describe('isValidTransition', () => {
   it('allows the normal happy-path progression', () => {
@@ -33,5 +38,43 @@ describe('isValidTransition', () => {
 
   it('rejects a no-op transition to the same status', () => {
     expect(isValidTransition('submitted', 'submitted')).toBe(false);
+    expect(isValidTransition('draft', 'draft')).toBe(false);
+  });
+
+  it('lets a draft be reported as submitted directly (assisted apply on the employer site)', () => {
+    expect(isValidTransition('draft', 'submitted')).toBe(true);
+  });
+
+  it('does not open any other shortcut past the worker-owned states', () => {
+    expect(allowedNextStatuses('draft')).toEqual(['queued', 'submitted', 'withdrawn']);
+    expect(isValidTransition('draft', 'submitting')).toBe(false);
+    expect(isValidTransition('draft', 'interviewing')).toBe(false);
+    expect(isValidTransition('queued', 'submitted')).toBe(false);
+    expect(isValidTransition('failed', 'submitted')).toBe(false);
+  });
+});
+
+describe('isOpenedApplyLinkMarker', () => {
+  it('accepts exactly a draft -> draft event noted opened_apply_link', () => {
+    expect(OPENED_APPLY_LINK_NOTE).toBe('opened_apply_link');
+    expect(isOpenedApplyLinkMarker('draft', 'draft', OPENED_APPLY_LINK_NOTE)).toBe(true);
+  });
+
+  it('rejects any other note, or none', () => {
+    expect(isOpenedApplyLinkMarker('draft', 'draft', undefined)).toBe(false);
+    expect(isOpenedApplyLinkMarker('draft', 'draft', '')).toBe(false);
+    expect(isOpenedApplyLinkMarker('draft', 'draft', 'Opened_Apply_Link')).toBe(false);
+    expect(isOpenedApplyLinkMarker('draft', 'draft', 'opened_apply_link, then more')).toBe(false);
+  });
+
+  it('is only a marker while the application is still a draft', () => {
+    expect(isOpenedApplyLinkMarker('queued', 'queued', OPENED_APPLY_LINK_NOTE)).toBe(false);
+    expect(isOpenedApplyLinkMarker('submitted', 'submitted', OPENED_APPLY_LINK_NOTE)).toBe(false);
+    expect(isOpenedApplyLinkMarker('withdrawn', 'withdrawn', OPENED_APPLY_LINK_NOTE)).toBe(false);
+  });
+
+  it('is not a way to change status', () => {
+    expect(isOpenedApplyLinkMarker('draft', 'submitted', OPENED_APPLY_LINK_NOTE)).toBe(false);
+    expect(isOpenedApplyLinkMarker('draft', 'queued', OPENED_APPLY_LINK_NOTE)).toBe(false);
   });
 });

@@ -85,6 +85,55 @@ export async function claimForSending(db: Database, messageId: string): Promise<
   return row ?? null;
 }
 
+/**
+ * Atomically records that the message's owner sent it themselves. The owner and
+ * status checks are in the `WHERE` clause, so ownership and the claim are one
+ * statement: a message that is another user's, missing, or no longer
+ * draft/scheduled matches nothing and comes back `null`, and of any number of
+ * concurrent callers exactly one gets the row (and so publishes the event).
+ */
+const SELF_REPORTABLE_STATUSES = ['draft', 'scheduled'] as const;
+
+export async function claimAsSentByOwner(
+  db: Database,
+  messageId: string,
+  userId: string,
+): Promise<MessageRow | null> {
+  const [row] = await db
+    .update(schema.messages)
+    .set({ status: 'sent', sentAt: new Date().toISOString() })
+    .where(
+      and(
+        eq(schema.messages.messageId, messageId),
+        eq(schema.messages.userId, userId),
+        inArray(schema.messages.status, SELF_REPORTABLE_STATUSES),
+      ),
+    )
+    .returning();
+  return row ?? null;
+}
+
+/**
+ * Undoes `claimAsSentByOwner` when the event could not be published, so a retry
+ * starts from a clean state instead of finding a `sent` message whose event was
+ * never emitted. Only a row still holding the claim's own `sent_at` is touched.
+ * `scheduled_for` is set exactly when the message was scheduled, which is how
+ * the earlier status is recovered.
+ */
+export async function revertSentClaim(db: Database, claimed: MessageRow): Promise<void> {
+  if (claimed.sentAt === null) return;
+  await db
+    .update(schema.messages)
+    .set({ status: claimed.scheduledFor === null ? 'draft' : 'scheduled', sentAt: null })
+    .where(
+      and(
+        eq(schema.messages.messageId, claimed.messageId),
+        eq(schema.messages.status, 'sent'),
+        eq(schema.messages.sentAt, claimed.sentAt),
+      ),
+    );
+}
+
 export async function setFailed(db: Database, messageId: string): Promise<MessageRow> {
   const [row] = await db
     .update(schema.messages)
