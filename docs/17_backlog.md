@@ -4,13 +4,13 @@ Ordered by priority. Autopilot takes the first `todo` item in Tier A, then Tier 
 
 Status values: `todo`, `in-progress`, `blocked`, `done`.
 
-Evidence below comes from `docs/15_progress_report.md` and a baseline run on 2026-10-31 (typecheck clean, lint clean, 114 tests passed and 51 skipped, committed `api/` bundle current).
+Evidence below comes from `docs/15_progress_report.md` and a baseline run on 2026-11-17 (typecheck clean, lint clean, 1275 tests passed and 429 skipped).
 
 ## Tier A — autopilot may implement
 
 ### A1 — Explain the test-count drop
 
-Status: `todo`
+Status: `done` (see "Test-count history" in `docs/15_progress_report.md`)
 `docs/15` records 125 passed / 55 skipped before the Supabase migration and 114 / 51 now, and says the drop "was not investigated separately".
 Done when: the PR explains the difference with evidence from history. Any lost test that guarded real behavior is restored. Intentional removals are noted in `docs/15`.
 History tip: the clone is shallow. Deepen with a bounded `git fetch --depth=1000 origin main`, not `--unshallow`.
