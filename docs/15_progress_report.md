@@ -20,7 +20,16 @@ Run from a clean worktree at `0a755b4` after `pnpm install --frozen-lockfile`:
 
 - `pnpm typecheck` — clean
 - `pnpm lint` — clean
-- `pnpm test` — 17 files passed, 9 skipped; **114 tests passed, 51 skipped**. The skips are the DB-backed integration suites, which self-skip without `ATLAS_TEST_DATABASE_URL`. Earlier records show 125 passed / 55 skipped before the Supabase migration; the drop coincides with auth-service being cut down and was not investigated separately.
+- `pnpm test` — 17 files passed, 9 skipped; **114 tests passed, 51 skipped** at `0a755b4`. The skips are the DB-backed integration suites, which self-skip without `ATLAS_TEST_DATABASE_URL`. On `main` at `1c5d852` the same command gives **1275 passed, 429 skipped** (89 files passed, 29 skipped); see "Test-count history" below.
+
+### Test-count history
+
+The "125 passed / 55 skipped" figure was first written in `6bdcd64` (2026-10-27); no earlier record of it exists in history.
+
+- **Verified (2026-11-17), from history:** the Supabase auth cut-down `23e159d` (2026-09-27, "shrink auth-service to just /me + /health") deleted exactly four test files under `services/auth/test/`: `password.test.ts` (4 tests), `tokens.test.ts` (5), `oauth-flow.test.ts` (6) and `auth-flow.test.ts` (4, behind `describe.skipIf(!testDatabaseUrl)`). Between `23e159d^` and `0a755b4` those are the only deleted or added test files (30 files to 26, and 26 = 17 passed + 9 skipped). That removes 15 always-run tests and 4 DB-gated ones, so skipped goes 55 to 51 exactly. The same range adds three tests in `packages/db/test/schema.test.ts` (Supabase provisioning checks).
+- **Intentional:** the deleted tests covered password hashing, self-issued access/refresh tokens, the OAuth state cookie and the register/login/refresh flow. All of that code was removed in `23e159d` in favour of Supabase Auth, so no test guarding live behaviour was lost. Token verification is covered by `packages/auth-kit/test/tokens.test.ts`.
+- **Unverified:** that `23e159d^` actually printed 125 passed / 55 skipped. The old tree could not be installed and run offline in the sandbox. By the test-file diff the passed count would be 125 - 15 + 3 = 113 against the recorded 114, a gap of one test that I did not trace.
+- **Why 114/51 became 1275/429 (Verified 2026-11-17, counts from `pnpm test` on `1c5d852`):** since `0a755b4`, 92 test files were added (26 files to 118). By directory: `services/*` 57 (admin 11, jobs 9, auth 7, applications 6, matching 5, analytics 4, learning 4, outreach 4, referrals 4, profile 3, connectors 1), `apps/*` 19 (admin 10, web 9), `packages/*` 16 (messaging 6, db 3, utils 2, ai, auth-kit, observability, storage 1 each). The root vitest run also now includes `apps/*/test` (`809e492`). Most added suites are DB-backed and self-skip without `ATLAS_TEST_DATABASE_URL`, which is why skipped grew from 51 to 429. Per-file test counts for the new suites were not tallied.
 
 ## Status against CLAUDE.md priorities
 

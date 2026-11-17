@@ -12,6 +12,12 @@ Entry format:
 - Needs owner: <decision or review, or "nothing">
 ```
 
+## 2026-11-17 — A1
+- Baseline: typecheck clean, lint clean, tests 1275 passed / 429 skipped
+- Did: traced the 125 to 114 drop to four auth test files deleted in `23e159d` (password, tokens, OAuth, DB-gated flow), all for removed code, so nothing restored; explained 114 to 1275 by 92 new test files. Docs only. The 125 figure itself is Unverified (old tree not re-run).
+- Result: PR (link added on open)
+- Needs owner: nothing
+
 ## 2026-10-31 — setup
 
 - Baseline: typecheck clean, lint clean, tests 114 passed / 51 skipped; `node scripts/bundle-backend.mjs` produced no diff, so the committed `api/` is current.
