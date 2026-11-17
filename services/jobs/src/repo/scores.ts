@@ -1,7 +1,7 @@
 import { and, desc, eq, ilike, lt, or } from 'drizzle-orm';
 import { schema, type Database } from '@atlas/db';
 import type { JobRecommendation, PaginationQuery, RemoteType } from '@atlas/types';
-import { decodeCursor, encodeCursor } from '@atlas/utils';
+import { encodeCursor, parseScoreCursor } from '@atlas/utils';
 import { toJob } from './jobs.js';
 
 export interface ListScoresResult {
@@ -25,9 +25,9 @@ export async function listForUser(
   filters: ListScoresFilters,
   pagination: PaginationQuery,
 ): Promise<ListScoresResult> {
-  const cursorValue = pagination.cursor ? decodeCursor(pagination.cursor) : null;
-  const cursorScore = typeof cursorValue?.score === 'number' ? cursorValue.score : null;
-  const cursorId = typeof cursorValue?.id === 'string' ? cursorValue.id : null;
+  const cursor = parseScoreCursor(pagination.cursor);
+  const cursorScore = cursor?.score ?? null;
+  const cursorId = cursor?.id ?? null;
 
   // Scores outlive the posting they were computed for: a job its source has stopped listing is
   // marked inactive (scheduled ingestion), and must stop being recommended along with it.

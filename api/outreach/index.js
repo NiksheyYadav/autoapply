@@ -53881,8 +53881,38 @@ var AppError = class extends Error {
 function isAppError(value) {
   return value instanceof AppError;
 }
+var DATABASE_UNAVAILABLE_CODES = /* @__PURE__ */ new Set([
+  "53300",
+  // too_many_connections
+  "57P01",
+  // admin_shutdown
+  "57P02",
+  // crash_shutdown
+  "57P03",
+  // cannot_connect_now
+  "08000",
+  "08001",
+  "08003",
+  "08004",
+  "08006",
+  "08007",
+  "CONNECTION_CLOSED",
+  "CONNECTION_DESTROYED",
+  "CONNECTION_ENDED",
+  "CONNECT_TIMEOUT",
+  "ECONNREFUSED",
+  "ECONNRESET",
+  "EPIPE",
+  "ETIMEDOUT",
+  "ENOTFOUND",
+  "EAI_AGAIN"
+]);
 function toAppError(value) {
   if (isAppError(value)) return value;
+  const code = pgErrorCode(value);
+  if (code !== void 0 && DATABASE_UNAVAILABLE_CODES.has(code)) {
+    return new AppError("UPSTREAM_UNAVAILABLE", "The service is temporarily unavailable. Please try again shortly.", { cause: value });
+  }
   const message2 = value instanceof Error ? value.message : String(value);
   return new AppError("INTERNAL_ERROR", message2, { cause: value, exposeMessage: false });
 }
@@ -53910,6 +53940,33 @@ function decodeCursor(cursor) {
     return null;
   }
 }
+var PG_TIMESTAMP = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})(?:\.\d{1,6})?(?:Z|[+-](\d{2})(?::?(\d{2}))?)$/;
+var UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function isPostgresTimestamp(text2) {
+  const match = PG_TIMESTAMP.exec(text2);
+  if (match === null) return false;
+  const [year, month, day, hour, minute, second] = match.slice(1, 7).map(Number);
+  const date6 = new Date(Date.UTC(year, month - 1, day));
+  const realDate = year >= 1e3 && date6.getUTCFullYear() === year && date6.getUTCMonth() === month - 1 && date6.getUTCDate() === day;
+  const offsetHours = match[7] === void 0 ? 0 : Number(match[7]);
+  const offsetMinutes = match[8] === void 0 ? 0 : Number(match[8]);
+  return realDate && hour <= 23 && minute <= 59 && second <= 59 && offsetHours <= 15 && offsetMinutes <= 59;
+}
+function invalidCursor() {
+  return new AppError("VALIDATION_ERROR", "Invalid cursor", {
+    details: [{ path: "cursor", message: "Not a cursor this API issued" }]
+  });
+}
+function parseTimeCursor(cursor) {
+  if (cursor === void 0) return null;
+  const decoded = decodeCursor(cursor);
+  const createdAt = decoded?.createdAt;
+  const id = decoded?.id;
+  if (typeof createdAt !== "string" || typeof id !== "string" || !isPostgresTimestamp(createdAt) || !UUID.test(id)) {
+    throw invalidCursor();
+  }
+  return { createdAt, id };
+}
 
 // packages/utils/src/logger.ts
 var import_pino = __toESM(require_pino(), 1);
@@ -53918,39 +53975,61 @@ var import_pino = __toESM(require_pino(), 1);
 var REDACTED = "[redacted]";
 
 // packages/utils/src/logger.ts
-function createLogger({ service, level = "info", pretty = false }) {
-  return (0, import_pino.pino)({
-    level,
-    base: { service },
-    redact: {
-      paths: [
-        "password",
-        "password_hash",
-        "token",
-        "access_token",
-        "refresh_token",
-        "secret",
-        "api_key",
-        "req.headers.authorization",
-        "req.headers.cookie",
-        'res.headers["set-cookie"]',
-        "*.password",
-        "*.access_token",
-        "*.refresh_token"
-      ],
-      censor: REDACTED
+function createLogger({ service, level = "info", pretty = false, destination }) {
+  return (0, import_pino.pino)(
+    {
+      level,
+      base: { service },
+      redact: {
+        paths: [
+          "password",
+          "password_hash",
+          "token",
+          "access_token",
+          "refresh_token",
+          "secret",
+          "api_key",
+          "req.headers.authorization",
+          "req.headers.cookie",
+          'res.headers["set-cookie"]',
+          "*.password",
+          "*.access_token",
+          "*.refresh_token",
+          // The same secrets one level down, in request-shaped objects and in a bare `headers`.
+          "authorization",
+          "cookie",
+          "headers.authorization",
+          "headers.cookie",
+          'headers["x-api-key"]',
+          "*.authorization",
+          "*.cookie",
+          "*.headers.authorization",
+          "*.headers.cookie",
+          '*.headers["x-api-key"]',
+          "*.token",
+          "*.secret",
+          "*.api_key",
+          "*.client_secret",
+          "*.private_key",
+          // A resume's text is personal data and can be 200,000 characters of it.
+          "parsed_text",
+          "*.parsed_text"
+        ],
+        censor: REDACTED
+      },
+      timestamp: import_pino.pino.stdTimeFunctions.isoTime,
+      formatters: {
+        level: (label) => ({ level: label })
+      },
+      ...pretty ? {
+        transport: {
+          target: "pino-pretty",
+          options: { colorize: true, translateTime: "HH:MM:ss.l", ignore: "pid,hostname" }
+        }
+      } : {}
     },
-    timestamp: import_pino.pino.stdTimeFunctions.isoTime,
-    formatters: {
-      level: (label) => ({ level: label })
-    },
-    ...pretty ? {
-      transport: {
-        target: "pino-pretty",
-        options: { colorize: true, translateTime: "HH:MM:ss.l", ignore: "pid,hostname" }
-      }
-    } : {}
-  });
+    destination
+  );
 }
 
 // packages/utils/src/retry.ts
@@ -53985,12 +54064,16 @@ function createVercelHandler(app2) {
 }
 var SERVERLESS_PLACEHOLDER_PORT = "3000";
 var SERVERLESS_DEFAULT_MESSAGING_DRIVER = "postgres";
+function serverlessMessagingDriver(configured) {
+  const driver = configured?.trim() ?? "";
+  return driver === "" || driver.toLowerCase() === "memory" ? SERVERLESS_DEFAULT_MESSAGING_DRIVER : driver;
+}
 function withServerlessEnvDefaults(source = process.env) {
   if (!source.VERCEL) return source;
   return {
     ...source,
     PORT: source.PORT ?? SERVERLESS_PLACEHOLDER_PORT,
-    MESSAGING_DRIVER: source.MESSAGING_DRIVER ?? SERVERLESS_DEFAULT_MESSAGING_DRIVER
+    MESSAGING_DRIVER: serverlessMessagingDriver(source.MESSAGING_DRIVER)
   };
 }
 
@@ -75416,14 +75499,26 @@ function createTokenVerifierConfig(env2) {
     issuer: authBase
   };
 }
+function isKeySetUnavailable(cause) {
+  if (!(cause instanceof errors_exports.JOSEError)) return true;
+  return cause instanceof errors_exports.JWKSTimeout || cause instanceof errors_exports.JWKSInvalid || cause.constructor === errors_exports.JOSEError;
+}
 async function verifyAccessToken(token, config2) {
   let payload;
   try {
     ({ payload } = await jwtVerify(token, config2.jwks, {
       issuer: config2.issuer,
-      audience: "authenticated"
+      audience: "authenticated",
+      // jose treats a missing `exp` as "never expires" unless told otherwise. Supabase always
+      // sets both, so a token without them was not issued by it.
+      requiredClaims: ["exp", "sub"]
     }));
   } catch (cause) {
+    if (isKeySetUnavailable(cause)) {
+      throw new AppError("UPSTREAM_UNAVAILABLE", "Sign-in keys are temporarily unavailable", {
+        cause
+      });
+    }
     const message2 = cause instanceof errors_exports.JWTExpired ? "Access token has expired" : "Access token is invalid";
     throw new AppError("UNAUTHENTICATED", message2, { cause });
   }
@@ -86063,18 +86158,110 @@ var storageEnvSchema = external_exports.object({
   SUPABASE_STORAGE_BUCKET: external_exports.string().min(1).default("resumes"),
   SUPABASE_SECRET_KEY: external_exports.string().min(1).optional()
 });
+var LOOPBACK_HOSTS = /* @__PURE__ */ new Set(["localhost", "127.0.0.1", "[::1]"]);
+function normalizeSupabaseUrl(value) {
+  let url2;
+  try {
+    url2 = new URL(value.trim());
+  } catch {
+    return void 0;
+  }
+  if (url2.username !== "" || url2.password !== "") return void 0;
+  const secure = url2.protocol === "https:";
+  const localStack = url2.protocol === "http:" && LOOPBACK_HOSTS.has(url2.hostname);
+  return secure || localStack ? url2.origin : void 0;
+}
+var supabaseUrlSchema = external_exports.string().transform((value, ctx) => {
+  const origin = normalizeSupabaseUrl(value);
+  if (origin === void 0) {
+    ctx.addIssue({
+      code: "custom",
+      message: "SUPABASE_URL must be an https URL such as https://abc.supabase.co (http only for localhost)"
+    });
+    return external_exports.NEVER;
+  }
+  return origin;
+});
 var supabaseAuthEnvSchema = external_exports.object({
-  SUPABASE_URL: external_exports.string().url("SUPABASE_URL must be a valid URL")
+  SUPABASE_URL: supabaseUrlSchema
+});
+var WINDOW_UNIT_MS = {
+  s: 1e3,
+  sec: 1e3,
+  secs: 1e3,
+  second: 1e3,
+  seconds: 1e3,
+  m: 6e4,
+  min: 6e4,
+  mins: 6e4,
+  minute: 6e4,
+  minutes: 6e4,
+  h: 36e5,
+  hr: 36e5,
+  hrs: 36e5,
+  hour: 36e5,
+  hours: 36e5,
+  d: 864e5,
+  day: 864e5,
+  days: 864e5
+};
+var RATE_LIMIT_WINDOW_MIN_MS = 1e3;
+var RATE_LIMIT_WINDOW_MAX_MS = 7 * 864e5;
+function parseRateLimitWindowMs(text2) {
+  const match = /^(\d+(?:\.\d+)?)\s*([a-z]+)$/i.exec(text2.trim());
+  if (match === null) return void 0;
+  const unit = WINDOW_UNIT_MS[(match[2] ?? "").toLowerCase()];
+  if (unit === void 0) return void 0;
+  return Math.round(Number(match[1]) * unit);
+}
+var rateLimitWindowSchema = external_exports.string().refine(
+  (text2) => {
+    const ms = parseRateLimitWindowMs(text2);
+    return ms !== void 0 && ms >= RATE_LIMIT_WINDOW_MIN_MS && ms <= RATE_LIMIT_WINDOW_MAX_MS;
+  },
+  {
+    message: 'must be a number and a unit between 1 second and 7 days, for example "30 seconds", "1 minute" or "1 hour"'
+  }
+);
+function normalizeCorsOrigin(entry) {
+  const text2 = entry.trim();
+  let url2;
+  try {
+    url2 = new URL(text2);
+  } catch {
+    return void 0;
+  }
+  if (url2.protocol !== "http:" && url2.protocol !== "https:") return void 0;
+  if (url2.username !== "" || url2.password !== "" || url2.search !== "" || url2.hash !== "") {
+    return void 0;
+  }
+  if (url2.pathname !== "/") return void 0;
+  return url2.origin;
+}
+function splitCorsOrigins(value) {
+  return value.split(",").map((origin) => origin.trim()).filter((origin) => origin.length > 0);
+}
+var corsOriginsSchema = external_exports.string().default("").superRefine((value, ctx) => {
+  if (value.trim() === "*") return;
+  for (const entry of splitCorsOrigins(value)) {
+    if (normalizeCorsOrigin(entry) === void 0) {
+      ctx.addIssue({
+        code: "custom",
+        message: `"${entry}" is not an origin; use scheme and host only, such as https://app.example.com`
+      });
+    }
+  }
 });
 var httpEnvSchema = external_exports.object({
   HOST: external_exports.string().min(1).default("0.0.0.0"),
   PORT: external_exports.coerce.number().int().min(1).max(65535),
   /** Comma-separated list, or `*` in development only. */
-  CORS_ORIGINS: external_exports.string().default(""),
+  CORS_ORIGINS: corsOriginsSchema,
   RATE_LIMIT_MAX: external_exports.coerce.number().int().min(1).default(300),
-  RATE_LIMIT_WINDOW: external_exports.string().default("1 minute"),
+  RATE_LIMIT_WINDOW: rateLimitWindowSchema.default("1 minute"),
   BODY_LIMIT_BYTES: external_exports.coerce.number().int().min(1024).default(1048576)
 });
+var cronSecretSchema = external_exports.string().trim().min(16, "CRON_SECRET must be at least 16 characters").regex(/^\S+$/, "CRON_SECRET must not contain whitespace");
 var ConfigError = class extends Error {
   constructor(service, issues) {
     super(`Invalid configuration for ${service}:
@@ -86098,8 +86285,7 @@ function loadEnv(service, schema, source = process.env) {
 function parseCorsOrigins(value) {
   const trimmed = value.trim();
   if (trimmed === "*") return true;
-  if (trimmed === "") return [];
-  return trimmed.split(",").map((origin) => origin.trim()).filter((origin) => origin.length > 0);
+  return splitCorsOrigins(trimmed).map(normalizeCorsOrigin).filter((origin) => origin !== void 0);
 }
 
 // packages/observability/src/metrics.ts
@@ -86185,10 +86371,10 @@ function registerRateLimitedRoutes(app2, options, declareRoutes) {
 }
 
 // packages/observability/src/timestamps.ts
-var PG_TIMESTAMP = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})(?:\.(\d{1,9}))?(Z|[+-]\d{2}(?::?\d{2})?)$/;
+var PG_TIMESTAMP2 = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})(?:\.(\d{1,9}))?(Z|[+-]\d{2}(?::?\d{2})?)$/;
 var TIMESTAMP_KEY = /_at$/;
 function toIsoTimestamp(value) {
-  const match = PG_TIMESTAMP.exec(value);
+  const match = PG_TIMESTAMP2.exec(value);
   if (!match) return void 0;
   const [, date6, time4, fraction = "", zone = "Z"] = match;
   const millis = fraction.slice(0, 3).padEnd(3, "0");
@@ -86331,9 +86517,9 @@ async function setFailed(db2, messageId) {
   return row;
 }
 async function listForUser(db2, userId, pagination) {
-  const cursorValue = pagination.cursor ? decodeCursor(pagination.cursor) : null;
-  const cursorCreatedAt = typeof cursorValue?.createdAt === "string" ? cursorValue.createdAt : null;
-  const cursorId = typeof cursorValue?.id === "string" ? cursorValue.id : null;
+  const cursor = parseTimeCursor(pagination.cursor);
+  const cursorCreatedAt = cursor?.createdAt ?? null;
+  const cursorId = cursor?.id ?? null;
   const conditions = [eq(schema_exports.messages.userId, userId)];
   if (cursorCreatedAt && cursorId) {
     const tieBreak = or(

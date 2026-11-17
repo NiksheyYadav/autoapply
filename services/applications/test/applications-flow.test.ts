@@ -160,6 +160,27 @@ describe.skipIf(!testDatabaseUrl)('applications-service HTTP flow', () => {
     await dbHandle.close();
   });
 
+  // A cursor is opaque to clients, but a client can still send any string. Valid JSON that is not
+  // a cursor this service issued used to reach the database as a timestamp or a uuid and come back
+  // as a 500.
+  it.each([
+    ['a timestamp that is not a timestamp', { createdAt: 'not-a-date', id: randomUUID() }],
+    ['an id that is not a uuid', { createdAt: new Date().toISOString(), id: "1' or '1'='1" }],
+    ['numbers where text is expected', { createdAt: 12345, id: 67890 }],
+    ['a missing id', { createdAt: new Date().toISOString() }],
+    ['a nested object', { createdAt: { $gt: '' }, id: [] }],
+    ['an absurd timestamp', { createdAt: '99999-99-99T99:99:99Z', id: randomUUID() }],
+  ])('answers 400, not 500, for a forged cursor: %s', async (_label, payload) => {
+    const cursor = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
+    const res = await app.inject({
+      method: 'GET',
+      url: `/v1/applications?cursor=${cursor}`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.code).toBe('VALIDATION_ERROR');
+  });
+
   it('requires an Idempotency-Key header', async () => {
     const res = await app.inject({
       method: 'POST',

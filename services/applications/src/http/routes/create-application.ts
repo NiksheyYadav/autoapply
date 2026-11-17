@@ -35,6 +35,14 @@ const idempotencyKeySchema = z.string().min(8).max(200);
 const AUTO_MODE_UNAVAILABLE_MESSAGE =
   'Mode "auto" cannot be used: automatic submission is not available yet. Use "manual" or "review" instead.';
 
+/** True when `existing` was created by a request with this job, resume and mode. */
+function isSameRequest(
+  existing: ApplicationRow,
+  body: { job_id: string; resume_id: string; mode: string },
+): boolean {
+  return existing.jobId === body.job_id && existing.resumeId === body.resume_id && existing.mode === body.mode;
+}
+
 export function createApplicationRoute(app: FastifyInstance, deps: AppDeps): void {
   /** The owner's view of `row`, with the job it points at (null if the job or its company is gone). */
   async function ownerView(row: ApplicationRow, knownJob?: ApplicationJobSummary | null): Promise<ApplicationResponse> {
@@ -64,9 +72,7 @@ export function createApplicationRoute(app: FastifyInstance, deps: AppDeps): voi
 
     const existingByKey = await findByUserAndIdempotencyKey(deps.db, actor.user_id, idempotencyKey);
     if (existingByKey) {
-      const sameRequest =
-        existingByKey.jobId === body.job_id && existingByKey.resumeId === body.resume_id && existingByKey.mode === body.mode;
-      if (!sameRequest) {
+      if (!isSameRequest(existingByKey, body)) {
         throw new AppError('IDEMPOTENCY_KEY_REUSED', 'This idempotency key was already used for a different request');
       }
       reply.status(200).send(await ownerView(existingByKey));
@@ -85,6 +91,12 @@ export function createApplicationRoute(app: FastifyInstance, deps: AppDeps): voi
 
     const existingForJob = await findByUserAndJob(deps.db, actor.user_id, body.job_id);
     if (existingForJob) {
+      // The same request sent twice at once: the first one's row was not visible to the key lookup
+      // above but is by now. That is a replay (200), not a second application (409).
+      if (existingForJob.idempotencyKey === idempotencyKey && isSameRequest(existingForJob, body)) {
+        reply.status(200).send(await ownerView(existingForJob));
+        return;
+      }
       throw new AppError('CONFLICT', 'You already have an application for this job', {
         details: { existing_application_id: existingForJob.applicationId },
       });
@@ -123,6 +135,10 @@ export function createApplicationRoute(app: FastifyInstance, deps: AppDeps): voi
           return;
         }
         const racedByJob = await findByUserAndJob(deps.db, actor.user_id, body.job_id);
+        if (racedByJob && racedByJob.idempotencyKey === idempotencyKey && isSameRequest(racedByJob, body)) {
+          reply.status(200).send(await ownerView(racedByJob));
+          return;
+        }
         if (racedByJob) {
           throw new AppError('CONFLICT', 'You already have an application for this job', {
             details: { existing_application_id: racedByJob.applicationId },

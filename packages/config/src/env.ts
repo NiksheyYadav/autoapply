@@ -48,24 +48,176 @@ export const storageEnvSchema = z.object({
   SUPABASE_SECRET_KEY: z.string().min(1).optional(),
 });
 
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
+
+/**
+ * The project URL as an origin (`https://abc.supabase.co`), or `undefined` when it cannot be one.
+ * Tokens are checked against `<url>/auth/v1` as their issuer and the signing keys are fetched from
+ * under it, so the value must be exact: a trailing slash (`https://abc.supabase.co/`, the way the
+ * dashboard shows it) makes the issuer `https://abc.supabase.co//auth/v1`, which no token carries,
+ * and every request is refused as unauthenticated. Plain `http` is only for a local stack, since a
+ * key set fetched in the clear can be swapped on the way.
+ */
+export function normalizeSupabaseUrl(value: string): string | undefined {
+  let url: URL;
+  try {
+    url = new URL(value.trim());
+  } catch {
+    return undefined;
+  }
+  if (url.username !== '' || url.password !== '') return undefined;
+  const secure = url.protocol === 'https:';
+  const localStack = url.protocol === 'http:' && LOOPBACK_HOSTS.has(url.hostname);
+  return secure || localStack ? url.origin : undefined;
+}
+
+export const supabaseUrlSchema = z.string().transform((value, ctx) => {
+  const origin = normalizeSupabaseUrl(value);
+  if (origin === undefined) {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'SUPABASE_URL must be an https URL such as https://abc.supabase.co (http only for localhost)',
+    });
+    return z.NEVER;
+  }
+  return origin;
+});
+
 /**
  * Every service that verifies a caller's identity needs only the (non-secret)
  * Supabase project URL — tokens are checked against its JWKS, not a shared
  * secret. See packages/auth-kit/src/tokens.ts.
  */
 export const supabaseAuthEnvSchema = z.object({
-  SUPABASE_URL: z.string().url('SUPABASE_URL must be a valid URL'),
+  SUPABASE_URL: supabaseUrlSchema,
 });
+
+const WINDOW_UNIT_MS: Record<string, number> = {
+  s: 1_000,
+  sec: 1_000,
+  secs: 1_000,
+  second: 1_000,
+  seconds: 1_000,
+  m: 60_000,
+  min: 60_000,
+  mins: 60_000,
+  minute: 60_000,
+  minutes: 60_000,
+  h: 3_600_000,
+  hr: 3_600_000,
+  hrs: 3_600_000,
+  hour: 3_600_000,
+  hours: 3_600_000,
+  d: 86_400_000,
+  day: 86_400_000,
+  days: 86_400_000,
+};
+
+const RATE_LIMIT_WINDOW_MIN_MS = 1_000;
+const RATE_LIMIT_WINDOW_MAX_MS = 7 * 86_400_000;
+
+/**
+ * The length in milliseconds of a rate-limit window written as `<number> <unit>` (`30 seconds`,
+ * `1 minute`, `2h`), or `undefined` when the text is not that. A bare number is refused on purpose:
+ * the rate-limit plugin reads `60` as 60 milliseconds, which switches limiting off in practice.
+ */
+export function parseRateLimitWindowMs(text: string): number | undefined {
+  const match = /^(\d+(?:\.\d+)?)\s*([a-z]+)$/i.exec(text.trim());
+  if (match === null) return undefined;
+  const unit = WINDOW_UNIT_MS[(match[2] ?? '').toLowerCase()];
+  if (unit === undefined) return undefined;
+  return Math.round(Number(match[1]) * unit);
+}
+
+/**
+ * A rate-limit window such as `1 minute`. The plugin accepts any string at boot and then answers
+ * every request with a 500 for text it cannot read (`abc`, `1 parsec`, empty), and a negative
+ * window quietly turns limiting off, so the value is checked here, where a bad one stops the boot.
+ * Between one second and seven days: below that the limit means nothing, above it a client that
+ * hits the maximum is locked out for practically ever.
+ */
+export const rateLimitWindowSchema = z.string().refine(
+  (text) => {
+    const ms = parseRateLimitWindowMs(text);
+    return ms !== undefined && ms >= RATE_LIMIT_WINDOW_MIN_MS && ms <= RATE_LIMIT_WINDOW_MAX_MS;
+  },
+  {
+    message:
+      'must be a number and a unit between 1 second and 7 days, for example "30 seconds", "1 minute" or "1 hour"',
+  },
+);
+
+/**
+ * The form of an allowed origin that a browser's `Origin` header can equal: lower-case scheme and
+ * host, no path, no trailing slash. `undefined` for text that no browser would ever send, such as a
+ * host without a scheme, an entry with a path, or `null`.
+ */
+export function normalizeCorsOrigin(entry: string): string | undefined {
+  const text = entry.trim();
+  let url: URL;
+  try {
+    url = new URL(text);
+  } catch {
+    return undefined;
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return undefined;
+  if (url.username !== '' || url.password !== '' || url.search !== '' || url.hash !== '') {
+    return undefined;
+  }
+  // A single trailing slash is the usual slip and is forgiven; any other path is not an origin.
+  if (url.pathname !== '/') return undefined;
+  return url.origin;
+}
+
+function splitCorsOrigins(value: string): string[] {
+  return value
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0);
+}
+
+/**
+ * `CORS_ORIGINS`: empty, `*`, or a comma-separated list of origins. An entry that can never match
+ * a browser's `Origin` header (`app.example.com`, `https://app.example.com/login`, `null`) is
+ * refused at boot: it would otherwise start fine and block every browser request.
+ */
+export const corsOriginsSchema = z
+  .string()
+  .default('')
+  .superRefine((value, ctx) => {
+    if (value.trim() === '*') return;
+    for (const entry of splitCorsOrigins(value)) {
+      if (normalizeCorsOrigin(entry) === undefined) {
+        ctx.addIssue({
+          code: 'custom',
+          message: `"${entry}" is not an origin; use scheme and host only, such as https://app.example.com`,
+        });
+      }
+    }
+  });
 
 export const httpEnvSchema = z.object({
   HOST: z.string().min(1).default('0.0.0.0'),
   PORT: z.coerce.number().int().min(1).max(65_535),
   /** Comma-separated list, or `*` in development only. */
-  CORS_ORIGINS: z.string().default(''),
+  CORS_ORIGINS: corsOriginsSchema,
   RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(300),
-  RATE_LIMIT_WINDOW: z.string().default('1 minute'),
+  RATE_LIMIT_WINDOW: rateLimitWindowSchema.default('1 minute'),
   BODY_LIMIT_BYTES: z.coerce.number().int().min(1024).default(1_048_576),
 });
+
+/**
+ * The shared secret a scheduler presents as `Authorization: Bearer <secret>` to the machine-only
+ * routes (event drains, job-board ingestion). Surrounding whitespace is dropped, because a secret
+ * pasted into a dashboard often keeps its trailing newline and the comparison would then never
+ * succeed. One with whitespace inside is refused: a header value cannot carry it, so the routes
+ * would answer 401 to the scheduler for ever, with nothing to say why.
+ */
+export const cronSecretSchema = z
+  .string()
+  .trim()
+  .min(16, 'CRON_SECRET must be at least 16 characters')
+  .regex(/^\S+$/, 'CRON_SECRET must not contain whitespace');
 
 export class ConfigError extends Error {
   constructor(
@@ -98,13 +250,11 @@ export function loadEnv<T extends z.ZodType>(
   return result.data as z.infer<T>;
 }
 
-/** `CORS_ORIGINS` → array, with `*` preserved as a wildcard sentinel. */
+/** `CORS_ORIGINS` → array of canonical origins, with `*` preserved as a wildcard sentinel. */
 export function parseCorsOrigins(value: string): string[] | true {
   const trimmed = value.trim();
   if (trimmed === '*') return true;
-  if (trimmed === '') return [];
-  return trimmed
-    .split(',')
-    .map((origin) => origin.trim())
-    .filter((origin) => origin.length > 0);
+  return splitCorsOrigins(trimmed)
+    .map(normalizeCorsOrigin)
+    .filter((origin): origin is string => origin !== undefined);
 }

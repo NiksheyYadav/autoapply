@@ -52,6 +52,18 @@ export const SERVERLESS_PLACEHOLDER_PORT = '3000';
 export const SERVERLESS_DEFAULT_MESSAGING_DRIVER = 'postgres';
 
 /**
+ * The event driver to run with on Vercel: the configured one, except that "none" (unset or empty)
+ * and "memory" both mean the durable outbox. `memory` is what `.env.example` shows for local work,
+ * so it is easily pasted into the project's settings, and there it would drop every cross-service
+ * event without a sound: each function is its own process and the in-memory broker only delivers
+ * inside one. It has no valid use on serverless, so it is not honoured there.
+ */
+function serverlessMessagingDriver(configured: string | undefined): string {
+  const driver = configured?.trim() ?? '';
+  return driver === '' || driver.toLowerCase() === 'memory' ? SERVERLESS_DEFAULT_MESSAGING_DRIVER : driver;
+}
+
+/**
  * Env source for a service's `load<Name>ServiceEnv()`. Outside Vercel it is
  * `source` untouched, so local dev and tests keep strict validation; on Vercel
  * it supplies `PORT` and `MESSAGING_DRIVER` when none is configured. Everything
@@ -65,6 +77,6 @@ export function withServerlessEnvDefaults(
   return {
     ...source,
     PORT: source.PORT ?? SERVERLESS_PLACEHOLDER_PORT,
-    MESSAGING_DRIVER: source.MESSAGING_DRIVER ?? SERVERLESS_DEFAULT_MESSAGING_DRIVER,
+    MESSAGING_DRIVER: serverlessMessagingDriver(source.MESSAGING_DRIVER),
   };
 }

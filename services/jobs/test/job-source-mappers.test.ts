@@ -4,6 +4,7 @@ import { rawJobPostingSchema } from '@atlas/types';
 import {
   clampText,
   FIELD_LIMITS,
+  stripUnsafeChars,
   finalizePosting,
   joinLocations,
   SourcePayloadError,
@@ -65,6 +66,13 @@ describe('html-text', () => {
 });
 
 describe('mapper helpers', () => {
+  it('removes NUL, control characters and bidi overrides, and keeps tab, newline and ordinary text', () => {
+    expect(stripUnsafeChars('a\u0000b\u0007c\u001b[0md\u007fe\u0085f\u202eg\u2066h\u2069i')).toBe('abc[0mdefghi');
+    expect(stripUnsafeChars('line one\n\tline two\r\nCafé 日本語 🙂 \u200d')).toBe('line one\n\tline two\r\nCafé 日本語 🙂 \u200d');
+    expect(clampText('\u0000\u0007  \u202e ', 10)).toBeNull();
+    expect(clampText('Engi\u0000neer', 10)).toBe('Engineer');
+  });
+
   it('clamps and trims text, returning null for blanks', () => {
     expect(clampText('  hi  ', 10)).toBe('hi');
     expect(clampText('abcdef', 3)).toBe('abc');

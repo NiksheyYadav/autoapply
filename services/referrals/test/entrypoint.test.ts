@@ -142,13 +142,14 @@ describe('referrals-service Vercel entrypoint', () => {
     expect(anonymous.statusCode).toBe(401);
 
     // An authorized call reaches the postgres broker, which then finds no database to drain: a
-    // plain 500 (so Vercel Cron records a failure) rather than a hang or a silent 200.
+    // 503 (an unreachable database; either way a failure for Vercel Cron to record) rather than a
+    // hang or a silent 200.
     const failed = await app.inject({
       method: 'POST',
       url: '/internal/drain',
       headers: { authorization: `Bearer ${secret}` },
     });
-    expect(failed.statusCode).toBe(500);
+    expect(failed.statusCode).toBe(503);
   });
 
   it('keeps /internal/drain disabled on Vercel until CRON_SECRET is configured', async () => {

@@ -1,6 +1,7 @@
 /**
- * Log redaction (docs/09 § Data protection). Applied by the shared logger so a
- * service cannot accidentally opt out.
+ * Log redaction helpers (docs/09 § Data protection). The shared logger redacts by path (see
+ * `createLogger`), so a service cannot opt out of that; the functions below are for values that
+ * are built into a message or a response by hand and are not wired into the logger.
  */
 
 /** Field names whose values are replaced wholesale wherever they appear. */

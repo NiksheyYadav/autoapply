@@ -3,6 +3,8 @@ import type { NextConfig } from 'next';
 const nextConfig: NextConfig = {
   transpilePackages: ['@atlas/ui', '@atlas/types'],
   reactStrictMode: true,
+  // No need to tell every visitor which framework answered.
+  poweredByHeader: false,
   async headers() {
     return [
       {
@@ -16,6 +18,8 @@ const nextConfig: NextConfig = {
           { key: 'X-Frame-Options', value: 'DENY' },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Referrer-Policy', value: 'no-referrer' },
+          { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=()' },
         ],
       },
     ];

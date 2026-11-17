@@ -64,9 +64,44 @@ export function isAppError(value: unknown): value is AppError {
   return value instanceof AppError;
 }
 
+/**
+ * Codes that mean the database (or the pooler in front of it) could not be reached or refused the
+ * connection, not that the request or our code was wrong: Postgres "too many connections" and
+ * shutdown classes, connection-exception class 08, and what the driver and the socket report.
+ */
+const DATABASE_UNAVAILABLE_CODES = new Set([
+  '53300', // too_many_connections
+  '57P01', // admin_shutdown
+  '57P02', // crash_shutdown
+  '57P03', // cannot_connect_now
+  '08000',
+  '08001',
+  '08003',
+  '08004',
+  '08006',
+  '08007',
+  'CONNECTION_CLOSED',
+  'CONNECTION_DESTROYED',
+  'CONNECTION_ENDED',
+  'CONNECT_TIMEOUT',
+  'ECONNREFUSED',
+  'ECONNRESET',
+  'EPIPE',
+  'ETIMEDOUT',
+  'ENOTFOUND',
+  'EAI_AGAIN',
+]);
+
 /** Normalizes any thrown value into an AppError. */
 export function toAppError(value: unknown): AppError {
   if (isAppError(value)) return value;
+  // A database that cannot be reached is the platform's problem, not a bug in this request: say so
+  // (503, try again) so a client does not mistake it for a failure of its own and the next
+  // reader of the logs sees an outage rather than a crash.
+  const code = pgErrorCode(value);
+  if (code !== undefined && DATABASE_UNAVAILABLE_CODES.has(code)) {
+    return new AppError('UPSTREAM_UNAVAILABLE', 'The service is temporarily unavailable. Please try again shortly.', { cause: value });
+  }
   const message = value instanceof Error ? value.message : String(value);
   return new AppError('INTERNAL_ERROR', message, { cause: value, exposeMessage: false });
 }

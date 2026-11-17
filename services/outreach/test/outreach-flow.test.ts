@@ -195,6 +195,27 @@ describe.skipIf(!testDatabaseUrl)('outreach-service HTTP flow', () => {
     messageId = body.message.message_id;
   });
 
+  it('20 simultaneous creates with one idempotency key make one draft and no errors', async () => {
+    const key = `idem-parallel-${randomUUID()}`;
+    const results = await Promise.all(
+      Array.from({ length: 20 }, (_unused, index) =>
+        app.inject({
+          method: 'POST',
+          url: '/v1/messages',
+          // Each request from its own address: the per-address limit is not what is under test.
+          headers: { authorization: `Bearer ${token}`, 'idempotency-key': key, 'x-forwarded-for': `10.7.0.${index + 1}` },
+          payload: { application_id: applicationId, contact_id: contactId, channel: 'email' },
+        }),
+      ),
+    );
+    const codes = results.map((res) => res.statusCode);
+    expect(codes.every((code) => code === 200 || code === 201), codes.join(',')).toBe(true);
+    expect(codes.filter((code) => code === 201)).toHaveLength(1);
+    expect(new Set(results.map((res) => res.json().message.message_id)).size).toBe(1);
+    const rows = await dbHandle.db.select().from(schema.messages).where(eq(schema.messages.idempotencyKey, key));
+    expect(rows).toHaveLength(1);
+  });
+
   it("404s when another user fetches someone else's message", async () => {
     const res = await app.inject({
       method: 'GET',

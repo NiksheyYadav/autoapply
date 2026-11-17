@@ -1,13 +1,17 @@
+import { deflateSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import { AppError } from '@atlas/utils';
 import {
   assertSafeDocxArchive,
+  assertSafePdfStreams,
   extractText,
   looksLikeText,
   MAX_DOCX_ENTRIES,
   MAX_DOCX_UNCOMPRESSED_BYTES,
   MAX_EXTRACTED_TEXT_CHARS,
   MAX_PDF_PAGES,
+  MAX_PDF_STREAM_BYTES,
+  MAX_PDF_TOTAL_STREAM_BYTES,
   RESUME_FAILURE_REASONS,
   resumeFailureReason,
   verifyResumeUpload,
@@ -262,5 +266,65 @@ describe('resumeFailureReason', () => {
     const reason = resumeFailureReason(drizzleLike);
     expect(reason).not.toMatch(/SECRET|Failed query|params|update/i);
     expect(Object.values(RESUME_FAILURE_REASONS)).toContain(reason);
+  });
+});
+
+describe('assertSafePdfStreams (decompression-bomb guard)', () => {
+  const MIB = 1024 * 1024;
+
+  /** A PDF-shaped buffer whose objects carry the given raw stream bodies. The guard reads bytes, not structure. */
+  function pdfWithStreams(bodies: Buffer[]): Buffer {
+    const parts: Buffer[] = [Buffer.from('%PDF-1.4\n', 'latin1')];
+    bodies.forEach((body, index) => {
+      parts.push(Buffer.from(`${index + 1} 0 obj\n<< /Length ${body.length} /Filter /FlateDecode >>\nstream\n`, 'latin1'));
+      parts.push(body, Buffer.from('\nendstream\nendobj\n', 'latin1'));
+    });
+    parts.push(Buffer.from('trailer\n<< /Root 1 0 R >>\n%%EOF\n', 'latin1'));
+    return Buffer.concat(parts);
+  }
+  const flateOf = (megabytes: number): Buffer => deflateSync(Buffer.alloc(megabytes * MIB, 0x20), { level: 9 });
+
+  it('accepts an ordinary PDF and one with a large but reasonable compressed image', () => {
+    expect(() => assertSafePdfStreams(buildPdf(['Ada Lovelace', 'Backend engineer']))).not.toThrow();
+    expect(() => assertSafePdfStreams(pdfWithStreams([flateOf(20), flateOf(5)]))).not.toThrow();
+  });
+
+  it('rejects one stream that inflates past the per-stream limit, whatever the file size', () => {
+    const bomb = pdfWithStreams([flateOf(MAX_PDF_STREAM_BYTES / MIB + 8)]);
+    expect(bomb.length).toBeLessThan(200 * 1024);
+    expect(() => assertSafePdfStreams(bomb)).toThrowError(expect.objectContaining({ statusCode: 413 }));
+  });
+
+  it('rejects many streams that are each fine but together inflate past the total limit', () => {
+    const each = 24;
+    const count = Math.ceil(MAX_PDF_TOTAL_STREAM_BYTES / MIB / each) + 1;
+    const bodies = Array.from({ length: count }, () => flateOf(each));
+    expect(() => assertSafePdfStreams(pdfWithStreams(bodies))).toThrowError(expect.objectContaining({ statusCode: 413 }));
+  });
+
+  it('leaves damaged or non-zlib streams to the PDF reader instead of failing the upload', () => {
+    const damaged = Buffer.concat([Buffer.from([0x78, 0x9c]), Buffer.from('this is not deflate data at all')]);
+    const plain = Buffer.from('BT /F1 12 Tf (plain) Tj ET');
+    const truncated = flateOf(1).subarray(0, 40);
+    expect(() => assertSafePdfStreams(pdfWithStreams([damaged, plain, truncated]))).not.toThrow();
+  });
+
+  it('does not take "endstream" for the start of a stream, and stays fast on a file full of the keywords', () => {
+    const noise = Buffer.from('endstream stream\nendstream '.repeat(40_000), 'latin1');
+    const start = performance.now();
+    expect(() => assertSafePdfStreams(Buffer.concat([Buffer.from('%PDF-1.4\n'), noise]))).not.toThrow();
+    expect(performance.now() - start).toBeLessThan(2_000);
+  });
+
+  it('is applied before extraction, so a bomb is refused quickly with the "too complex" reason', async () => {
+    const bomb = pdfWithStreams([flateOf(MAX_PDF_STREAM_BYTES / MIB + 8)]);
+    const start = performance.now();
+    const failure = await extractText(bomb, PDF_MIME).then(
+      () => null,
+      (cause: unknown) => cause,
+    );
+    expect(failure).toMatchObject({ statusCode: 413 });
+    expect(resumeFailureReason(failure)).toBe(RESUME_FAILURE_REASONS.tooComplex);
+    expect(performance.now() - start).toBeLessThan(3_000);
   });
 });

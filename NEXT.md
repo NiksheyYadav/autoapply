@@ -1,0 +1,61 @@
+# NEXT
+
+Working list for the autonomous stretch that started 2026-10-31. Most valuable first.
+
+**Goal for this stretch:** break the project locally, find real defects, fix them, and record what held, so
+the 2026-11-17 launch (individuals plus one university pilot) rests on tested behaviour. The brief that
+describes the attack areas (A to G) lives outside the repo; each task below names its area.
+
+**Ground rules for this stretch**
+- Local only: tests and scripts run against a private Postgres (`atlas_integ`) and in-process Fastify apps. Nothing is run against Vercel, Supabase or any live system.
+- No secrets or `.env` files touched. No new dependencies unless a task says why.
+- Work happens on `work/<name>` branches cut from `claude/blissful-darwin-2n33wv` (the unmerged launch branch). Nothing is committed to `main`, nothing is merged.
+- A task that needs a decision goes under "Needs Nikshey" and is skipped.
+- Checks per task: `pnpm typecheck`, `npx eslint . --ignore-pattern '.claude/worktrees/**'`, and the affected tests (`ATLAS_TEST_DATABASE_URL=postgres://atlas:atlas@localhost:5432/atlas_integ npx vitest run <paths>`). `node scripts/bundle-backend.mjs` when service or package sources change.
+
+## Queue
+
+3. [ ] **Env boot fuzz, last part (F).** Done: rate limit, CORS, `SUPABASE_URL`, `CRON_SECRET`, `MESSAGING_DRIVER` on Vercel, `.env.example` drift. Still to do: `STORAGE_DRIVER` combinations (supabase needs URL, key and bucket; local driver on serverless), `DATABASE_URL` oddities (pooler/prepared statements), and a per-service boot with every variable blank.
+4. [ ] **Authorization matrix, runtime part (A).** Token forgery and the ownership checks were attacked and read (see Done). Still to do: run every route against anonymous, other user, other org staff, same-org roles and platform admin as a table-driven test, and mass assignment (extra keys such as `user_id`, `organization_id`, `role`, `status`) on every create and update body; RLS as the `anon`/`authenticated` roles on every table.
+5. [ ] **Validation fuzz, rest of it (B).** Cursors are done (see Done). Still to do: malformed JSON bodies, wrong types and oversized bodies on every POST, `__proto__` keys, odd UUIDs in paths and query filters (`location=%`, `remote_type`), duplicate query keys (`?limit=1&limit=2`), content-type mismatches, and the error envelope for each.
+7. [ ] **ReDoS audit, last part (D).** Everything with user-supplied text is done (`packages/ai`, services, both CSV parsers, the web description cleaner). Still to do: `scripts/` (the smoke script parses only responses from our own deployment, so low priority).
+8. [ ] **Upload parsers, last part (D).** Still to do: multipart edge cases (no boundary, duplicate or many parts, a field larger than the limit) and a wall-clock limit on PDF text extraction (pdf.js can also be slow without being large). Also: a failed insert after the file was stored leaves the blob behind (cleanup on error).
+9. [ ] **Races, rest of it (C).** Applications are done (see Done). Still to do: double drains (each event's effects applied once), double account deletion and deletion during activity, parallel roster imports, concurrent job ingest of the same posting, and `setScheduled` in outreach (unconditional update; only matters if delivery is ever enabled).
+10. [ ] **Committed bundles, last flows (G).** Main loop, drains, roster import and account deletion are done (see Done). Still to do: an outreach draft through the outreach bundle (needs a contact from a platform admin) and referrals.
+12. [ ] **Frontends, signed in (E).** Static review, redirect, link and header checks, and a browser sweep of the signed-out pages are done (see Done). Still to do: a stand-in Supabase (token and user endpoints, session cookie) so Playwright can open the signed-in pages with script-like, oversized, RTL and null data, API 500 / 429 / malformed JSON, double submit on mutating buttons, and a Content-Security-Policy with nonces.
+
+## Done
+
+- [x] **Rate limiter vs real client IP (F)** — `work/break-fix-1`. Found and fixed: a bad `RATE_LIMIT_WINDOW` booted and then 500'd every request, or silently disabled limiting. Checked and held: store is a bounded LRU, exempt routes are by scope not path. Spoofable `X-Forwarded-For` is safe on Vercel (it overwrites the header); noted in `docs/17_break_report.md`. Typecheck, lint, full suite (119 files, 1,730 tests) pass; bundles rebuilt.
+- [x] **Internal routes and rewrites (A/F)** — `work/break-fix-1`. Held. Added `packages/utils/test/vercel-routing.test.ts`, which fails if a public route stops resolving to its own function.
+- [x] **Env boot fuzz, first half (F)** — `work/break-fix-1`. `CORS_ORIGINS` entries that can never match now stop the boot (trailing slash is forgiven). Rate-limit window done earlier.
+- [x] **Token forgery and ownership checks (A)** — `work/break-fix-1`. 13 forgery vectors held. Fixed: a Supabase key-set outage answered 401 (the web app then signs everyone out), now 503; tokens without `exp` were accepted, now refused. New `packages/auth-kit/test/tokens-attacks.test.ts`. Suite: 122 files, 1,783 tests.
+- [x] **Job-source fetchers and hostile postings (D)** — `work/break-fix-1`. SSRF, redirect, size and time limits all held. Fixed: a NUL byte in a posting made it unstorable, which also blocked the board's closed-role cleanup; control and bidi characters are now stripped. Suite: 123 files, 1,785 tests.
+- [x] **ReDoS audit of `packages/ai` (D)** — `work/break-fix-1`. Found a real one: the resume email pattern was quadratic, so a 200 KB one-word text upload pinned a function for minutes. Fixed by bounding the pattern; new growth test over 37 hostile shapes. Suite: 124 files, 1,901 tests.
+- [x] **PDF decompression bombs (D)** — `work/break-fix-1`. A 299 KB PDF cost 3 s and ~670 MB, and the size limit allows ~1 GB inflated. Added a capped pre-inflate of every stream (32 MB each, 128 MB total), 413 on excess. Suite: 124 files, 1,907 tests.
+- [x] **Races in applications (C)** — `work/break-fix-1`. Real bugs: status moves could be applied twice, `submitted` published repeatedly, and a rejected application could become `offer`; identical simultaneous creates sometimes got a 409. Fixed with a conditional update and replay handling. Suite: 125 files, 1,912 tests.
+- [x] **Forged pagination cursors (B)** — `work/break-fix-1`. A cursor with a bad timestamp or id gave a 500 on six list endpoints; other bad shapes were silently the first page. One shared validator, 400 for anything not issued by the API. Also: six simultaneous account deletions hold. Suite: 126 files, 1,961 tests.
+- [x] **Config that starts fine and then breaks (F)** — `work/break-fix-1`. `SUPABASE_URL` with a trailing slash refused every token; `MESSAGING_DRIVER=memory` (the `.env.example` value) would drop events on Vercel; `CRON_SECRET` with a pasted newline could never match. All now normalized or refused at boot. `.env.example` now lists every variable and a test keeps it so. Also: request body / query / path fuzz on applications held (76 cases). Suite: 130 files, 2,070 tests.
+- [x] **Frontend headers and static review (E)** — `work/break-fix-1`. The web app sent no security headers; added framing protection, nosniff, referrer and permissions policies, hid `X-Powered-By`; admin tightened to match. Both apps build; headers checked on a running build. Suite: 132 files, 2,080 tests.
+- [x] **Deployed bundles, end to end (G)** — `work/break-fix-1`. **Found a launch blocker:** PDF resumes could not be parsed in the deployed profile bundle (pdf.js could not find its worker file), though all source-level tests passed. Fixed with pdf-parse's embedded worker. New test boots all ten committed bundles over HTTP against Postgres. Suite: 133 files, 2,099 tests.
+- [x] **Secrets and logging hygiene (F)** — `work/break-fix-1`. History, tree and bundles clean. Log redaction was thin (only exact paths); widened and tested, including log-line forgery. Suite: 134 files, 2,112 tests.
+- [x] **Upload filenames and CSV parsing (D)** — `work/break-fix-1`. A NUL byte or a 400+ character filename made an upload 500 after the file was already stored; control and bidi characters were shown back. Names are now sanitized. Roster CSV parsing held on 15 hostile shapes. Suite: 136 files, 2,162 tests.
+- [x] **Every route requires sign-in (A)** — `work/break-fix-1`. The bundle test now walks each booted bundle's real route table and checks anonymous and forged-token requests get 401 everywhere except the probes. All pass. PR [#10](https://github.com/NiksheyYadav/autoapply/pull/10) is open (draft, base is the launch branch) and its CI is green.
+- [x] **Database outage reads as 503, not 500 (C)** — `work/break-fix-1`. Connection failures and "too many connections" now answer 503 with a fixed message. Over-posting checked: schemas strip unknown keys. Suite: 136 files, 2,178 tests.
+- [x] **Main product loop through the deployed bundles (G)** — `work/break-fix-1`. Resume upload, job ingest, matching drain and recommendations work across four bundles and the outbox; the other consumers' drains behave. Suite: 136 files, 2,180 tests.
+- [x] **Account deletion and the university roster through the bundles (G)** — `work/break-fix-1`. Found: a deleted account's old token could still upload, leaving a stored file (and a 500). The record now comes first; a deleted account gets 401. Roster import/read/export/funnel and non-member isolation work in the admin bundle. Suite: 136 files, 2,182 tests.
+- [x] **Browser sweep of signed-out pages, workflows review, outreach race (E/F/C)** — `work/break-fix-1`. Nothing broke: pages render with the API down, guarded pages redirect, the bad-code and open-redirect URLs stay on the site; workflows keep secrets out of scripts; twenty simultaneous identical drafts make one.
+- [x] **Browser-side description cleaner (D/E)** — `work/break-fix-1`. The web app's regex chain was quadratic: a 200,000-character job description of `<` froze the tab for about 25 s for every visitor of that job. Replaced with one linear pass; same output as before on ordinary markup. Suite: 137 files, 2,227 tests.
+
+## Blocked
+
+(nothing yet)
+
+## Needs Nikshey
+
+- [ ] **Goal line was blank.** The goal in your message was still the placeholder text. I assumed "break the project locally, fix what I find, get ready for the 2026-11-17 launch". Tell me if you want a different focus.
+- [ ] **Google Fonts at build time.** `next/font/google` made the admin build fail once in CI. The fix is to ship the font files with the repo (`next/font/local`) or use a system font stack. That changes how the site looks or adds font files, so it is your call.
+- [ ] **`CORS_ORIGINS=*` in production.** `docs/16` says never, but nothing enforces it. Enforcing it would stop a service from starting if your Vercel settings use `*` today (for example on previews). Tell me whether to enforce it, or whether `*` is fine on previews and only production should refuse it.
+- [ ] **Check your live Vercel settings against four things.** (1) `SUPABASE_URL` should be the project origin; a trailing slash is now forgiven, but `http://` or a stray path is refused at boot. (2) `MESSAGING_DRIVER` is ignored if it is `memory` on Vercel. (3) `CRON_SECRET` must have no spaces inside. (4) `CORS_ORIGINS` entries must be `https://host` only (a trailing slash is forgiven). If any of these is wrong today, the matching service will now stop with a message naming the variable instead of starting and misbehaving.
+- [ ] **This repository is public.** `docs/17_break_report.md` (in PR #10) describes weaknesses that stay live on the deployed site until that PR is merged and deployed: mostly availability problems that need a signed-in account (the slow email pattern, PDF bombs, a deleted account's token storing a file). They are not remotely exploitable without an account, and launch is not until 2026-11-17, but I would merge soon, or move that one file out of the public history. I did not rewrite any history.
+- [ ] **Pushing branches.** Every push of any branch builds twelve Vercel projects and the free plan allows 100 deployments a day. I will commit locally and push only at clean points, in batches. Say if you want a different rhythm.

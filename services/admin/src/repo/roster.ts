@@ -16,14 +16,12 @@ import {
 import { schema, type Database } from '@atlas/db';
 import {
   emptyApplicationStatusCounts,
-  uuidSchema,
   type ApplicationStatus,
   type RosterFilter,
   type RosterStudent,
   type StudentInsights,
 } from '@atlas/types';
-import { AppError, decodeCursor, encodeCursor } from '@atlas/utils';
-import { z } from 'zod';
+import { AppError, encodeCursor, parseTimeCursor } from '@atlas/utils';
 import { toIsoTimestamp } from '../lib/timestamps.js';
 
 const { students, users, organizationMembers, resumes, applications } = schema;
@@ -33,14 +31,10 @@ export function escapeLike(term: string): string {
   return term.replace(/[\\%_]/g, (char) => `\\${char}`);
 }
 
-// What Postgres emits for timestamptz in drizzle's string mode, e.g. 2026-10-27 12:34:56.123456+00.
-const PG_TIMESTAMP = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(\.\d{1,6})?(Z|[+-]\d{2}(:?\d{2})?)$/;
-const cursorSchema = z.object({ createdAt: z.string().regex(PG_TIMESTAMP), id: uuidSchema });
-
 export function decodeRosterCursor(cursor: string): { createdAt: string; id: string } {
-  const parsed = cursorSchema.safeParse(decodeCursor(cursor));
-  if (!parsed.success) throw new AppError('VALIDATION_ERROR', 'Invalid cursor');
-  return parsed.data;
+  const parsed = parseTimeCursor(cursor);
+  if (parsed === null) throw new AppError('VALIDATION_ERROR', 'Invalid cursor');
+  return parsed;
 }
 
 interface RosterRow {
