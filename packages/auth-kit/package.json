@@ -9,7 +9,7 @@
   "dependencies": {
     "@atlas/types": "workspace:*",
     "@atlas/utils": "workspace:*",
-    "fastify": "^5.12.5",
-    "jose": "^6.2.12"
+    "fastify": "^5.12.8",
+    "jose": "^6.2.17"
   }
 }
