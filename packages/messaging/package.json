@@ -11,12 +11,12 @@
     "@atlas/types": "workspace:*",
     "@atlas/utils": "workspace:*",
     "amqplib": "^0.10.5",
-    "drizzle-orm": "^0.45.2"
+    "drizzle-orm": "^0.45.4"
   },
   "devDependencies": {
     "@atlas/auth-kit": "workspace:*",
     "@atlas/storage": "workspace:*",
     "@types/amqplib": "^0.10.6",
-    "jose": "^6.2.12"
+    "jose": "^6.2.17"
   }
 }

@@ -14,11 +14,11 @@
   },
   "dependencies": {
     "@atlas/types": "workspace:*",
-    "drizzle-orm": "^0.45.2",
-    "postgres": "^3.4.9"
+    "drizzle-orm": "^0.45.4",
+    "postgres": "^4.1.1"
   },
   "devDependencies": {
-    "drizzle-kit": "^0.31.10",
-    "tsx": "^4.23.1"
+    "drizzle-kit": "^0.31.11",
+    "tsx": "^4.23.15"
   }
 }
