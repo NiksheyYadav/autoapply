@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import { DM_Serif_Display, Fragment_Mono, Inter } from 'next/font/google';
 import { CursorGlow, Spotlight } from '@atlas/ui';
 import type { ReactNode } from 'react';
+import { SITE_DESCRIPTION, SITE_NAME } from '@/lib/seo';
+import { siteUrl } from '@/lib/site';
 import { SessionProvider } from '@/lib/auth-context';
 import { TransitionProvider } from '@/components/transition/TransitionProvider';
 import './globals.css';
@@ -27,8 +29,16 @@ const fragmentMono = Fragment_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Atlas — job search, automated',
-  description: 'Atlas parses your resume, finds jobs worth applying to, and helps you get a referral before you hit submit.',
+  metadataBase: siteUrl(),
+  title: { default: 'Project Atlas — AI job automation platform', template: '%s | Project Atlas' },
+  description: SITE_DESCRIPTION,
+  openGraph: {
+    siteName: SITE_NAME,
+    type: 'website',
+    title: 'Project Atlas — AI job automation platform',
+    description: SITE_DESCRIPTION,
+  },
+  twitter: { card: 'summary' },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
