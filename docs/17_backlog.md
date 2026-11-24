@@ -24,7 +24,7 @@ Recorded gaps (see header of `packages/messaging/test/memory-broker.test.ts`): f
 
 ### A3 — SEO and AI-discoverability pass for `apps/web`
 
-Status: `todo`
+Status: `done` (PR from branch `autopilot/a3-seo-discoverability`; set `NEXT_PUBLIC_SITE_URL` in Vercel so sitemap, robots and canonical URLs use the real origin)
 Goal: the public site leads with "Project Atlas" and is easy for search engines and LLMs to read.
 Done when: page metadata and Open Graph tags, `robots.txt`, `sitemap.xml`, `llms.txt`, and JSON-LD (`SoftwareApplication`) are in place, and `pnpm --filter @atlas/web run build` passes with the CI env vars. Copy uses only facts from `docs/01_product_architecture.md`.
 
