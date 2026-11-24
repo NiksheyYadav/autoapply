@@ -91635,7 +91635,7 @@ async function ingestSource(context5, source) {
       rejected: result.rejected,
       complete: stored.complete
     });
-    if (decision.apply) {
+    if (!("reason" in decision)) {
       result.deactivated = await deactivateUnseenSince(
         context5.deps.db,
         { source: source.provider, companyId: stored.companyId },
