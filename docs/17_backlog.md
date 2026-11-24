@@ -17,9 +17,10 @@ History tip: the clone is shallow. Deepen with a bounded `git fetch --depth=1000
 
 ### A2 — Retry and failure tests for `packages/messaging`
 
-Status: `todo`
-`packages/messaging` has no test files. `docs/13` says every queue consumer gets retry and failure tests.
+Status: `done`
+There were no MemoryBroker tests. `docs/13` says every queue consumer gets retry and failure tests.
 Done when: tests cover publish and consume with the in-memory driver, a handler that throws, the retry behavior that exists, and what happens when retries run out. No network needed. If the code lacks behavior the principle expects, record the gap in the PR rather than inventing the behavior.
+Recorded gaps (see header of `packages/messaging/test/memory-broker.test.ts`): failures after retries are swallowed (`publish` resolves; signal is `deadLetters`/`onDeadLetter`), backoff jitter is not injectable, `attempt` is zero-based, `stop()` deletes the consumer with no redelivery or persistence, `onDeadLetter` is unguarded.
 
 ### A3 — SEO and AI-discoverability pass for `apps/web`
 
