@@ -80,7 +80,25 @@ function isAbort(error: unknown): boolean {
   return name === 'TimeoutError' || name === 'AbortError';
 }
 
-async function readBody(response: Response, maxBytes: number): Promise<string> {
+/**
+ * The part of a fetch `Response` this reader uses, written out so it does not depend on
+ * which global `Response` type a build resolves. The per-service Vercel build compiles
+ * with its own options and ended up with a `Response` that has no members.
+ */
+interface FetchedResponse {
+  ok: boolean;
+  status: number;
+  headers: { get(name: string): string | null };
+  body: {
+    cancel(): Promise<void>;
+    getReader(): {
+      read(): Promise<{ done: boolean; value?: Uint8Array }>;
+      cancel(): Promise<void>;
+    };
+  } | null;
+}
+
+async function readBody(response: FetchedResponse, maxBytes: number): Promise<string> {
   const declared = Number(response.headers.get('content-length'));
   if (Number.isFinite(declared) && declared > maxBytes) {
     await response.body?.cancel().catch(() => undefined);
@@ -94,7 +112,7 @@ async function readBody(response: Response, maxBytes: number): Promise<string> {
   let text = '';
   for (;;) {
     const { done, value } = await reader.read();
-    if (done) break;
+    if (done || value === undefined) break;
     received += value.byteLength;
     if (received > maxBytes) {
       await reader.cancel().catch(() => undefined);
@@ -138,12 +156,12 @@ export async function fetchSourcePostings(
     body = await Promise.race([
       deadline,
       (async () => {
-        const response = await options.fetch(url, {
+        const response = (await options.fetch(url, {
           method: 'GET',
           redirect: 'error',
           headers: { 'user-agent': options.userAgent, accept: 'application/json' },
           signal,
-        });
+        })) as FetchedResponse;
         if (!response.ok) {
           await response.body?.cancel().catch(() => undefined);
           throw new SourceFetchError('http', describeHttpFailure(response.status));

@@ -266,7 +266,9 @@ async function ingestSource(context: RunContext, source: SourceRow): Promise<Job
       rejected: result.rejected,
       complete: stored.complete,
     });
-    if (decision.apply) {
+    // `'reason' in decision` narrows the union even when a build compiles without
+    // strictNullChecks (the per-service Vercel build does), where `decision.apply` does not.
+    if (!('reason' in decision)) {
       result.deactivated = await deactivateUnseenSince(
         context.deps.db,
         { source: source.provider, companyId: stored.companyId },

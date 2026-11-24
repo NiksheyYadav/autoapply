@@ -91345,7 +91345,7 @@ async function readBody(response, maxBytes) {
   let text4 = "";
   for (; ; ) {
     const { done: done2, value: value2 } = await reader.read();
-    if (done2) break;
+    if (done2 || value2 === void 0) break;
     received += value2.byteLength;
     if (received > maxBytes) {
       await reader.cancel().catch(() => void 0);
@@ -91635,7 +91635,7 @@ async function ingestSource(context5, source) {
       rejected: result.rejected,
       complete: stored.complete
     });
-    if (decision.apply) {
+    if (!("reason" in decision)) {
       result.deactivated = await deactivateUnseenSince(
         context5.deps.db,
         { source: source.provider, companyId: stored.companyId },
