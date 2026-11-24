@@ -18,6 +18,12 @@ Entry format:
 - Result: PR from `autopilot/a3-seo-discoverability` (link added on open). A2 PR #20 was already open.
 - Needs owner: review the PR; set `NEXT_PUBLIC_SITE_URL` in Vercel (otherwise URLs fall back to localhost). Separately, `StatsSection.tsx` has marketing claims not found in `docs/` (for example "100% of match scores ship with a reason"); worth a look.
 
+## 2026-11-18 — A2
+- Baseline: typecheck clean, lint clean, tests 1765 passed / 481 skipped
+- Did: added `packages/messaging/test/memory-broker.test.ts` (19 tests: delivery, filtering, retries, dead letters, isolation, lifecycle, helpers). No src changes; behavior gaps recorded in the test header and the backlog.
+- Result: PR (link added on open)
+- Needs owner: review
+
 ## 2026-11-17 — A1
 - Baseline: typecheck clean, lint clean, tests 1275 passed / 429 skipped
 - Did: traced the 125 to 114 drop to four auth test files deleted in `23e159d` (password, tokens, OAuth, DB-gated flow), all for removed code, so nothing restored; explained 114 to 1275 by 92 new test files. Docs only. The 125 figure itself is Unverified (old tree not re-run).
