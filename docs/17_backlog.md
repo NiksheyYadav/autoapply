@@ -30,7 +30,7 @@ Done when: page metadata and Open Graph tags, `robots.txt`, `sitemap.xml`, `llms
 
 ### A4 — Tests for `services/auth`
 
-Status: `todo`
+Status: `done` (PR from branch `autopilot/a4-auth-tests`). The "no test files" premise was stale: 8 test files already existed (`/health` is covered in `entrypoint.test.ts` and `ratelimit.test.ts`). The real gap was `GET /v1/auth/me` itself, now covered by `services/auth/test/me.test.ts` (18 tests, no DB needed).
 `services/auth` has no test files. It now only serves `GET /v1/auth/me` and `/health`, and `/me` does a fresh permissions lookup.
 Done when: tests cover missing and invalid token, a valid token with a mocked permissions lookup, and `/health`. DB-backed variants may self-skip like the existing suites.
 

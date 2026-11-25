@@ -12,6 +12,12 @@ Entry format:
 - Needs owner: <decision or review, or "nothing">
 ```
 
+## 2026-11-25 19:44 UTC — A4
+- Baseline: typecheck clean, lint clean, tests 1789 passed / 481 skipped
+- Did: added `services/auth/test/me.test.ts` (18 tests: 401 cases for missing, malformed, invalid, expired, wrong-issuer, wrong-audience tokens; 503 when JWKS is down; 200 with mocked permissions lookup; no-org; 404 USER_NOT_FOUND). Tests only, no src changes. Now 1807 passed / 481 skipped. Gap noted: the Bearer scheme is matched case-sensitively (`bearer x` gets 401); RFC 7235 says schemes are case-insensitive. DB queries behind `/me` are mocked, so they stay Unverified.
+- Result: PR (link added on open)
+- Needs owner: review
+
 ## 2026-11-23 19:44 UTC — A3
 - Baseline: typecheck clean, lint clean, tests 1765 passed / 481 skipped
 - Did: added Project Atlas title and Open Graph metadata, robots.txt, sitemap.xml, llms.txt, and SoftwareApplication JSON-LD to `apps/web`, with 5 tests. Copy uses only facts from `docs/01`. After the change: typecheck and lint clean, tests 1770 passed / 481 skipped, web build passes. Reviewer re-ran the checks and curled the built routes locally.
