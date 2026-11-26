@@ -36,7 +36,7 @@ Done when: tests cover missing and invalid token, a valid token with a mocked pe
 
 ### A5 — Mocked-OAuth coverage for `services/connectors`
 
-Status: `todo`
+Status: `done` — `services/connectors` has no OAuth code, so there is nothing to mock. Providers are board-token based (greenhouse, lever, ashby), and the flow is connect with a pasted credential, then the secret store, then `secret_ref`. Per connector: greenhouse, lever and ashby each have no OAuth test because they have no OAuth. Added `providers.test.ts`, which includes a guard that fails if `authorize`, `redirect_uri` or `refresh_token` appears in `src/`, and `token-isolation.test.ts` (no DB). Gaps: the HTTP connect/disconnect flow stays DB-gated in `connectors-flow.test.ts`; the secret store has no per-user check (refs are random capability tokens).
 `docs/13`: every connector gets mocked OAuth tests.
 Done when: the PR lists each connector, whether it has a mocked OAuth test, and adds the missing ones. Token isolation between connectors is asserted.
 
