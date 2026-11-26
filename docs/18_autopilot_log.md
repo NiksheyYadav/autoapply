@@ -12,6 +12,12 @@ Entry format:
 - Needs owner: <decision or review, or "nothing">
 ```
 
+## 2026-11-26 19:44 UTC — A5
+- Baseline: typecheck clean, lint clean, tests 1789 passed / 481 skipped
+- Did: found that `services/connectors` has no OAuth (board-token providers only). Added `providers.test.ts` (provider list, plus a guard against OAuth code appearing) and `token-isolation.test.ts` (secret store isolation and public view leak checks, no DB). No src changes; gaps recorded in the test header and the backlog.
+- Result: PR (link added on open)
+- Needs owner: decide whether real OAuth connectors are wanted, since none exist
+
 ## 2026-11-23 19:44 UTC — A3
 - Baseline: typecheck clean, lint clean, tests 1765 passed / 481 skipped
 - Did: added Project Atlas title and Open Graph metadata, robots.txt, sitemap.xml, llms.txt, and SoftwareApplication JSON-LD to `apps/web`, with 5 tests. Copy uses only facts from `docs/01`. After the change: typecheck and lint clean, tests 1770 passed / 481 skipped, web build passes. Reviewer re-ran the checks and curled the built routes locally.
